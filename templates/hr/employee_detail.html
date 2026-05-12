@@ -1,0 +1,143 @@
+{% extends "hr/base.html" %}
+
+{% block title %}EVE Pilot RH - {{ employee.first_name }} {{ employee.last_name }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">{{ employee.get_workforce_category_display }}</div>
+                <h1>{{ employee.first_name }} {{ employee.last_name }}</h1>
+                <p class="lead">
+                    {{ employee.position }}{% if employee.organizational_unit %} • {{ employee.organizational_unit }}{% endif %}
+                    {% if employee.assignment_label %}<br>{{ employee.assignment_label }}{% endif %}
+                </p>
+                <div class="nav" style="margin-top: 18px;">
+                    <a href="/rh/">Retour au repertoire RH</a>
+                    {% if employee.reference_source %}<a class="primary" href="/admin/hr/employee/{{ employee.id }}/change/">Ouvrir dans l'admin</a>{% endif %}
+                </div>
+            </div>
+            <div class="card soft-green" style="padding: 20px;">
+                <h3>Lecture rapide</h3>
+                <div class="list" style="margin-top: 12px;">
+                    <div class="item">
+                        <strong>Matricule</strong>
+                        <span class="muted">{{ employee.matricule }}</span>
+                    </div>
+                    <div class="item">
+                        <strong>Source</strong>
+                        <span class="muted">{{ employee.reference_source|default:"Base RH" }}</span>
+                    </div>
+                    <div class="item">
+                        <strong>Commune</strong>
+                        <span class="muted">{{ employee.commune|default:"Non renseignee" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="detail-grid">
+            <div class="stack">
+                <div class="card">
+                    <h3>Informations de base</h3>
+                    <dl class="meta" style="margin-top: 14px;">
+                        <dt>Categorie</dt><dd>{{ employee.get_workforce_category_display }}</dd>
+                        <dt>Fonction</dt><dd>{{ employee.position }}</dd>
+                        <dt>Departement</dt><dd>{{ employee.department|default:"Non renseigne" }}</dd>
+                        <dt>Unite</dt><dd>{{ employee.organizational_unit|default:"Non renseignee" }}</dd>
+                        <dt>Affectation</dt><dd>{{ employee.assignment_label|default:"Non renseignee" }}</dd>
+                        <dt>Manager</dt><dd>{{ employee.manager|default:"Non renseigne" }}</dd>
+                        <dt>Statut</dt><dd>{{ employee.get_status_display }}</dd>
+                    </dl>
+                </div>
+
+                <div class="card soft-blue">
+                    <h3>Documents RH</h3>
+                    <div class="stack" style="margin-top: 12px;">
+                        {% for document in documents %}
+                        <div class="item">
+                            <strong>{{ document.document_type.name }}</strong>
+                            <div class="muted">{{ document.title|default:"Piece sans titre" }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="item">
+                            <strong>Aucun document</strong>
+                            <div class="muted">Le dossier documentaire n'est pas encore renseigne pour cette personne.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="stack">
+                <div class="card soft-amber">
+                    <h3>Contrats et rattachements</h3>
+                    <div class="stack" style="margin-top: 12px;">
+                        {% for contract in contracts %}
+                        <div class="item">
+                            <strong>{{ contract.contract_type.name }}</strong>
+                            <div class="muted">
+                                Numero : {{ contract.contract_number|default:"Non renseigne" }}<br>
+                                Periode : {{ contract.start_date }} au {{ contract.end_date|default:"En cours" }}<br>
+                                Projet : {{ contract.project|default:"Aucun projet rattache" }}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="item">
+                            <strong>Aucun contrat</strong>
+                            <div class="muted">Cette fiche n'a pas encore de contrat rattache en base.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Projets lies</h3>
+                    <div class="stack" style="margin-top: 12px;">
+                        {% for project in related_projects %}
+                        <div class="item">
+                            <strong>{{ project.title }}</strong>
+                            <div class="muted">{{ project.code }} • {{ project.get_status_display }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="item">
+                            <strong>Aucun projet lie</strong>
+                            <div class="muted">Cette personne n'est pas encore associee a un projet structure dans la base.</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Historique RH</h3>
+                    <div class="stack" style="margin-top: 12px;">
+                        {% for leave in leaves %}
+                        <div class="item">
+                            <strong>{{ leave.get_leave_type_display }}</strong>
+                            <div class="muted">{{ leave.start_date }} au {{ leave.end_date }} • {{ leave.get_status_display }}</div>
+                        </div>
+                        {% empty %}
+                        <div class="item">
+                            <strong>Aucune absence enregistree</strong>
+                            <div class="muted">Le suivi des conges et absences n'a pas encore ete renseigne pour cette fiche.</div>
+                        </div>
+                        {% endfor %}
+
+                        {% for evaluation in evaluations %}
+                        <div class="item">
+                            <strong>Evaluation {{ evaluation.evaluation_year }}</strong>
+                            <div class="muted">Note : {{ evaluation.overall_score|default:"N/A" }} • {{ evaluation.get_status_display }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

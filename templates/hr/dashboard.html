@@ -1,0 +1,168 @@
+{% extends "hr/base.html" %}
+
+{% block title %}EVE Pilot RH - Personnel{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Referentiel RH EVE</div>
+                <h1>Le personnel EVE visible dans une vraie base RH consultable.</h1>
+                <p class="lead">
+                    Cette page consolide les personnes du referentiel RH 2025-2026 et les rend
+                    navigables par categorie, unite et affectation, avec acces direct aux fiches detaillees.
+                </p>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+                <div class="stat-card soft-green">
+                    <div class="muted">Personnes importees</div>
+                    <div class="metric">{{ total_people }}</div>
+                    <div class="muted">Lignes nominatives actuellement exploitables.</div>
+                </div>
+                <div class="stat-card">
+                    <div class="muted">Conges en attente</div>
+                    <div class="metric">{{ pending_leave_count }}</div>
+                    <div class="muted">Demandes RH a traiter cote validation.</div>
+                </div>
+                <div class="stat-card soft-blue">
+                    <div class="muted">Salaries / contractuels</div>
+                    <div class="metric">{{ salaried_count }}</div>
+                    <div class="muted">Personnel EVE et equipe projets.</div>
+                </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">Prestataires + consultants</div>
+                    <div class="metric">{{ service_provider_count|add:consultant_count }}</div>
+                    <div class="muted">Appui terrain, expertise et support ponctuel.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Filtrer le repertoire RH</h2>
+            <p>La vue est centree sur le referentiel RH importe. Tu peux aussi basculer sur l'ensemble de la base si besoin.</p>
+        </div>
+        <div class="card">
+            <form method="get" class="filters">
+                <input type="text" name="q" value="{{ filters.q }}" placeholder="Nom, fonction, matricule, affectation">
+                <select name="category">
+                    <option value="">Toutes categories</option>
+                    {% for value, label in category_choices %}
+                    <option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="unit">
+                    <option value="">Toutes unites</option>
+                    {% for item in units %}
+                    <option value="{{ item }}" {% if filters.unit == item %}selected{% endif %}>{{ item }}</option>
+                    {% endfor %}
+                </select>
+                <select name="show">
+                    <option value="reference" {% if filters.show != "all" %}selected{% endif %}>Referentiel importe</option>
+                    <option value="all" {% if filters.show == "all" %}selected{% endif %}>Toute la base</option>
+                </select>
+                <button class="button primary" type="submit">Appliquer</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-header">
+                    <h2>Personnel importe</h2>
+                    <p>Chaque fiche renvoie vers un detail individuel utilisable comme base de dossier RH.</p>
+                </div>
+                <div class="stack">
+                    {% for employee in employees %}
+                    <a class="item" href="/rh/personnel/{{ employee.public_uuid }}/">
+                        <strong>{{ employee.first_name }} {{ employee.last_name }}</strong>
+                        <div class="muted">
+                            {{ employee.get_workforce_category_display }}<br>
+                            {{ employee.position }}<br>
+                            Unite : {{ employee.organizational_unit|default:"Non renseignee" }}<br>
+                            Affectation : {{ employee.assignment_label|default:"Non renseignee" }}
+                            {% if employee.primary_contract and employee.primary_contract.project %}
+                            <br>Projet : {{ employee.primary_contract.project.title }}
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="item">
+                        <strong>Aucun resultat</strong>
+                        <div class="muted">Ajuste les filtres ou lance l'import du referentiel RH.</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="stack">
+                <div class="card soft-green">
+                    <h3>Structure RH de reference</h3>
+                    <div class="list">
+                        <div class="item">
+                            <strong>Salaries / contractuels</strong>
+                            <span class="muted">{{ salaried_count }} lignes importees a ce stade.</span>
+                        </div>
+                        <div class="item">
+                            <strong>Prestataires terrain</strong>
+                            <span class="muted">{{ service_provider_count }} lignes nominatives visibles dans la base.</span>
+                        </div>
+                        <div class="item">
+                            <strong>Consultants / experts</strong>
+                            <span class="muted">{{ consultant_count }} personnes rattachees au portefeuille multi-projets.</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if latest_snapshot %}
+                <div class="card soft-blue">
+                    <h3>{{ latest_snapshot.title }}</h3>
+                    <p class="muted">Date source : {{ latest_snapshot.source_date|date:"d/m/Y" }}</p>
+                    <div class="list" style="margin-top: 12px;">
+                        <div class="item">
+                            <strong>Total synthese document</strong>
+                            <span class="muted">{{ latest_snapshot.reported_total_staff }} personnes</span>
+                        </div>
+                        <div class="item">
+                            <strong>Total detaille consolide</strong>
+                            <span class="muted">{{ latest_snapshot.detailed_total_staff }} personnes</span>
+                        </div>
+                        <div class="item">
+                            <strong>Acteurs communautaires</strong>
+                            <span class="muted">
+                                {{ latest_snapshot.relay_worker_count }} relais, {{ latest_snapshot.icp_count }} ICP,
+                                {{ latest_snapshot.health_post_count }} postes,
+                                {{ latest_snapshot.companion_count }} accompagnateurs,
+                                {{ latest_snapshot.community_supervisor_count }} superviseurs.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card soft-amber">
+                    <h3>Couverture geographique</h3>
+                    <div class="stack">
+                        {% for geography in latest_snapshot.geographies.all %}
+                        <div class="item">
+                            <strong>{{ geography.label }}</strong>
+                            <div class="muted">
+                                Relais : {{ geography.relay_worker_count }}<br>
+                                Appui : {{ geography.support_structures }}<br>
+                                Portee : {{ geography.beneficiary_scope }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

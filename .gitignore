@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments / vendored runtimes
+.venv/
+venv/
+env/
+.vendor/
+.packages/
+.tmp/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media/
+/staticfiles/
+local_settings.py
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Sensitive business documents (managed outside versioning)
+Budget_Previsionnel_EVE_2026.xlsx
+Liste du personnel_*.xlsx
+Presentation_Budget_EVE_2026.pdf
+Synthese_Executive_Budget_2026.pdf
+*.xlsx
+*.pdf
