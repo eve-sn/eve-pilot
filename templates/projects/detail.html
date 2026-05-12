@@ -1,0 +1,220 @@
+{% extends "projects/base.html" %}
+
+{% block title %}EVE Pilot Projets - {{ project.code }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Projet {{ project.code }}</div>
+                <h1>{{ project.title }}</h1>
+                {% if project.short_title %}
+                <p class="lead" style="margin-bottom:14px;">{{ project.short_title }}</p>
+                {% endif %}
+                {% if project.description %}
+                <p class="lead">{{ project.description }}</p>
+                {% endif %}
+                <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <span class="badge {% if project.status == 'ACTIF' %}{% elif project.status == 'SUSPENDU' %}alert{% elif project.status == 'PREPARATION' %}warn{% else %}cool{% endif %}">
+                        {{ project.get_status_display }}
+                    </span>
+                    {% if project.sector %}
+                    <span class="badge cool">{{ project.sector }}</span>
+                    {% endif %}
+                    <a href="/projets/" class="button">&larr; Retour au portefeuille</a>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card soft-green">
+                    <div class="muted">Avancement</div>
+                    <div class="metric">{{ project.progress_percentage }}%</div>
+                    <div class="progress" style="margin-top:4px;">
+                        <span style="width: {{ project.progress_percentage }}%;"></span>
+                    </div>
+                </div>
+                {% if project.total_budget %}
+                <div class="stat-card soft-blue">
+                    <div class="muted">Budget total</div>
+                    <div class="metric">{{ project.total_budget|floatformat:0 }} {{ project.currency }}</div>
+                    <div class="muted">Montant prevu sur la duree du projet.</div>
+                </div>
+                {% endif %}
+                {% if project.target_beneficiaries %}
+                <div class="stat-card soft-amber">
+                    <div class="muted">Beneficiaires cibles</div>
+                    <div class="metric">{{ project.target_beneficiaries }}</div>
+                    <div class="muted">Population visee par le projet.</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="detail-grid">
+            <div class="card">
+                <div class="section-header"><h2>Identite et calendrier</h2></div>
+                <dl class="meta">
+                    <dt>Code projet</dt><dd>{{ project.code }}</dd>
+                    <dt>Titre complet</dt><dd>{{ project.title }}</dd>
+                    <dt>Secteur</dt><dd>{{ project.sector|default:"Non renseigne" }}</dd>
+                    <dt>Date de debut</dt><dd>{{ project.start_date|date:"d/m/Y" }}</dd>
+                    <dt>Date de fin</dt><dd>{{ project.end_date|date:"d/m/Y" }}</dd>
+                    <dt>Devise</dt><dd>{{ project.currency }}</dd>
+                    <dt>Responsable projet</dt><dd>{{ project.project_manager|default:"Non defini" }}</dd>
+                </dl>
+                {% if project.objectives %}
+                <div style="margin-top:12px;">
+                    <h3 style="font-size:1.1rem; margin-bottom:8px;">Objectifs</h3>
+                    <p class="muted">{{ project.objectives|linebreaksbr }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="stack">
+                <div class="card soft-green">
+                    <h3>Financement</h3>
+                    <div class="list" style="margin-top:10px;">
+                        <div class="item">
+                            <strong>Bailleur principal</strong>
+                            <div class="muted">
+                                {% if project.primary_donor %}
+                                    {{ project.primary_donor.name }}
+                                    {% if project.primary_donor.donor_type %}<br><span>{{ project.primary_donor.get_donor_type_display }}</span>{% endif %}
+                                    {% if project.primary_donor.country %}<br><span>{{ project.primary_donor.country }}</span>{% endif %}
+                                {% else %}
+                                    Non defini
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% for cf in co_funders %}
+                        <div class="item">
+                            <strong>{{ cf.donor.name }}</strong>
+                            <div class="muted">
+                                {% if cf.contribution_amount %}Contribution : {{ cf.contribution_amount|floatformat:0 }} {{ project.currency }}{% endif %}
+                                {% if cf.contribution_percentage %}{% if cf.contribution_amount %} &middot; {% endif %}{{ cf.contribution_percentage }}%{% endif %}
+                                {% if not cf.contribution_amount and not cf.contribution_percentage %}Co-financement (montant non precise){% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        {% if not project.primary_donor %}
+                        <div class="item"><strong>Aucun bailleur referencie</strong><div class="muted">Renseigner via l'administration.</div></div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-header">
+                    <h2>Equipe projet</h2>
+                    <p>Les personnes affectees au projet via une mission datee.</p>
+                </div>
+                <div class="stack">
+                    {% for assignment in team_assignments %}
+                    <div class="item">
+                        <strong>{{ assignment.employee }}</strong>
+                        <div class="muted">
+                            {% if assignment.role %}Role : {{ assignment.role }}<br>{% endif %}
+                            {% if assignment.allocation_percentage %}Allocation : {{ assignment.allocation_percentage }}%<br>{% endif %}
+                            {% if assignment.start_date %}Du {{ assignment.start_date|date:"d/m/Y" }}{% endif %}
+                            {% if assignment.end_date %} au {{ assignment.end_date|date:"d/m/Y" }}{% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="item">
+                        <strong>Aucune affectation</strong>
+                        <div class="muted">Ajouter une equipe via le module ProjectTeam dans l'administration.</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h2>Localisations</h2>
+                    <p>Communes d'intervention rattachees au projet.</p>
+                </div>
+                <div class="stack">
+                    {% for loc in locations %}
+                    <div class="item">
+                        <strong>{{ loc.commune.name }}</strong>
+                        <div class="muted">
+                            {% if loc.commune.department %}{{ loc.commune.department }}{% endif %}
+                            {% if loc.commune.region %} &middot; {{ loc.commune.region }}{% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="item">
+                        <strong>Aucune commune referenciee</strong>
+                        <div class="muted">Lier des communes via l'administration.</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Indicateurs de suivi</h2>
+            <p>Cibles, valeurs courantes et taux d'atteinte. Les valeurs historiques restent visibles dans l'administration.</p>
+        </div>
+        <div class="grid-3">
+            {% for indicator in indicators %}
+            <div class="item">
+                <strong>{{ indicator.code|default:indicator.name }}</strong>
+                <div class="muted">
+                    {% if indicator.code %}{{ indicator.name }}<br>{% endif %}
+                    Type : {{ indicator.get_indicator_type_display|default:"Non defini" }}<br>
+                    Frequence : {{ indicator.get_frequency_display|default:"Non definie" }}<br>
+                    Cible : {{ indicator.target_value }} {{ indicator.unit }}<br>
+                    Actuel : {{ indicator.current_value }} {{ indicator.unit }}
+                </div>
+                {% if indicator.achievement_rate is not None %}
+                <div class="progress" style="margin-top:10px;" title="Atteinte : {{ indicator.achievement_rate }}%">
+                    <span style="width: {% if indicator.achievement_rate > 100 %}100{% else %}{{ indicator.achievement_rate }}{% endif %}%;"></span>
+                </div>
+                <div class="muted" style="font-size:0.86rem; margin-top:6px;">Taux d'atteinte : {{ indicator.achievement_rate }}%</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="item">
+                <strong>Aucun indicateur</strong>
+                <div class="muted">Ajouter des indicateurs via l'administration.</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-3">
+            <div class="card">
+                <h3>Activites terrain</h3>
+                <p class="sub muted">Section a venir : liste des activites rattachees au projet et leur etat d'execution.</p>
+            </div>
+            <div class="card">
+                <h3>Lignes budgetaires</h3>
+                <p class="sub muted">Section a venir : suivi prevu / engage / decaisse par categorie.</p>
+            </div>
+            <div class="card">
+                <h3>Rapports</h3>
+                <p class="sub muted">Section a venir : rapports lies au projet et exports bailleur.</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

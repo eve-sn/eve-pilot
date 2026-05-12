@@ -383,8 +383,9 @@
                         a exploiter au quotidien.
                     </p>
                     <div class="actions">
+                        <a class="btn primary" href="/projets/">Ouvrir l'espace Projets</a>
                         <a class="btn secondary" href="/rh/">Ouvrir l'espace RH</a>
-                        <a class="btn primary" href="/admin/">Ouvrir l'administration</a>
+                        <a class="btn secondary" href="/admin/">Administration</a>
                         <a class="btn secondary" href="/api/">Explorer l'API</a>
                         <a class="btn secondary" href="/health/">Verifier le service</a>
                     </div>
@@ -590,7 +591,7 @@
                     <p class="sub">Les projets les plus avances ou structurants du portefeuille.</p>
                     <div class="data-list">
                         {% for project in priority_projects %}
-                        <div class="data-item">
+                        <a class="data-item" href="/projets/{{ project.public_uuid }}/">
                             <strong>{{ project.code }} — {{ project.title }}</strong>
                             <span>
                                 Bailleur : {{ project.primary_donor.name|default:"Non defini" }}<br>
@@ -598,7 +599,7 @@
                                 Avancement : {{ project.progress_percentage }}%
                             </span>
                             <div class="badge">{{ project.get_status_display }}</div>
-                        </div>
+                        </a>
                         {% empty %}
                         <div class="data-item"><strong>Aucun projet</strong><span>Charge des projets de demonstration pour voir cette zone vivre.</span></div>
                         {% endfor %}
@@ -656,6 +657,10 @@
                     <h3>Acces rapides</h3>
                     <p class="sub">Les portes d'entree utiles pour commencer a travailler dans EVE Pilot.</p>
                     <div class="quick-links">
+                        <a class="quick-item" href="/projets/">
+                            <strong>Espace Projets</strong>
+                            <span>Parcourir le portefeuille EVE, filtrer par statut, bailleur ou secteur.</span>
+                        </a>
                         <a class="quick-item" href="/rh/">
                             <strong>Espace RH</strong>
                             <span>Consulter le repertoire du personnel et ouvrir les fiches detaillees.</span>

@@ -1,0 +1,116 @@
+{% extends "projects/base.html" %}
+
+{% block title %}EVE Pilot Projets - Portefeuille{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Portefeuille projets EVE</div>
+                <h1>Le portefeuille EVE consultable, filtrable et navigable.</h1>
+                <p class="lead">
+                    Une vue d'ensemble des projets actifs, en preparation ou suspendus,
+                    avec leurs bailleurs principaux, leurs responsables et leur avancement.
+                    Chaque fiche ouvre un detail complet equipe, indicateurs et localisations.
+                </p>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+                <div class="stat-card soft-green">
+                    <div class="muted">Projets en base</div>
+                    <div class="metric">{{ total_projects }}</div>
+                    <div class="muted">Total des projets actifs sur la plateforme.</div>
+                </div>
+                <div class="stat-card soft-blue">
+                    <div class="muted">Actifs</div>
+                    <div class="metric">{{ active_count }}</div>
+                    <div class="muted">Projets en cours d'execution.</div>
+                </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">En preparation</div>
+                    <div class="metric">{{ preparation_count }}</div>
+                    <div class="muted">Projets en phase de cadrage ou de demarrage.</div>
+                </div>
+                <div class="stat-card soft-rose">
+                    <div class="muted">Suspendus</div>
+                    <div class="metric">{{ suspended_count }}</div>
+                    <div class="muted">Dossiers necessitant un arbitrage.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Filtrer le portefeuille</h2>
+            <p>Recherche par code ou titre, statut, secteur ou bailleur principal.</p>
+        </div>
+        <div class="card">
+            <form method="get" class="filters">
+                <input type="text" name="q" value="{{ filters.q }}" placeholder="Code, titre ou titre court">
+                <select name="status">
+                    <option value="">Tous statuts</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="sector">
+                    <option value="">Tous secteurs</option>
+                    {% for item in sectors %}
+                    <option value="{{ item }}" {% if filters.sector == item %}selected{% endif %}>{{ item }}</option>
+                    {% endfor %}
+                </select>
+                <select name="donor">
+                    <option value="">Tous bailleurs</option>
+                    {% for d in donors %}
+                    <option value="{{ d.id }}" {% if filters.donor == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="button primary" type="submit">Appliquer</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Projets du portefeuille</h2>
+            <p>Chaque carte renvoie vers la fiche detaillee du projet.</p>
+        </div>
+        <div class="grid-3">
+            {% for project in projects %}
+            <a class="item" href="/projets/{{ project.public_uuid }}/">
+                <strong>{{ project.code }} &mdash; {{ project.short_title|default:project.title }}</strong>
+                <div class="muted">
+                    Bailleur : {{ project.primary_donor.name|default:"Non defini" }}<br>
+                    Responsable : {{ project.project_manager|default:"Non defini" }}<br>
+                    Periode : {{ project.start_date|date:"d/m/Y" }} &rarr; {{ project.end_date|date:"d/m/Y" }}<br>
+                    Secteur : {{ project.sector|default:"Non renseigne" }}
+                </div>
+                <div class="progress" title="Avancement : {{ project.progress_percentage }}%">
+                    <span style="width: {{ project.progress_percentage }}%;"></span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:8px; flex-wrap:wrap;">
+                    <span class="badge {% if project.status == 'ACTIF' %}{% elif project.status == 'SUSPENDU' %}alert{% elif project.status == 'PREPARATION' %}warn{% else %}cool{% endif %}">
+                        {{ project.get_status_display }}
+                    </span>
+                    {% if project.total_budget %}
+                    <span class="muted" style="font-size:0.86rem;">
+                        {{ project.total_budget|floatformat:0 }} {{ project.currency }}
+                    </span>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <div class="item">
+                <strong>Aucun projet</strong>
+                <div class="muted">Ajuste les filtres ou lance la commande seed_demo_data pour visualiser le rendu.</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}
