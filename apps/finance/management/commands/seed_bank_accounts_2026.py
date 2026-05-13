@@ -46,17 +46,38 @@ BANK_ACCOUNTS = [
     {
         "name": "EVE-OXFAM",
         "bank_name": "SUNU BANK SENEGAL",
-        "account_reference": "",
-        "opening_balance": None,
+        "account_reference": "11667910006",  # IBAN SN08SN0100152001166791000622
+        "opening_balance": Decimal("838196.00"),
         "notes": (
-            "Anciennement BICIS, devenue SUNU BANK SENEGAL. Compte partage "
-            "entre les projets ISF AXA Climate et ECO-AVENIR. "
-            "Releve 31/12/2025 non encore fourni - solde a renseigner."
+            "Compte SUNU Bank libelle 'EAU VIE ENVIRONNEMENT OXFAM', SICAP "
+            "MBAO Villa 367. Anciennement BICIS, devenue SUNU BANK SENEGAL. "
+            "Compte partage entre les projets ISF AXA Climate et ECO-AVENIR. "
+            "Releve 31/12/2025 : dernier solde avant 01/12/2025 = 3 818 454, "
+            "mouvements debit 6 119 810 / credit 3 139 552, nouveau solde au "
+            "31/12/2025 = 838 196. IBAN : SN08SN0100152001166791000622. "
+            "Gestionnaire SUNU : DIAKHATE Rose Marie."
         ),
         "project_codes": [
             "AXA-ISF-2026",
             "OGHOGHO-ECOAVENIR-2026",
         ],
+    },
+    {
+        "name": "Budget General",
+        "bank_name": "SUNU BANK SENEGAL",
+        "account_reference": "11411670009",
+        "opening_balance": Decimal("1253122.00"),
+        "notes": (
+            "Compte central EVE alimentant le Budget General : recoit les "
+            "contributions des projets (virements 'CONTRIBUTION SUR SALAIRES "
+            "STAFF...' et 'CONTRIBUTION SUR LA LOCATION 2 LES CHARGES FIXES') "
+            "et regle les salaires personnel + charges fixes. SUNU Bank "
+            "(ex-BICIS), client 141167. Releve 31/12/2025 : solde de depart "
+            "01/12/2025 = 1 057 589, solde final 31/12/2025 = 1 253 122. "
+            "Aucun projet rattache : ce compte est central et non dedie a un "
+            "projet bailleur."
+        ),
+        "project_codes": [],  # Compte central, pas de rattachement projet
     },
     {
         "name": "EVE service",
