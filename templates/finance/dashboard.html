@@ -1,0 +1,262 @@
+{% extends "finance/base.html" %}
+{% load l10n %}
+
+{% block title %}EVE Pilot Finance &mdash; Tableau de bord{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Module Finance EVE</div>
+                <h1>Pilotage financier : projets, Budget General et bailleurs.</h1>
+                <p class="lead">
+                    Le portefeuille projets reunit les budgets bailleurs. Le Budget General EVE
+                    centralise les charges fixes et la masse salariale, alimentees par les
+                    contributions de fonctionnement de chaque projet. Aucun salaire n'est impute
+                    directement sur un compte projet.
+                </p>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+                <div class="stat-card soft-green">
+                    <div class="muted">Portefeuille projets</div>
+                    <div class="metric-money">{{ portfolio_total_budget|floatformat:0 }} XOF</div>
+                    <div class="muted">Cumul des budgets totaux des projets actifs et en preparation.</div>
+                </div>
+                <div class="stat-card soft-blue">
+                    <div class="muted">Projets actifs</div>
+                    <div class="metric">{{ active_project_count }}</div>
+                    <div class="muted">{{ preparation_project_count }} en preparation, {{ suspended_project_count }} suspendus.</div>
+                </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">Budget General 2026</div>
+                    <div class="metric-money">{{ operating_planned|floatformat:0 }} XOF</div>
+                    <div class="muted">Charges fixes + masse salariale prevues.</div>
+                </div>
+                <div class="stat-card soft-rose">
+                    <div class="muted">Bailleurs actifs</div>
+                    <div class="metric">{{ active_donor_count }}</div>
+                    <div class="muted">Bailleurs avec au moins un projet en cours.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Portefeuille projets</h2>
+            <p>
+                Total des budgets bailleurs et avancement par projet. Les budgets viennent du
+                document <em>Budget Previsionnel EVE 2026</em> (onglet portefeuille). Cliquer
+                sur un projet ouvre sa fiche detaillee.
+            </p>
+        </div>
+        <div class="card">
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Projet</th>
+                        <th>Bailleur</th>
+                        <th class="right">Budget total</th>
+                        <th class="right">Avancement</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in active_projects %}
+                    <tr>
+                        <td><a href="/projets/{{ project.public_uuid }}/"><strong>{{ project.code }}</strong></a></td>
+                        <td>{{ project.short_title|default:project.title }}</td>
+                        <td>{{ project.primary_donor.name|default:"Non defini" }}</td>
+                        <td class="right">
+                            {% if project.total_budget %}{{ project.total_budget|floatformat:0 }} {{ project.currency }}{% else %}<span class="muted">n/a</span>{% endif %}
+                        </td>
+                        <td class="right">{{ project.progress_percentage }}%</td>
+                        <td><span class="badge">{{ project.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% for project in preparation_projects %}
+                    <tr>
+                        <td><a href="/projets/{{ project.public_uuid }}/"><strong>{{ project.code }}</strong></a></td>
+                        <td>{{ project.short_title|default:project.title }}</td>
+                        <td>{{ project.primary_donor.name|default:"Non defini" }}</td>
+                        <td class="right">
+                            {% if project.total_budget %}{{ project.total_budget|floatformat:0 }} {{ project.currency }}{% else %}<span class="muted">n/a</span>{% endif %}
+                        </td>
+                        <td class="right">{{ project.progress_percentage }}%</td>
+                        <td><span class="badge warn">{{ project.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% if not active_projects and not preparation_projects %}
+                    <tr><td colspan="6"><span class="muted">Aucun projet en base.</span></td></tr>
+                    {% endif %}
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td colspan="3">Total portefeuille ({{ total_project_count }} projets)</td>
+                        <td class="right">{{ portfolio_total_budget|floatformat:0 }} XOF</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Budget General EVE</h2>
+            <p>
+                Charges fixes (loyers, fournitures, services, etc.) et masse salariale du
+                personnel. Alimente par les contributions de fonctionnement preleves sur
+                chaque projet. Source en cours d'importation : onglets <em>Charges fixes</em>,
+                <em>IPRES-CSS</em>, <em>VRS-BRS</em> et <em>Apurement dettes</em> du document budget 2026.
+            </p>
+        </div>
+        <div class="grid-3" style="margin-bottom: 18px;">
+            <div class="stat-card soft-green">
+                <div class="muted">Prevu</div>
+                <div class="metric-money">{{ operating_planned|floatformat:0 }} XOF</div>
+                <div class="muted">Somme des lignes du Budget General planifiees.</div>
+            </div>
+            <div class="stat-card soft-blue">
+                <div class="muted">Engage</div>
+                <div class="metric-money">{{ operating_committed|floatformat:0 }} XOF</div>
+                <div class="muted">Engagements emis (bons, contrats fournisseurs).</div>
+            </div>
+            <div class="stat-card soft-amber">
+                <div class="muted">Decaisse</div>
+                <div class="metric-money">{{ operating_disbursed|floatformat:0 }} XOF</div>
+                <div class="muted">Paiements effectivement sortis de la tresorerie.</div>
+            </div>
+        </div>
+        <div class="card">
+            {% if operating_lines_empty %}
+            <div class="placeholder-note">
+                <strong>Aucune ligne du Budget General en base.</strong><br>
+                Les charges fixes et la masse salariale sont actuellement absentes. Pour les
+                renseigner, une commande d'import dediee (onglet 2 du xlsx + IPRES-CSS + VRS-BRS)
+                est a venir. Les valeurs ci-dessus restent a zero tant que l'import n'a pas tourne.
+                <br><br>
+                Rappel metier : le personnel EVE n'est jamais paye sur un compte projet. Il est
+                paye exclusivement depuis la tresorerie centrale, alimentee par les contributions
+                de fonctionnement de chaque projet.
+            </div>
+            {% else %}
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Categorie</th>
+                        <th class="right">Lignes</th>
+                        <th class="right">Prevu</th>
+                        <th class="right">Engage</th>
+                        <th class="right">Decaisse</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in operating_by_category %}
+                    <tr>
+                        <td><strong>{{ row.category.code }}</strong> &mdash; {{ row.category.name }}</td>
+                        <td class="right">{{ row.count }}</td>
+                        <td class="right">{{ row.planned|floatformat:0 }}</td>
+                        <td class="right">{{ row.committed|floatformat:0 }}</td>
+                        <td class="right">{{ row.disbursed|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td>Total Budget General</td>
+                        <td class="right"></td>
+                        <td class="right">{{ operating_planned|floatformat:0 }}</td>
+                        <td class="right">{{ operating_committed|floatformat:0 }}</td>
+                        <td class="right">{{ operating_disbursed|floatformat:0 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Bailleurs</h2>
+            <p>Volume finance par bailleur sur les projets actifs et en preparation.</p>
+        </div>
+        <div class="card">
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Bailleur</th>
+                        <th>Type</th>
+                        <th>Pays</th>
+                        <th class="right">Projets</th>
+                        <th class="right">Volume finance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in donor_rows %}
+                    <tr>
+                        <td><strong>{{ row.donor.name }}</strong></td>
+                        <td>{{ row.donor.get_donor_type_display|default:"&mdash;" }}</td>
+                        <td>{{ row.donor.country|default:"&mdash;" }}</td>
+                        <td class="right">
+                            {% if row.project_count %}{{ row.project_count }}{% else %}<span class="muted">0</span>{% endif %}
+                        </td>
+                        <td class="right">
+                            {% if row.total_funded %}{{ row.total_funded|floatformat:0 }} XOF{% else %}<span class="muted">n/a</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not donor_rows %}
+                    <tr><td colspan="5"><span class="muted">Aucun bailleur enregistre.</span></td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-3">
+            <div class="card">
+                <h3>Transactions actuelles</h3>
+                <p class="muted">Engagements et decaissements deja saisis en base, tous projets confondus.</p>
+                <div class="list" style="margin-top: 14px;">
+                    <div class="item">
+                        <strong>Engagements (Commitments)</strong>
+                        <div class="muted">{{ transaction_counts.commitments }} enregistrement(s).</div>
+                    </div>
+                    <div class="item">
+                        <strong>Decaissements (Disbursements)</strong>
+                        <div class="muted">{{ transaction_counts.disbursements }} enregistrement(s).</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Plan de tresorerie</h3>
+                <p class="sub muted">Section a venir : encaissements et decaissements mensuels 2026, alignes sur l'onglet 7 du document budget.</p>
+                <div class="placeholder-note" style="margin-top: 14px;">
+                    Demande un modele dedie (lignes mensuelles cash-flow) qui sera ajoute apres
+                    l'import des charges fixes et de la masse salariale.
+                </div>
+            </div>
+            <div class="card">
+                <h3>Dettes &amp; cotisations sociales</h3>
+                <p class="sub muted">Section a venir : IPRES-CSS, VRS-BRS, apurement 2022-2024.</p>
+                <div class="placeholder-note" style="margin-top: 14px;">
+                    Ces postes sont presents dans le document budget (onglets 3, 4 et 5) et seront
+                    integres en commandes d'import dediees.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

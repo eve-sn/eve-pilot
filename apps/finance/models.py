@@ -5,7 +5,16 @@ from apps.common.models import TrackedModel
 
 
 class BudgetLine(TrackedModel):
-    project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="budget_lines")
+    # project nullable: une ligne sans projet appartient au Budget General EVE
+    # (charges fixes et masse salariale supportees par la tresorerie centrale,
+    # alimentee par les contributions de fonctionnement des projets).
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        related_name="budget_lines",
+        blank=True,
+        null=True,
+    )
     category = models.ForeignKey(
         "references.BudgetCategory",
         on_delete=models.RESTRICT,
