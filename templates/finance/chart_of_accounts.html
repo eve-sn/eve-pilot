@@ -1,0 +1,91 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Plan comptable SYCEBNL{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Plan comptable SYCEBNL</div>
+                <h1>Plan de comptes EVE selon le referentiel SYSCOHADA / SYCEBNL.</h1>
+                <p class="lead">
+                    Plan comptable adapte aux ONG OHADA. Les comptes de liaison 181.x
+                    tracent les flux internes entre projets et Budget General. Les comptes
+                    512.x correspondent aux 6 comptes bancaires EVE, 571.x a la caisse centrale.
+                </p>
+                <div style="margin-top:18px;">
+                    <a class="button" href="/finance/">&larr; Retour Finance</a>
+                </div>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+                <div class="stat-card soft-green">
+                    <div class="muted">Mouvements bancaires imputes</div>
+                    <div class="metric">{{ imputed_bank_movements }} / {{ total_bank_movements }}</div>
+                    <div class="muted">avec compte SYCEBNL contrepartie.</div>
+                </div>
+                <div class="stat-card {% if unimputed_bank_movements %}soft-amber{% else %}soft-green{% endif %}">
+                    <div class="muted">A imputer</div>
+                    <div class="metric">{{ unimputed_bank_movements }}</div>
+                    <div class="muted">via /admin/ &rarr; Bank movements.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% for class_number, cls in classes.items %}
+{% if cls.accounts %}
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>{{ cls.label }}</h2>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+            <table class="finance-table" style="min-width: 900px;">
+                <thead>
+                    <tr>
+                        <th style="min-width: 100px;">Code</th>
+                        <th>Intitule</th>
+                        <th>Rattachement</th>
+                        <th class="right">Mouvements</th>
+                        <th class="right">Total credit</th>
+                        <th class="right">Total debit</th>
+                        <th class="right">Solde net</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cls.accounts %}
+                    <tr {% if row.account.parent is None %}style="font-weight: 700; background: rgba(28,75,61,0.04);"{% endif %}>
+                        <td><code>{{ row.account.code }}</code></td>
+                        <td>
+                            {% if row.account.parent %}<span class="muted">&rarr;</span> {% endif %}{{ row.account.name }}
+                            {% if row.account.is_liaison %}<span class="badge cool" style="margin-left:6px; font-size: 0.7rem;">LIAISON</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if row.account.linked_project %}
+                                <a href="/projets/{{ row.account.linked_project.public_uuid }}/">{{ row.account.linked_project.code }}</a>
+                            {% elif row.account.linked_bank_account %}
+                                <a href="/finance/comptes/{{ row.account.linked_bank_account.public_uuid }}/">{{ row.account.linked_bank_account.name }}</a>
+                            {% elif row.account.linked_cash_register %}
+                                Caisse : {{ row.account.linked_cash_register.name }}
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td class="right">{% if row.movement_count %}{{ row.movement_count }}{% else %}<span class="muted">0</span>{% endif %}</td>
+                        <td class="right">{% if row.total_credit %}{{ row.total_credit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right">{% if row.total_debit %}{{ row.total_debit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right" style="{% if row.balance_net < 0 %}color: #8a2b2b;{% endif %}">
+                            {% if row.balance_net %}{{ row.balance_net|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endfor %}
+{% endblock %}

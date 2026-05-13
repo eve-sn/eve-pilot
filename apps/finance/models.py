@@ -6,6 +6,90 @@ from django.db import models
 from apps.common.models import TrackedModel
 
 
+class ChartOfAccount(TrackedModel):
+    """Plan de comptes SYCEBNL (Systeme Comptable des Entites a But Non Lucratif,
+    declinaison SYSCOHADA pour les ONG).
+
+    Convention :
+    - `class_number` 1 a 8 selon la classification OHADA :
+        1 Fonds propres / fonds dedies (inclut les comptes de liaison 181/180)
+        2 Immobilisations
+        3 Stocks
+        4 Tiers (creances/dettes)
+        5 Tresorerie (banques 512, caisse 571)
+        6 Charges
+        7 Produits
+        8 Engagements hors bilan
+    - `code` libre (peut etre 3, 4 ou 5 chiffres avec un point separateur EVE
+      ex: '181.10', '512.60'). Unique sur l'application.
+    - `parent` permet une hierarchie SYCEBNL (compte de regroupement vs
+      sous-compte de detail).
+    - `is_liaison` marque les comptes de liaison 18x (mouvements internes
+      projet <-> BG).
+    - `linked_project` / `linked_bank_account` / `linked_cash_register`
+      permettent de tracer un sous-compte vers l'objet metier dont il
+      represente le solde (un compte 181.10 vise NOUSCIMS-PIK-MBAO-2026,
+      un compte 512.60 vise le BankAccount Budget General, etc.).
+    """
+
+    class AccountClass(models.IntegerChoices):
+        FUNDS = 1, "1 - Fonds propres et fonds dedies"
+        FIXED_ASSETS = 2, "2 - Immobilisations"
+        STOCKS = 3, "3 - Stocks"
+        THIRD_PARTIES = 4, "4 - Tiers"
+        TREASURY = 5, "5 - Tresorerie"
+        EXPENSES = 6, "6 - Charges"
+        REVENUE = 7, "7 - Produits"
+        OFF_BALANCE = 8, "8 - Engagements hors bilan"
+
+    code = models.CharField(max_length=15, unique=True)
+    name = models.CharField(max_length=200)
+    class_number = models.PositiveSmallIntegerField(choices=AccountClass.choices)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="children",
+    )
+    is_liaison = models.BooleanField(
+        default=False,
+        help_text="Compte de liaison interne (18x : flux projet <-> BG).",
+    )
+    linked_project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="chart_accounts",
+        help_text="Projet associe (pour les comptes de liaison 181.x).",
+    )
+    linked_bank_account = models.ForeignKey(
+        "finance.BankAccount",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="chart_account",
+        help_text="Compte bancaire reel associe (pour les comptes 512.x).",
+    )
+    linked_cash_register = models.ForeignKey(
+        "finance.CashRegister",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="chart_account",
+        help_text="Caisse reelle associee (pour les comptes 571.x).",
+    )
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "chart_of_accounts"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
 class BankAccount(TrackedModel):
     """Compte bancaire EVE. Plusieurs projets peuvent partager un meme compte
     (cf. Banque Atlantique pour ECP/Pikine Phase II/GT Wallu Dome)."""
@@ -120,6 +204,14 @@ class BankMovement(TrackedModel):
         related_name="bank_movements",
         help_text="Ligne de plan tresorerie matchee, si applicable (suivi reel/prevu).",
     )
+    contra_account = models.ForeignKey(
+        "finance.ChartOfAccount",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="bank_movements_contra",
+        help_text="Compte SYCEBNL contrepartie (charge 6x, produit 7x, liaison 18x).",
+    )
     commentary = models.TextField(
         blank=True,
         help_text="Justification metier de l'operation (numero piece, beneficiaire reel, motif).",
@@ -202,6 +294,14 @@ class CashMovement(TrackedModel):
         blank=True,
         null=True,
         related_name="cash_movements",
+    )
+    contra_account = models.ForeignKey(
+        "finance.ChartOfAccount",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cash_movements_contra",
+        help_text="Compte SYCEBNL contrepartie (charge 6x, produit 7x, liaison 18x).",
     )
     commentary = models.TextField(blank=True)
 

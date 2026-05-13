@@ -9,7 +9,9 @@ from apps.finance.models import (
     BankAccountSnapshot,
     BankMovement,
     BudgetLine,
+    CashMovement,
     CashflowEntry,
+    ChartOfAccount,
     Commitment,
     Disbursement,
 )
@@ -242,6 +244,76 @@ def cashflow_dashboard(request):
         "solde_net_year": sum(solde_net, Decimal("0")),
     }
     return render(request, "finance/cashflow.html", context)
+
+
+def chart_of_accounts_view(request):
+    """Vue plan comptable SYCEBNL.
+
+    Affiche tous les comptes regroupes par classe, avec le solde de chaque
+    compte ayant des mouvements imputes (BankMovement.contra_account ou
+    CashMovement.contra_account).
+    """
+
+    accounts = (
+        ChartOfAccount.objects.filter(**ACTIVE_DOMAIN)
+        .select_related("parent", "linked_project", "linked_bank_account", "linked_cash_register")
+        .order_by("class_number", "code")
+    )
+
+    # Calcul du solde par compte (mouvements bancaires + caisse)
+    bank_totals = (
+        BankMovement.objects.filter(**ACTIVE_DOMAIN, contra_account__isnull=False)
+        .values("contra_account_id")
+        .annotate(total_credit=Sum("credit"), total_debit=Sum("debit"))
+    )
+    cash_totals = (
+        CashMovement.objects.filter(**ACTIVE_DOMAIN, contra_account__isnull=False)
+        .values("contra_account_id")
+        .annotate(total_credit=Sum("credit"), total_debit=Sum("debit"))
+    )
+
+    balances = {}
+    for row in list(bank_totals) + list(cash_totals):
+        acc_id = row["contra_account_id"]
+        cur = balances.setdefault(acc_id, {"credit": Decimal("0"), "debit": Decimal("0")})
+        cur["credit"] += row["total_credit"] or Decimal("0")
+        cur["debit"] += row["total_debit"] or Decimal("0")
+
+    # Regroupement par classe
+    classes = OrderedDict()
+    for cls_value, cls_label in ChartOfAccount.AccountClass.choices:
+        classes[cls_value] = {"label": cls_label, "accounts": []}
+
+    for account in accounts:
+        b = balances.get(account.id, {"credit": Decimal("0"), "debit": Decimal("0")})
+        # Solde brut = credit - debit (positif = solde crediteur)
+        net = b["credit"] - b["debit"]
+        movement_count = (
+            BankMovement.objects.filter(**ACTIVE_DOMAIN, contra_account=account).count()
+            + CashMovement.objects.filter(**ACTIVE_DOMAIN, contra_account=account).count()
+        )
+        classes[account.class_number]["accounts"].append(
+            {
+                "account": account,
+                "total_credit": b["credit"],
+                "total_debit": b["debit"],
+                "balance_net": net,
+                "movement_count": movement_count,
+            }
+        )
+
+    total_bank_movements = BankMovement.objects.filter(**ACTIVE_DOMAIN).count()
+    imputed_bank_movements = BankMovement.objects.filter(
+        **ACTIVE_DOMAIN, contra_account__isnull=False
+    ).count()
+
+    context = {
+        "classes": classes,
+        "total_bank_movements": total_bank_movements,
+        "imputed_bank_movements": imputed_bank_movements,
+        "unimputed_bank_movements": total_bank_movements - imputed_bank_movements,
+    }
+    return render(request, "finance/chart_of_accounts.html", context)
 
 
 def bank_account_detail(request, public_uuid):

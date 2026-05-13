@@ -5,11 +5,38 @@ from apps.finance.models import (
     BankAccountSnapshot,
     BankMovement,
     BudgetLine,
+    CashMovement,
+    CashRegister,
     CashflowEntry,
+    ChartOfAccount,
     Commitment,
     Disbursement,
     SupportingDoc,
 )
+
+
+@admin.register(ChartOfAccount)
+class ChartOfAccountAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "class_number", "is_liaison", "linked_project", "linked_bank_account", "linked_cash_register")
+    search_fields = ("code", "name", "linked_project__code", "linked_bank_account__name")
+    list_filter = ("class_number", "is_liaison", "is_active")
+    ordering = ("code",)
+    autocomplete_fields = ("parent", "linked_project", "linked_bank_account", "linked_cash_register")
+
+
+@admin.register(CashRegister)
+class CashRegisterAdmin(admin.ModelAdmin):
+    list_display = ("name", "currency", "opening_balance", "opening_date", "is_active")
+    search_fields = ("name",)
+
+
+@admin.register(CashMovement)
+class CashMovementAdmin(admin.ModelAdmin):
+    list_display = ("date_operation", "register", "label", "debit", "credit", "budget_line", "contra_account")
+    search_fields = ("label", "reference", "register__name")
+    list_filter = ("register", "is_active")
+    date_hierarchy = "date_operation"
+    autocomplete_fields = ("project", "budget_line", "contra_account")
 
 
 @admin.register(BankAccount)
@@ -35,11 +62,11 @@ class BankAccountSnapshotAdmin(admin.ModelAdmin):
 
 @admin.register(BankMovement)
 class BankMovementAdmin(admin.ModelAdmin):
-    list_display = ("date_operation", "account", "label", "debit", "credit", "balance_after", "reference")
-    search_fields = ("label", "reference", "account__name")
-    list_filter = ("account", "is_active")
+    list_display = ("date_operation", "account", "label", "debit", "credit", "contra_account", "budget_line")
+    search_fields = ("label", "reference", "account__name", "commentary")
+    list_filter = ("account", "is_active", "contra_account__class_number")
     date_hierarchy = "date_operation"
-    autocomplete_fields = ("project", "cashflow_entry")
+    autocomplete_fields = ("project", "cashflow_entry", "budget_line", "contra_account")
 
 
 @admin.register(CashflowEntry)

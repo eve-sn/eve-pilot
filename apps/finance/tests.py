@@ -208,6 +208,45 @@ class CashRegisterValidationTests(TestCase):
         self._make_movement(40000, 12).save()  # autre semaine ISO -> OK
 
 
+class ChartOfAccountsViewTests(TestCase):
+    """Smoke test plan comptable SYCEBNL : route 200 + comptes de liaison rendus."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.finance.models import ChartOfAccount
+
+        cls.parent = ChartOfAccount.objects.create(
+            code="181",
+            name="Comptes de liaison projets EVE",
+            class_number=1,
+        )
+        cls.liaison = ChartOfAccount.objects.create(
+            code="181.10",
+            name="Liaison Test Project",
+            class_number=1,
+            parent=cls.parent,
+            is_liaison=True,
+        )
+        cls.account_bank = ChartOfAccount.objects.create(
+            code="512.10",
+            name="Banque test",
+            class_number=5,
+        )
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_chart_of_accounts_returns_200(self):
+        response = self.client.get("/finance/plan-comptable/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_chart_of_accounts_lists_liaison_account(self):
+        response = self.client.get("/finance/plan-comptable/")
+        self.assertContains(response, "181.10")
+        self.assertContains(response, "Liaison Test Project")
+        self.assertContains(response, "LIAISON")
+
+
 class BankMovementUniqueConstraintTests(TestCase):
     def test_duplicate_movement_is_rejected(self):
         from datetime import date
