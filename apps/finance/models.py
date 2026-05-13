@@ -59,6 +59,65 @@ class BankAccountSnapshot(TrackedModel):
         return f"{self.account.name} @ {self.date}: {self.balance}"
 
 
+class CashflowEntry(TrackedModel):
+    """Ligne du plan de tresorerie mensuel.
+
+    Une ligne = un (mois, libelle, direction). Le couple (period_year,
+    period_month, label, direction) doit etre unique pour permettre les
+    re-imports idempotents depuis l'onglet 7 du budget previsionnel.
+
+    Encaissement : project peut etre renseigne (la plupart le sont).
+    Decaissement : category peut etre renseignee (categorie BudgetCategory).
+    L'un ou l'autre peut etre NULL si la ligne n'est rattachable a rien
+    (ex: 'AGIR Pikine Phase I' deja clos, pas dans la base Project).
+    """
+
+    class Direction(models.TextChoices):
+        INCOMING = "ENCAISSEMENT", "Encaissement"
+        OUTGOING = "DECAISSEMENT", "Decaissement"
+
+    period_year = models.PositiveIntegerField()
+    period_month = models.PositiveIntegerField()
+    label = models.CharField(max_length=200, help_text="Libelle de la ligne tel que ecrit dans le plan source.")
+    direction = models.CharField(max_length=20, choices=Direction.choices)
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cashflow_entries",
+    )
+    category = models.ForeignKey(
+        "references.BudgetCategory",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cashflow_entries",
+    )
+    planned_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    actual_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Montant reel constate (mois revolu). None = pas encore renseigne.",
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "cashflow_entries"
+        ordering = ["period_year", "period_month", "direction", "label"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["period_year", "period_month", "label", "direction"],
+                name="uq_cashflow_entry_per_period_label_direction",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.period_year}-{self.period_month:02d} {self.direction} {self.label}: {self.planned_amount}"
+
+
 class BudgetLine(TrackedModel):
     # project nullable: une ligne sans projet appartient au Budget General EVE
     # (charges fixes et masse salariale supportees par la tresorerie centrale,

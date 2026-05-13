@@ -1,0 +1,162 @@
+{% extends "finance/base.html" %}
+{% load l10n %}
+
+{% block title %}EVE Pilot Finance &mdash; Plan de tresorerie {{ year }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Plan de tresorerie {{ year }}</div>
+                <h1>Encaissements, decaissements et solde cumule mois par mois.</h1>
+                <p class="lead">
+                    Plan previsionnel issu de l'onglet "Plan tresorerie" du budget EVE {{ year }}.
+                    Combine au solde bancaire d'ouverture au 01/01/2026, il donne la trajectoire
+                    de tresorerie attendue sur l'annee.
+                </p>
+                <div style="margin-top:18px;">
+                    <a class="button" href="/finance/">&larr; Retour tableau Finance</a>
+                </div>
+            </div>
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+                <div class="stat-card soft-green">
+                    <div class="muted">Total encaissements {{ year }}</div>
+                    <div class="metric-money">{{ total_in_year|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">Total decaissements {{ year }}</div>
+                    <div class="metric-money">{{ total_out_year|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card {% if solde_net_year >= 0 %}soft-blue{% else %}soft-rose{% endif %}">
+                    <div class="muted">Solde net annuel</div>
+                    <div class="metric-money">{{ solde_net_year|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card">
+                    <div class="muted">Solde bancaire 01/01/{{ year }}</div>
+                    <div class="metric-money">{{ bank_total_opening|floatformat:0 }} XOF</div>
+                    <div class="muted">Position de depart toutes banques.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Plan mensuel detaille</h2>
+            <p>
+                Tableau horizontal Jan &rarr; Dec + Total. Les zeros sont affiches en gris pour
+                ne pas surcharger la lecture. Les libelles d'encaissement renvoient au projet
+                quand il existe ; les decaissements sont rattaches a une categorie BudgetCategory.
+            </p>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+            <table class="finance-table" style="min-width: 1200px;">
+                <thead>
+                    <tr>
+                        <th style="min-width: 240px;">Ligne</th>
+                        {% for month in months %}
+                        <th class="right">{{ month }}</th>
+                        {% endfor %}
+                        <th class="right">Total {{ year }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background: rgba(28, 75, 61, 0.06);">
+                        <td colspan="14"><strong>Encaissements</strong></td>
+                    </tr>
+                    {% for row in in_rows %}
+                    <tr>
+                        <td>
+                            {% if row.project %}
+                                <a href="/projets/{{ row.project.public_uuid }}/"><strong>{{ row.label }}</strong></a>
+                            {% else %}
+                                <strong>{{ row.label }}</strong>
+                                <div class="muted" style="font-size:0.78rem;">non rattache</div>
+                            {% endif %}
+                        </td>
+                        {% for amount in row.monthly %}
+                        <td class="right">
+                            {% if amount %}
+                                {{ amount|floatformat:0 }}
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td class="right"><strong>{{ row.total_year|floatformat:0 }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: 700; background: rgba(28, 75, 61, 0.04);">
+                        <td>Total encaissements</td>
+                        {% for amount in total_in_by_month %}
+                        <td class="right">{{ amount|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="right">{{ total_in_year|floatformat:0 }}</td>
+                    </tr>
+
+                    <tr style="background: rgba(140, 91, 27, 0.06);">
+                        <td colspan="14"><strong>Decaissements</strong></td>
+                    </tr>
+                    {% for row in out_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.label }}</strong>
+                            {% if row.category %}
+                            <div class="muted" style="font-size:0.78rem;">{{ row.category.code }}</div>
+                            {% endif %}
+                        </td>
+                        {% for amount in row.monthly %}
+                        <td class="right">
+                            {% if amount %}
+                                {{ amount|floatformat:0 }}
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td class="right"><strong>{{ row.total_year|floatformat:0 }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: 700; background: rgba(140, 91, 27, 0.04);">
+                        <td>Total decaissements</td>
+                        {% for amount in total_out_by_month %}
+                        <td class="right">{{ amount|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="right">{{ total_out_year|floatformat:0 }}</td>
+                    </tr>
+
+                    <tr style="font-weight: 700; background: rgba(47, 111, 137, 0.06);">
+                        <td>Solde net mensuel</td>
+                        {% for amount in solde_net %}
+                        <td class="right" style="{% if amount < 0 %}color: #8a2b2b;{% endif %}">{{ amount|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="right">{{ solde_net_year|floatformat:0 }}</td>
+                    </tr>
+                    <tr style="font-weight: 700;">
+                        <td>Solde cumule (hors solde bancaire d'ouverture)</td>
+                        {% for amount in cumul %}
+                        <td class="right" style="{% if amount < 0 %}color: #8a2b2b;{% endif %}">{{ amount|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="right">{{ cumul|last|floatformat:0 }}</td>
+                    </tr>
+                    <tr style="font-weight: 700; background: rgba(28, 75, 61, 0.06);">
+                        <td>Tresorerie cumulee (avec solde 01/01 = {{ bank_total_opening|floatformat:0 }})</td>
+                        {% for amount in cumul_with_opening %}
+                        <td class="right" style="{% if amount < 0 %}color: #8a2b2b;{% endif %}">{{ amount|floatformat:0 }}</td>
+                        {% endfor %}
+                        <td class="right">{{ cumul_with_opening|last|floatformat:0 }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted" style="margin-top: 12px; font-size: 0.9rem;">
+            Source : onglet "Plan tresorerie" du document Budget Previsionnel EVE 2026. Les
+            montants reels (column `actual_amount` sur CashflowEntry) ne sont pas encore
+            saisis : confronter prevu / reel quand les rapprochements bancaires arriveront.
+        </p>
+    </div>
+</section>
+{% endblock %}

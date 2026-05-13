@@ -442,12 +442,16 @@
                 </div>
             </div>
             <div class="card">
-                <h3>Plan de tresorerie</h3>
-                <p class="sub muted">Section a venir : encaissements et decaissements mensuels 2026, alignes sur l'onglet 7 du document budget.</p>
-                <div class="placeholder-note" style="margin-top: 14px;">
-                    Demande un modele dedie (lignes mensuelles cash-flow) qui sera ajoute apres
-                    l'import des charges fixes et de la masse salariale.
+                <h3>Plan de tresorerie {{ year|default:2026 }}</h3>
+                <p class="sub muted">Encaissements et decaissements mensuels alignes sur l'onglet 7 du document budget {{ year|default:2026 }}.</p>
+                <div style="margin-top: 12px;">
+                    <a class="badge" href="/finance/tresorerie/">Ouvrir le plan de tresorerie &rarr;</a>
                 </div>
+                <p class="muted" style="margin-top: 12px; font-size: 0.9rem;">
+                    Vue tableau 12 colonnes (Jan &rarr; Dec) avec encaissements par projet,
+                    decaissements par categorie, solde net mensuel et tresorerie cumulee
+                    integrant le solde bancaire d'ouverture.
+                </p>
             </div>
             <div class="card">
                 <h3>Dettes &amp; cotisations sociales</h3>

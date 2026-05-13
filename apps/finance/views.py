@@ -1,14 +1,17 @@
+from collections import OrderedDict
 from decimal import Decimal
 
 from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 
-from apps.finance.models import BankAccount, BudgetLine, Commitment, Disbursement
+from apps.finance.models import BankAccount, BudgetLine, CashflowEntry, Commitment, Disbursement
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
 
 
 ACTIVE_DOMAIN = {"is_active": True, "deleted_at__isnull": True}
+
+MONTHS_FR = ["Jan", "Fév", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"]
 
 
 def finance_dashboard(request):
@@ -153,3 +156,81 @@ def finance_dashboard(request):
         "transaction_counts": transaction_counts,
     }
     return render(request, "finance/dashboard.html", context)
+
+
+def cashflow_dashboard(request):
+    """Plan de tresorerie mensuel 2026, reconstruit depuis les CashflowEntry."""
+
+    year = 2026
+    entries = (
+        CashflowEntry.objects.filter(period_year=year, **ACTIVE_DOMAIN)
+        .select_related("project", "category")
+        .order_by("direction", "label", "period_month")
+    )
+
+    def _empty_row(label):
+        return {
+            "label": label,
+            "project": None,
+            "category": None,
+            "monthly": [Decimal("0")] * 12,
+            "total_year": Decimal("0"),
+        }
+
+    in_rows = OrderedDict()
+    out_rows = OrderedDict()
+
+    for entry in entries:
+        bucket = in_rows if entry.direction == CashflowEntry.Direction.INCOMING else out_rows
+        row = bucket.setdefault(entry.label, _empty_row(entry.label))
+        if entry.project is not None and row["project"] is None:
+            row["project"] = entry.project
+        if entry.category is not None and row["category"] is None:
+            row["category"] = entry.category
+        row["monthly"][entry.period_month - 1] = entry.planned_amount
+
+    for row in list(in_rows.values()) + list(out_rows.values()):
+        row["total_year"] = sum(row["monthly"], Decimal("0"))
+
+    in_rows_list = sorted(in_rows.values(), key=lambda r: r["label"])
+    out_rows_list = sorted(out_rows.values(), key=lambda r: r["label"])
+
+    total_in_by_month = [
+        sum((row["monthly"][i] for row in in_rows_list), Decimal("0")) for i in range(12)
+    ]
+    total_out_by_month = [
+        sum((row["monthly"][i] for row in out_rows_list), Decimal("0")) for i in range(12)
+    ]
+    solde_net = [total_in_by_month[i] - total_out_by_month[i] for i in range(12)]
+    cumul = []
+    running = Decimal("0")
+    for value in solde_net:
+        running += value
+        cumul.append(running)
+
+    # Position de depart utile pour comparer le cumul a une trajectoire de
+    # tresorerie reelle (solde bancaire d'ouverture au 01/01/2026).
+    bank_total_opening = (
+        BankAccount.objects.filter(**ACTIVE_DOMAIN)
+        .aggregate(total=Sum("opening_balance"))["total"]
+        or Decimal("0")
+    )
+
+    cumul_with_opening = [bank_total_opening + value for value in cumul]
+
+    context = {
+        "year": year,
+        "months": MONTHS_FR,
+        "in_rows": in_rows_list,
+        "out_rows": out_rows_list,
+        "total_in_by_month": total_in_by_month,
+        "total_out_by_month": total_out_by_month,
+        "solde_net": solde_net,
+        "cumul": cumul,
+        "cumul_with_opening": cumul_with_opening,
+        "bank_total_opening": bank_total_opening,
+        "total_in_year": sum(total_in_by_month, Decimal("0")),
+        "total_out_year": sum(total_out_by_month, Decimal("0")),
+        "solde_net_year": sum(solde_net, Decimal("0")),
+    }
+    return render(request, "finance/cashflow.html", context)
