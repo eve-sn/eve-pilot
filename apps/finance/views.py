@@ -68,6 +68,9 @@ def finance_dashboard(request):
         )
 
     operating_lines_empty = not operating_lines.exists()
+    operating_lines_detail = list(
+        operating_lines.order_by("category__code", "code", "description")
+    )
 
     # --- Bailleurs ---
     donor_rows = []
@@ -112,6 +115,7 @@ def finance_dashboard(request):
         "operating_disbursed": operating_disbursed,
         "operating_by_category": operating_by_category,
         "operating_lines_empty": operating_lines_empty,
+        "operating_lines_detail": operating_lines_detail,
         "donor_rows": donor_rows,
         "active_donor_count": len([d for d in donor_rows if d["project_count"] > 0]),
         "transaction_counts": transaction_counts,

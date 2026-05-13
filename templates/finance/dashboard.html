@@ -170,7 +170,7 @@
                 </tbody>
                 <tfoot>
                     <tr style="font-weight: 700;">
-                        <td>Total Budget General</td>
+                        <td>Total Budget General (somme documentaire)</td>
                         <td class="right"></td>
                         <td class="right">{{ operating_planned|floatformat:0 }}</td>
                         <td class="right">{{ operating_committed|floatformat:0 }}</td>
@@ -178,6 +178,34 @@
                     </tr>
                 </tfoot>
             </table>
+
+            <div class="placeholder-note" style="margin-top: 18px;">
+                <strong>&#9888; Attention au double comptage.</strong>
+                Le total ci-dessus est une somme documentaire brute. Certaines lignes peuvent
+                se chevaucher : par exemple PAYROLL-SYNTH-2026 (enveloppe globale onglet 1)
+                couvre vraisemblablement les cotisations IPRES-CSS et les retenues VRS-BRS
+                detaillees separement. Lire les notes de chaque ligne ci-dessous avant
+                d'interpreter le cumul comme un montant net.
+            </div>
+
+            <h3 style="margin-top: 22px; font-size: 1.15rem;">Detail des lignes</h3>
+            <div class="stack" style="margin-top: 12px;">
+                {% for line in operating_lines_detail %}
+                <div class="item">
+                    <strong>{{ line.code|default:"(sans code)" }} &mdash; {{ line.description }}</strong>
+                    <div class="muted" style="margin-bottom: 6px;">
+                        Categorie : {{ line.category.code }}
+                        &middot; Exercice : {{ line.fiscal_year|default:"&mdash;" }}
+                        &middot; Prevu : {{ line.planned_amount|floatformat:0 }} {{ line.currency }}
+                        {% if line.committed_amount %}&middot; Engage : {{ line.committed_amount|floatformat:0 }}{% endif %}
+                        {% if line.disbursed_amount %}&middot; Decaisse : {{ line.disbursed_amount|floatformat:0 }}{% endif %}
+                    </div>
+                    {% if line.notes %}
+                    <div class="muted" style="font-size: 0.86rem;">{{ line.notes }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
             {% endif %}
         </div>
     </div>
