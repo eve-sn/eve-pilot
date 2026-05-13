@@ -125,19 +125,27 @@ KNOWN_CONTRIBUTIONS = {
             "comme recette du Budget General EVE."
         ),
     },
+    "ONASAFD-PDBH-IEC-2025": {
+        "amount": Decimal("125632624.00"),
+        "pct": Decimal("43.97"),  # 125632624 / 285770000 (TTC marche + avenant 3)
+        "note": (
+            "Source: Devis detalle projet avenant_PAR _Revu EVE-Tropis_221024.xlsx. "
+            "Definition EVE : reliquat du contrat de base (= reliquat 'Avenant 2') "
+            "+ Avenant 3 PAR. L'Avenant 3 PAR est integralement constitue de "
+            "charges de personnel (Expert PAR, Animateurs, Chauffeur) et de "
+            "couts de fonctionnement. "
+            "Calcul TTC : "
+            "  reliquat marche de base = 240 990 000 (marche TTC) - 161 137 376 "
+            "    (realisation deja faite) = 79 852 624 FCFA "
+            "  + Avenant 3 PAR TTC = 45 780 000 FCFA "
+            "  Total = 125 632 624 FCFA (~43,97 % du budget projet TTC)."
+        ),
+    },
 }
 
 
-# Projets dont la contribution reste a documenter
-PENDING_CONTRIBUTIONS = {
-    "ONASAFD-PDBH-IEC-2025": (
-        "A documenter. Definition EVE : reliquat de l'Avenant 2 + toutes les "
-        "lignes de l'Avenant 2. Le detail xlsx present dans le dossier "
-        "(Devis detalle projet avenant_PAR _Revu EVE-Tropis_221024.xlsx) "
-        "consolide 'marche de base + avenant' sans isoler l'Avenant 2. A "
-        "completer apres reception du detail Avenant 2 ONAS-AFD."
-    ),
-}
+# Projets dont la contribution reste a documenter (vide aujourd'hui).
+PENDING_CONTRIBUTIONS = {}
 
 
 class Command(BaseCommand):
