@@ -126,19 +126,20 @@ KNOWN_CONTRIBUTIONS = {
         ),
     },
     "ONASAFD-PDBH-IEC-2025": {
-        "amount": Decimal("125632624.00"),
-        "pct": Decimal("43.97"),  # 125632624 / 285770000 (TTC marche + avenant 3)
+        "amount": Decimal("243025423.73"),
+        "pct": Decimal("84.75"),  # 243025424 / 286770000 (HT / TTC)
         "note": (
-            "Source: Devis detalle projet avenant_PAR _Revu EVE-Tropis_221024.xlsx. "
-            "Definition EVE : reliquat du contrat de base (= reliquat 'Avenant 2') "
-            "+ Avenant 3 PAR. L'Avenant 3 PAR est integralement constitue de "
-            "charges de personnel (Expert PAR, Animateurs, Chauffeur) et de "
-            "couts de fonctionnement. "
-            "Calcul TTC : "
-            "  reliquat marche de base = 240 990 000 (marche TTC) - 161 137 376 "
-            "    (realisation deja faite) = 79 852 624 FCFA "
-            "  + Avenant 3 PAR TTC = 45 780 000 FCFA "
-            "  Total = 125 632 624 FCFA (~43,97 % du budget projet TTC)."
+            "Source: extraits comptables SOLDE CLIENT ONAS 2024 et 2025 + "
+            "definition contractuelle confirmee par EVE (13/05/2026). "
+            "Marche initial 240 990 000 + Avenant 3 PAR 45 780 000 = "
+            "286 770 000 FCFA TTC. ONAS precompte la TVA 18% : les encaissements "
+            "reels arrivent sur les comptes EVE en HT. La recette du Budget "
+            "General correspond donc au montant HT du marche total : "
+            "  286 770 000 / 1,18 = 243 025 423,73 FCFA HT. "
+            "Decompose : 197 812 797 HT encaisses au 31/12/2025 (cumul 2024+2025) "
+            "+ 45 212 626 HT a executer en 2026 (= reliquat 53 350 882 TTC du "
+            "xlsx onglet 6). La TVA cumulee 35 606 321 FCFA n'a jamais transite "
+            "par EVE, ONAS l'a reversee directement a la DGID."
         ),
     },
 }
