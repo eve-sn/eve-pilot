@@ -68,8 +68,9 @@ CASH_REGISTER_TO_CODE = {
 
 
 def _suffix_for_project(index):
-    """Genere un suffixe a deux chiffres a partir d'un index (10, 20, 30, ...)."""
-    return f"{(index + 1) * 10}"
+    """Genere un suffixe sur 3 chiffres (010, 020, ..., 100) pour assurer un
+    tri lexicographique stable jusqu'a 9 projets (au-dela passer en 4 chiffres)."""
+    return f"{(index + 1) * 10:03d}"
 
 
 class Command(BaseCommand):
