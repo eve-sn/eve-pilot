@@ -1,4 +1,5 @@
 {% extends "projects/base.html" %}
+{% load l10n %}
 
 {% block title %}EVE Pilot Projets - Portefeuille{% endblock %}
 
@@ -91,7 +92,7 @@
                     Secteur : {{ project.sector|default:"Non renseigne" }}
                 </div>
                 <div class="progress" title="Avancement : {{ project.progress_percentage }}%">
-                    <span style="width: {{ project.progress_percentage }}%;"></span>
+                    <span style="width: {{ project.progress_percentage|unlocalize }}%;"></span>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:8px; flex-wrap:wrap;">
                     <span class="badge {% if project.status == 'ACTIF' %}{% elif project.status == 'SUSPENDU' %}alert{% elif project.status == 'PREPARATION' %}warn{% else %}cool{% endif %}">
