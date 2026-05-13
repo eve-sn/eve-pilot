@@ -1,23 +1,52 @@
 """
 Renseigne pour chaque projet la contribution au Budget General EVE.
 
-Le mecanisme varie selon le bailleur :
-- Nous-Cims : frais indirect en % sur total direct (10% standard, 7% pour ECP).
-- AXA Climate : frais de gestion 10% sur le HT.
-- Oghogho Meye / La Locomotiva : ligne dediee A.6 'coordination et suivi' qui
-  paie directement le personnel EVE (pas un overhead, mais une enveloppe de
-  fonctionnement explicite).
-- ONAS-AFD : pas de % global, contributions dispersees dans le budget projet
-  (Gestionnaire, location bureaux, etc.) - a documenter manuellement.
-- ChildFund / P&G : non identifie dans le budget initial - a documenter
-  manuellement.
+Definition metier arbitree par EVE (13/05/2026):
+La contribution d'un projet au Budget General correspond aux LIGNES du
+budget projet qui financent en realite le fonctionnement central EVE
+(salaires personnel, coordination, frais indirects). Ces lignes ne sont
+PAS un overhead unique en %. Selon les bailleurs, elles couvrent un
+perimetre plus ou moins large.
 
-Sources xlsx (dossier eve_pilot_backend) :
-- Annexe 2_Budget detaille Phase Extension Pikine_EVE.xlsx (R96 'Frais indirect 10%')
-- Annexe 2- Budget detaille projet de _saint louis_15-06-2025 (1).xlsx (R145 'B. Couts indirects')
-- Budget _rojet ISF pour Pikine (1).xlsx (R13 'Frais de gestion (10%)')
-- Budget previsionnel mise en oeuvre pilote Initiative ECO-AVENIR.xlsx (R17 A.6 5000 EUR)
-- Projet Espaces communautaires ... (3).xlsx (R32 'Frais indirect (7%)')
+Mapping par projet (sources xlsx du dossier eve_pilot_backend) :
+
+- NOUSCIMS-PIK-MBAO-2026 (Pikine Phase II Nutrition)
+    Annexe 2_Budget detaille Phase Extension Pikine_EVE.xlsx
+    -> rubrique "2. PERSONNEL DU PROJET (40%)" R69 = 57 970 542 FCFA
+
+- NOUSCIMS-SL-2026 (Saint-Louis Gouvernance)
+    Annexe 2 Budget detaille Saint-Louis 15-06-2025.xlsx
+    -> A.6 TOTAL R116, somme de :
+        "1- Staff pour le bureau local de Saint-Louis" R107 = 48 000 000
+        "2- Coordination globale du projet"           R112 = 13 279 416
+    -> Total = 61 279 416 FCFA
+
+- NOUSCIMS-ECP-2025 (Espaces communautaires Pikine)
+    Projet Espaces communautaires (3).xlsx
+    -> "2. PERSONNEL DU PROJET" R21 = 8 150 000
+    -> "Frais indirect (7%)"     R32 = 1 716 540
+    -> Total = 9 866 540 FCFA
+
+- AXA-ISF-2026 (ISF / AXA Climate)
+    Budget projet ISF pour Pikine (1).xlsx
+    -> Experts (R7-R11)         = 26 850 000 (sous-total HT)
+    -> Frais de gestion 10% HT  =  2 685 000
+    -> Total = 29 535 000 FCFA (= TOTAL PRESTATION HT)
+
+- OGHOGHO-ECOAVENIR-2026
+    Budget previsionnel ECO-AVENIR.xlsx
+    -> Ligne A.6 "Assurer la coordination et le suivi du projet"
+       = 5 000 EUR convertis ~ 3 279 350 FCFA
+
+- CHILDFUND-INONDATIONS-2025
+    P&G_EVE_Budget distribution_Nov.25.xlsx
+    -> Ligne "Supervision Project by Partner Local / Support by partner staff"
+       = 1 799 289 FCFA
+
+- ONASAFD-PDBH-IEC-2025 (PDBH IEC ONAS-AFD)
+    Definition EVE: "reliquat de l'Avenant 2 + toutes les lignes de l'Avenant 2".
+    Le fichier de detail de l'Avenant 2 n'est pas present dans le dossier
+    actuellement. Marque "a documenter" jusqu'a fourniture des chiffres.
 
 Idempotente: update_or_create par code projet.
 """
@@ -30,73 +59,83 @@ from django.db import transaction
 from apps.projects.models import Project
 
 
-# Contributions exactes lues dans les conventions / budgets detailles.
+# Contributions au Budget General : montants exacts pris dans les conventions.
+# pct = ratio amount / total_budget x 100, calcule manuellement et stocke a titre
+# indicatif (pas un taux conventionnel uniforme). Laisse a None si non pertinent.
 KNOWN_CONTRIBUTIONS = {
     "NOUSCIMS-PIK-MBAO-2026": {
-        "amount": Decimal("15504437.74"),
-        "pct": Decimal("10.00"),
+        "amount": Decimal("57970542.40"),
+        "pct": Decimal("33.99"),  # 57970542 / 170548815
         "note": (
             "Source: Annexe 2_Budget detaille Phase Extension Pikine_EVE.xlsx, "
-            "ligne 'Frais indirect (10%)'. 10% du total direct 155 044 377 FCFA."
+            "rubrique '2. PERSONNEL DU PROJET (40%)' (R69). Couvre integralement "
+            "le personnel mobilise sur le projet, paye via le Budget General "
+            "EVE et non sur le compte projet."
         ),
     },
     "NOUSCIMS-SL-2026": {
-        "amount": Decimal("15504423.27"),
-        "pct": Decimal("10.00"),
+        "amount": Decimal("61279416.00"),
+        "pct": Decimal("35.93"),  # 61279416 / 170548656
         "note": (
             "Source: Annexe 2 Budget detaille Saint-Louis 15-06-2025.xlsx, "
-            "ligne 'B. Couts indirects / TOTAL B.1' sur 3 annees. "
-            "10% du total direct 155 044 233 FCFA."
+            "TOTAL A.6 (R116). Decomposition : "
+            "'1- Staff bureau local Saint-Louis' = 48 000 000 + "
+            "'2- Coordination globale du projet' = 13 279 416. "
+            "Sur 3 annees du projet."
         ),
     },
     "NOUSCIMS-ECP-2025": {
-        "amount": Decimal("1716540.00"),
-        "pct": Decimal("7.00"),
+        "amount": Decimal("9866540.00"),
+        "pct": Decimal("37.60"),  # 9866540 / 26238540
         "note": (
-            "Source: Projet Espaces communautaires (3).xlsx, ligne 'Frais "
-            "indirect (7%)'. 7% du total direct 24 522 000 FCFA. Taux Nous-Cims "
-            "inferieur au standard 10% pour cette convention specifique."
+            "Source: Projet Espaces communautaires (3).xlsx. Deux lignes "
+            "consolidees : '2. PERSONNEL DU PROJET' R21 = 8 150 000 + "
+            "'Frais indirect (7%)' R32 = 1 716 540 FCFA."
         ),
     },
     "AXA-ISF-2026": {
-        "amount": Decimal("2685000.00"),
-        "pct": Decimal("10.00"),
+        "amount": Decimal("29535000.00"),
+        "pct": Decimal("84.74"),  # 29535000 / 34851300
         "note": (
-            "Source: Budget projet ISF pour Pikine (1).xlsx, ligne 'Frais de "
-            "gestion (10%)'. 10% applique sur le HT 26 850 000 FCFA, pas sur le TTC."
+            "Source: Budget projet ISF pour Pikine (1).xlsx. Couts experts "
+            "(R7-R11) = 26 850 000 + Frais de gestion (R13) = 2 685 000 FCFA. "
+            "Equivalent au TOTAL PRESTATION HT (R14). Le reliquat (TVA 5,3M "
+            "FCFA) est reverse a l'Etat et ne transite pas par le BG."
         ),
     },
     "OGHOGHO-ECOAVENIR-2026": {
-        # 5000 EUR convertis : 5000 * (7543506 / 11500) ≈ 3279350 FCFA
         "amount": Decimal("3279350.00"),
-        "pct": None,
+        "pct": Decimal("43.47"),  # 3279350 / 7543506
         "note": (
-            "Source: Budget previsionnel ECO-AVENIR.xlsx, ligne A.6 'Assurer la "
-            "coordination et le suivi du projet' = 5 000 EUR (43,5% du budget "
-            "total 11 500 EUR). Description xlsx : 'Indemnite et frais de "
-            "deplacement du personnel mobilise par EVE pour la coordination et "
-            "le suivi technique et financier'. Mecanisme different d'un overhead "
-            "% : ligne dediee, pas frais indirect."
+            "Source: Budget previsionnel ECO-AVENIR.xlsx, ligne A.6 'Assurer "
+            "la coordination et le suivi du projet' = 5 000 EUR. Description "
+            "xlsx : 'Indemnite et frais de deplacement du personnel mobilise "
+            "par EVE pour la coordination et le suivi technique et financier'. "
+            "Conversion approximative 5 000 EUR -> 3 279 350 FCFA via le ratio "
+            "budget total."
+        ),
+    },
+    "CHILDFUND-INONDATIONS-2025": {
+        "amount": Decimal("1799289.00"),
+        "pct": Decimal("6.77"),  # 1799289 / 26582392
+        "note": (
+            "Source: P&G_EVE_Budget distribution_Nov.25.xlsx, ligne "
+            "'Supervision Project by Partner Local / Support by partner staff' "
+            "= 1 799 289 FCFA. Seule ligne du projet ChildFund consideree "
+            "comme recette du Budget General EVE."
         ),
     },
 }
 
 
-# Projets dont le mecanisme de contribution reste a documenter (lecture des
-# conventions PDF pas encore faite).
+# Projets dont la contribution reste a documenter
 PENDING_CONTRIBUTIONS = {
     "ONASAFD-PDBH-IEC-2025": (
-        "A documenter. Convention ONAS-AFD (Avenant 3 PDBH PAR 2025) : pas "
-        "d'overhead pourcentage explicite dans le devis detaille. Contribution "
-        "dispersee via lignes : Gestionnaire (R66 = 12,8 MFCFA) + Contribution "
-        "location bureaux/appoint admin (R77 = 6,6 MFCFA) + autres lignes "
-        "structure. A consolider apres lecture du PDF d'avenant."
-    ),
-    "CHILDFUND-INONDATIONS-2025": (
-        "A documenter. Budget P&G_EVE_Budget distribution_Nov.25.xlsx : "
-        "structure non-classique (57 lignes x 85 colonnes). Pas de ligne "
-        "overhead identifiee a la lecture rapide. A confirmer apres lecture "
-        "du Grant Agreement / accord ChildFund."
+        "A documenter. Definition EVE : reliquat de l'Avenant 2 + toutes les "
+        "lignes de l'Avenant 2. Le detail xlsx present dans le dossier "
+        "(Devis detalle projet avenant_PAR _Revu EVE-Tropis_221024.xlsx) "
+        "consolide 'marche de base + avenant' sans isoler l'Avenant 2. A "
+        "completer apres reception du detail Avenant 2 ONAS-AFD."
     ),
 }
 
@@ -141,10 +180,9 @@ class Command(BaseCommand):
             ]
         )
         if amount is not None:
+            pct_str = f"{pct}%" if pct is not None else "n/a"
             self.stdout.write(
-                f"  {code}: contribution {amount} FCFA "
-                f"({pct}% conventionnel)" if pct is not None
-                else f"  {code}: contribution {amount} FCFA (mecanisme hors %)"
+                f"  {code}: contribution {amount} FCFA ({pct_str} du budget)"
             )
         else:
-            self.stdout.write(f"  {code}: marque 'a documenter' (PDF non lu)")
+            self.stdout.write(f"  {code}: marque 'a documenter'")
