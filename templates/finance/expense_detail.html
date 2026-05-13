@@ -39,6 +39,11 @@
                         <button class="button" type="submit">Annuler la demande</button>
                     </form>
                     {% endif %}
+                    {% if expense.executed_bank_movement %}
+                    <a class="button" href="/finance/comptes/{{ expense.executed_bank_movement.account.public_uuid }}/">
+                        Voir le mouvement bancaire lie
+                    </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="stack">
@@ -161,6 +166,37 @@
         </div>
     </div>
 </section>
+
+{% if can_execute and execute_form %}
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <div class="section-header">
+                <h2>Marquer la demande comme executee</h2>
+                <p class="muted">
+                    Lier la demande approuvee au mouvement bancaire ou caisse correspondant.
+                    Une fois execute, le statut passe a EXECUTED et la trace devient definitive.
+                </p>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="execute">
+                <div class="stack" style="gap: 12px;">
+                    <div>
+                        <label style="font-weight: 700;">Mouvement bancaire (un seul des deux) :</label>
+                        {{ execute_form.bank_movement }}
+                    </div>
+                    <div>
+                        <label style="font-weight: 700;">Mouvement caisse (un seul des deux) :</label>
+                        {{ execute_form.cash_movement }}
+                    </div>
+                </div>
+                <button type="submit" class="button primary" style="margin-top: 10px;">Marquer comme execute</button>
+            </form>
+        </div>
+    </div>
+</section>
+{% endif %}
 
 <style>
     form input[type=text], form input[type=file], form select, form textarea {

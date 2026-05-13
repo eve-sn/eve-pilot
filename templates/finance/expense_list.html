@@ -22,7 +22,10 @@
                         <span class="badge warn">Ton compte n'a pas d'Employee lie - pas de creation possible.</span>
                     {% endif %}
                     {% if user_can_validate %}
-                        <span class="badge cool">Tu es valideur : {{ user_roles_codes|join:", " }}</span>
+                        <a class="button {% if filters.to_sign %}primary{% endif %}" href="/finance/demandes/?to_sign=1">
+                            Mon inbox ({{ inbox_count }} a signer)
+                        </a>
+                        <span class="badge cool">Mes roles : {{ user_roles_codes|join:", " }}</span>
                     {% endif %}
                 </div>
             </div>

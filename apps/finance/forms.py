@@ -49,3 +49,31 @@ class ExpenseDocumentForm(forms.ModelForm):
         widgets = {
             "label": forms.TextInput(attrs={"placeholder": "Description courte du document"}),
         }
+
+
+class ExpenseExecuteForm(forms.Form):
+    """Lie une ExpenseRequest APPROUVEE a un BankMovement (ou CashMovement)
+    existant. Bascule la demande en EXECUTED."""
+
+    from apps.finance.models import BankMovement, CashMovement
+
+    bank_movement = forms.ModelChoiceField(
+        queryset=BankMovement.objects.filter(is_active=True, deleted_at__isnull=True).order_by("-date_operation"),
+        required=False,
+        empty_label="-- Choisir un mouvement bancaire --",
+    )
+    cash_movement = forms.ModelChoiceField(
+        queryset=CashMovement.objects.filter(is_active=True, deleted_at__isnull=True).order_by("-date_operation"),
+        required=False,
+        empty_label="-- Choisir un mouvement caisse --",
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        bank = cleaned.get("bank_movement")
+        cash = cleaned.get("cash_movement")
+        if bool(bank) == bool(cash):
+            raise forms.ValidationError(
+                "Renseigner exactement l'un des deux : un mouvement bancaire OU un mouvement caisse."
+            )
+        return cleaned

@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.accounts.models import Role, UserRole
 from apps.finance.forms import (
     ExpenseDocumentForm,
+    ExpenseExecuteForm,
     ExpenseRequestForm,
     ExpenseValidationDecisionForm,
 )
@@ -330,8 +331,13 @@ def chart_of_accounts_view(request):
 
 @login_required
 def expense_list(request):
-    """Liste des demandes de depense. Filtre statut via ?status=SUBMITTED|APPROVED|...
-    et filtre mine=1 pour ne voir que mes demandes."""
+    """Liste des demandes de depense.
+
+    Filtres :
+      ?status=SUBMITTED|APPROVED|...  : par statut
+      ?mine=1                          : mes demandes uniquement
+      ?to_sign=1                       : demandes ou j'ai un avis PENDING a rendre
+    """
 
     qs = ExpenseRequest.objects.filter(**ACTIVE_DOMAIN).select_related(
         "project", "budget_line", "requester"
@@ -342,7 +348,6 @@ def expense_list(request):
     mine = request.GET.get("mine") == "1"
     if mine and request.user.employee_id:
         qs = qs.filter(requester=request.user.employee)
-    qs = qs.order_by("-id")
 
     user_roles_codes = set(
         UserRole.objects.filter(user=request.user)
@@ -350,13 +355,31 @@ def expense_list(request):
     )
     user_can_validate = bool(user_roles_codes & {"RAF", "DP", "SE"})
 
+    # Inbox : compter les ExpenseValidation PENDING dont le role est dans
+    # ceux de l'utilisateur connecte. Sert au badge + au filtre ?to_sign=1.
+    inbox_validations = ExpenseValidation.objects.filter(
+        is_active=True,
+        deleted_at__isnull=True,
+        decision=ExpenseValidation.Decision.PENDING,
+        role__code__in=user_roles_codes,
+        request__status=ExpenseRequest.Status.SUBMITTED,
+    )
+    inbox_count = inbox_validations.count()
+
+    to_sign = request.GET.get("to_sign") == "1"
+    if to_sign and user_can_validate:
+        qs = qs.filter(id__in=inbox_validations.values_list("request_id", flat=True))
+
+    qs = qs.order_by("-id")
+
     context = {
         "requests": qs[:200],
         "status_choices": ExpenseRequest.Status.choices,
-        "filters": {"status": status, "mine": mine},
+        "filters": {"status": status, "mine": mine, "to_sign": to_sign},
         "user_roles_codes": user_roles_codes,
         "user_can_validate": user_can_validate,
         "user_has_employee": bool(request.user.employee_id),
+        "inbox_count": inbox_count,
     }
     return render(request, "finance/expense_list.html", context)
 
@@ -468,6 +491,28 @@ def expense_detail(request, pk):
                 messages.error(request, "Document invalide : verifier le fichier et le type.")
             return redirect("finance:expense_detail", pk=pk)
 
+        if action == "execute" and expense.status == ExpenseRequest.Status.APPROVED:
+            # Restriction : seuls les valideurs RAF ou un comptable (= le requester
+            # par convention v1) peuvent marquer l'execution.
+            allowed = ("RAF" in user_role_codes) or is_requester
+            if not allowed:
+                messages.error(request, "Seul un RAF ou le demandeur peut marquer l'execution.")
+                return redirect("finance:expense_detail", pk=pk)
+            exec_form = ExpenseExecuteForm(request.POST)
+            if exec_form.is_valid():
+                expense.executed_bank_movement = exec_form.cleaned_data.get("bank_movement")
+                expense.executed_cash_movement = exec_form.cleaned_data.get("cash_movement")
+                expense.status = ExpenseRequest.Status.EXECUTED
+                expense.executed_at = timezone.now()
+                expense.save(update_fields=[
+                    "executed_bank_movement", "executed_cash_movement",
+                    "status", "executed_at", "updated_at",
+                ])
+                messages.success(request, "Demande marquee comme executee, lien avec le mouvement enregistre.")
+            else:
+                messages.error(request, "Lien execution invalide : choisir UN mouvement (bancaire OU caisse).")
+            return redirect("finance:expense_detail", pk=pk)
+
     decision_forms = []
     for v in expense.validations.filter(**ACTIVE_DOMAIN):
         if v.decision == ExpenseValidation.Decision.PENDING and v.role.code in user_role_codes:
@@ -481,8 +526,13 @@ def expense_detail(request, pk):
         "expense": expense,
         "decision_forms": decision_forms,
         "document_form": ExpenseDocumentForm(),
+        "execute_form": ExpenseExecuteForm() if expense.status == ExpenseRequest.Status.APPROVED else None,
         "is_requester": is_requester,
         "user_role_codes": user_role_codes,
+        "can_execute": (
+            expense.status == ExpenseRequest.Status.APPROVED
+            and (("RAF" in user_role_codes) or is_requester)
+        ),
     }
     return render(request, "finance/expense_detail.html", context)
 
