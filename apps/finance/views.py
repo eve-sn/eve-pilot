@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 
-from apps.finance.models import BudgetLine, Commitment, Disbursement
+from apps.finance.models import BankAccount, BudgetLine, Commitment, Disbursement
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
 
@@ -107,6 +107,19 @@ def finance_dashboard(request):
             }
         )
 
+    # --- Comptes bancaires EVE ---
+    bank_accounts = list(
+        BankAccount.objects.filter(**ACTIVE_DOMAIN)
+        .prefetch_related("projects")
+        .order_by("name")
+    )
+    bank_total_opening = sum(
+        (acc.opening_balance for acc in bank_accounts if acc.opening_balance is not None),
+        Decimal("0"),
+    )
+    bank_accounts_with_balance = [acc for acc in bank_accounts if acc.opening_balance is not None]
+    bank_accounts_missing_balance = [acc for acc in bank_accounts if acc.opening_balance is None]
+
     # --- Commitments / Disbursements globaux (lecture transversale) ---
     transaction_counts = {
         "commitments": Commitment.objects.filter(**ACTIVE_DOMAIN).count(),
@@ -131,6 +144,10 @@ def finance_dashboard(request):
         "pending_contributions": pending_contributions,
         "operating_revenue_total": operating_revenue_total,
         "operating_balance": operating_revenue_total - operating_planned,
+        "bank_accounts": bank_accounts,
+        "bank_total_opening": bank_total_opening,
+        "bank_accounts_with_balance_count": len(bank_accounts_with_balance),
+        "bank_accounts_missing_balance_count": len(bank_accounts_missing_balance),
         "donor_rows": donor_rows,
         "active_donor_count": len([d for d in donor_rows if d["project_count"] > 0]),
         "transaction_counts": transaction_counts,

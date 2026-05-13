@@ -349,6 +349,83 @@
 
 <section class="section">
     <div class="wrap">
+        <div class="section-header">
+            <h2>Comptes bancaires EVE</h2>
+            <p>
+                Inventaire des comptes ouverts par EVE et rattachement aux projets.
+                Plusieurs projets peuvent partager un meme compte (notamment les
+                projets Nous-Cims sur Banque Atlantique).
+            </p>
+        </div>
+        <div class="grid-3" style="margin-bottom: 18px;">
+            <div class="stat-card soft-green">
+                <div class="muted">Comptes ouverts</div>
+                <div class="metric">{{ bank_accounts|length }}</div>
+                <div class="muted">Banques distinctes pour gerer les flux par projet.</div>
+            </div>
+            <div class="stat-card soft-blue">
+                <div class="muted">Solde d'ouverture cumule</div>
+                <div class="metric-money">{{ bank_total_opening|floatformat:0 }} XOF</div>
+                <div class="muted">
+                    Cumul des soldes renseignes ({{ bank_accounts_with_balance_count }} sur {{ bank_accounts|length }}).
+                </div>
+            </div>
+            <div class="stat-card {% if bank_accounts_missing_balance_count %}soft-amber{% else %}soft-green{% endif %}">
+                <div class="muted">Comptes sans solde</div>
+                <div class="metric">{{ bank_accounts_missing_balance_count }}</div>
+                <div class="muted">A renseigner via la commande seed ou /admin/.</div>
+            </div>
+        </div>
+        <div class="card">
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Compte EVE</th>
+                        <th>Banque</th>
+                        <th class="right">Solde 01/01/2026</th>
+                        <th>Projets rattaches</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for account in bank_accounts %}
+                    <tr>
+                        <td><strong>{{ account.name }}</strong></td>
+                        <td>{{ account.bank_name|default:"&mdash;" }}</td>
+                        <td class="right">
+                            {% if account.opening_balance is not None %}
+                                {{ account.opening_balance|floatformat:0 }} {{ account.currency }}
+                            {% else %}
+                                <span class="muted">a renseigner</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for project in account.projects.all %}
+                                <a href="/projets/{{ project.public_uuid }}/" class="badge cool" style="margin: 2px;">{{ project.code }}</a>
+                            {% empty %}
+                                <span class="muted">aucun</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4"><span class="muted">Aucun compte enregistre.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if bank_accounts_with_balance_count %}
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td colspan="2">Total comptes avec solde renseigne</td>
+                        <td class="right">{{ bank_total_opening|floatformat:0 }} XOF</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
         <div class="grid-3">
             <div class="card">
                 <h3>Transactions actuelles</h3>

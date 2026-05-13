@@ -4,6 +4,61 @@ from django.db import models
 from apps.common.models import TrackedModel
 
 
+class BankAccount(TrackedModel):
+    """Compte bancaire EVE. Plusieurs projets peuvent partager un meme compte
+    (cf. Banque Atlantique pour ECP/Pikine Phase II/GT Wallu Dome)."""
+
+    name = models.CharField(max_length=100, unique=True, help_text="Nom interne EVE du compte (ex: 'EVE-OXFAM', 'EVE service').")
+    bank_name = models.CharField(max_length=100, blank=True, help_text="Nom de la banque (ex: 'SUNU BANK SENEGAL', 'CBAO', 'BOA').")
+    account_reference = models.CharField(max_length=50, blank=True, help_text="RIB / IBAN si renseigne (libre).")
+    currency = models.CharField(max_length=3, default="XOF")
+    opening_balance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Solde d'ouverture connu (au plus recent snapshot).",
+    )
+    opening_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Date du solde d'ouverture / dernier rapprochement.",
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "bank_accounts"
+        ordering = ["name"]
+
+    def __str__(self):
+        if self.bank_name:
+            return f"{self.name} ({self.bank_name})"
+        return self.name
+
+
+class BankAccountSnapshot(TrackedModel):
+    """Solde date d'un compte bancaire. Permet de tracer l'evolution du solde
+    dans le temps (rapprochements successifs, releves bancaires recus)."""
+
+    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="snapshots")
+    date = models.DateField()
+    balance = models.DecimalField(max_digits=14, decimal_places=2)
+    source_note = models.TextField(blank=True, help_text="Source du chiffre (releve bancaire, rapprochement compta, etc.).")
+
+    class Meta:
+        db_table = "bank_account_snapshots"
+        ordering = ["account__name", "-date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["account", "date"],
+                name="uq_bank_account_snapshot_per_date",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.account.name} @ {self.date}: {self.balance}"
+
+
 class BudgetLine(TrackedModel):
     # project nullable: une ligne sans projet appartient au Budget General EVE
     # (charges fixes et masse salariale supportees par la tresorerie centrale,

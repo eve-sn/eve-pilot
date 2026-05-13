@@ -100,6 +100,16 @@ class Project(TrackedModel):
         help_text="Note libre quand le mecanisme n'est pas un pourcentage unique (lignes eparses, a documenter, etc.).",
     )
 
+    # Comptes bancaires EVE utilises pour ce projet. Plusieurs projets peuvent
+    # partager un meme compte (cas Nous-Cims Banque Atlantique). Un projet peut
+    # theoriquement utiliser plusieurs comptes.
+    bank_accounts = models.ManyToManyField(
+        "finance.BankAccount",
+        blank=True,
+        related_name="projects",
+        help_text="Comptes bancaires EVE associes au projet.",
+    )
+
     class Meta:
         db_table = "projects"
         ordering = ["code"]
