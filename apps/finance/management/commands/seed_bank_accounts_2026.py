@@ -1,43 +1,41 @@
 """
-Cree les comptes bancaires EVE et les rattache aux projets.
+Cree les comptes bancaires EVE et les rattache aux projets. Renseigne
+egalement les soldes d'ouverture au 01/01/2026 (= solde de cloture au
+31/12/2025) lorsque le releve a ete fourni.
 
-Source : inventaire confirme par EVE le 13/05/2026.
-- Banque Atlantique : NOUSCIMS-ECP-2025, NOUSCIMS-PIK-MBAO-2026, NOUSCIMS-GT-WALLU-DOOM-2025
-- EVE-OXFAM (SUNU BANK SENEGAL, ex-BICIS) : AXA-ISF-2026, OGHOGHO-ECOAVENIR-2026
-- EVE service (CBAO) : NOUSCIMS-SL-2026
-- EVE-SODIS (SUNU BANK SENEGAL, ex-BICIS) : ONASAFD-PDBH-IEC-2025
-- EVE (BOA) : CHILDFUND-INONDATIONS-2025
-
-Les projets PNBSF-DAK-2026 et PNBSF-KED-2026 n'ont pas encore de compte
-ouvert (status PREPARATION, contrats non signes) - aucun rattachement.
-
-Solde d'ouverture : laisse a None pour l'instant. A renseigner via un edit
-de ce fichier ou via /admin/ une fois les soldes au 01/01/2026 fournis.
+Source : inventaire confirme par EVE le 13/05/2026 + releves bancaires
+au 31/12/2025 partages le meme jour.
 
 Idempotente : update_or_create par nom de compte.
 """
 
 from datetime import date
+from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.finance.models import BankAccount
+from apps.finance.models import BankAccount, BankAccountSnapshot
 from apps.projects.models import Project
 
 
 OPENING_DATE = date(2026, 1, 1)
+CLOSING_DATE = date(2025, 12, 31)
+RELEASE_SOURCE = "Releve bancaire au 31/12/2025"
 
 
-# (account name, bank name, opening_balance, notes, project_codes)
+# (account name, bank name, account_reference, opening_balance, notes, project_codes)
 BANK_ACCOUNTS = [
     {
         "name": "Banque Atlantique",
         "bank_name": "Banque Atlantique",
-        "opening_balance": None,
+        "account_reference": "84284780007",
+        "opening_balance": Decimal("39870516.00"),
         "notes": (
-            "Compte partage entre les projets Nous-Cims geres en commun. "
-            "Solde au 01/01/2026 a renseigner."
+            "Compte partage entre les projets Nous-Cims geres en commun "
+            "(ECP, Pikine Phase II, GT Wallu Dome). Releve 12 au 31/12/2025 "
+            "ancien solde 30/11/2025 = 48 671 944, mouvements debit 9 451 428, "
+            "credit 650 000, nouveau solde 39 870 516."
         ),
         "project_codes": [
             "NOUSCIMS-ECP-2025",
@@ -48,11 +46,12 @@ BANK_ACCOUNTS = [
     {
         "name": "EVE-OXFAM",
         "bank_name": "SUNU BANK SENEGAL",
+        "account_reference": "",
         "opening_balance": None,
         "notes": (
             "Anciennement BICIS, devenue SUNU BANK SENEGAL. Compte partage "
-            "entre les projets ISF AXA Climate et ECO-AVENIR. Solde au "
-            "01/01/2026 a renseigner."
+            "entre les projets ISF AXA Climate et ECO-AVENIR. "
+            "Releve 31/12/2025 non encore fourni - solde a renseigner."
         ),
         "project_codes": [
             "AXA-ISF-2026",
@@ -62,10 +61,13 @@ BANK_ACCOUNTS = [
     {
         "name": "EVE service",
         "bank_name": "CBAO",
-        "opening_balance": None,
+        "account_reference": "36171795503-55",
+        "opening_balance": Decimal("5888104.00"),
         "notes": (
             "Compte dedie au projet Saint-Louis Gouvernance Multisectorielle "
-            "(Nous-Cims). Solde au 01/01/2026 a renseigner."
+            "(Nous-Cims). Releve extrait a la demande 06/01/2026 pour la "
+            "periode 01/01-31/12/2025, solde au 31/12/2025 = 5 888 104. "
+            "Total general 2025 : debit 20 425 176 / credit 26 313 280."
         ),
         "project_codes": [
             "NOUSCIMS-SL-2026",
@@ -74,10 +76,14 @@ BANK_ACCOUNTS = [
     {
         "name": "EVE-SODIS",
         "bank_name": "SUNU BANK SENEGAL",
-        "opening_balance": None,
+        "account_reference": "11172890011",  # IBAN SN08SN0100152001117289001195
+        "opening_balance": Decimal("105476433.00"),
         "notes": (
             "Compte dedie au projet PDBH IEC ONAS-AFD. ONAS precompte la TVA "
-            "18% : encaissements en HT. Solde au 01/01/2026 a renseigner."
+            "18% : encaissements en HT. Releve SUNU Bank au 31/12/2025 : "
+            "dernier solde avant 01/12/2025 = 126 838 932, mouvements decembre "
+            "debit 21 362 932 / credit 433, nouveau solde au 31/12/2025 = "
+            "105 476 433. IBAN : SN08SN0100152001117289001195."
         ),
         "project_codes": [
             "ONASAFD-PDBH-IEC-2025",
@@ -86,10 +92,12 @@ BANK_ACCOUNTS = [
     {
         "name": "EVE",
         "bank_name": "BOA",
-        "opening_balance": None,
+        "account_reference": "06335290004",
+        "opening_balance": Decimal("4988629.00"),
         "notes": (
             "Compte dedie au projet Reponse urgence inondations ChildFund/P&G. "
-            "Solde au 01/01/2026 a renseigner."
+            "Releve BOA au 31/12/2025 : ancien solde 30/11/2025 = 87 678, "
+            "mouvements debit 99 949 / credit 5 000 000, nouveau solde 4 988 629."
         ),
         "project_codes": [
             "CHILDFUND-INONDATIONS-2025",
