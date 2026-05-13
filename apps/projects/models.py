@@ -76,6 +76,30 @@ class Project(TrackedModel):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
 
+    # Contribution du projet au Budget General EVE (charges fixes + personnel).
+    # Le mecanisme varie selon la convention : pourcentage frais indirect/de gestion,
+    # ligne dediee personnel EVE, montant negocie hors taux, etc. Les trois champs
+    # sont nullables ; au moins l'un d'eux est renseigne quand l'info est connue.
+    operating_contribution_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Montant FCFA verse au Budget General EVE pour la duree du projet.",
+    )
+    operating_contribution_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Taux conventionnel (% sur total direct ou HT selon le bailleur).",
+    )
+    operating_contribution_note = models.TextField(
+        blank=True,
+        help_text="Note libre quand le mecanisme n'est pas un pourcentage unique (lignes eparses, a documenter, etc.).",
+    )
+
     class Meta:
         db_table = "projects"
         ordering = ["code"]

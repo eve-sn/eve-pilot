@@ -72,6 +72,17 @@ def finance_dashboard(request):
         operating_lines.order_by("category__code", "code", "description")
     )
 
+    # --- Recettes du Budget General : contributions des projets ---
+    documented_contributions = projects.filter(
+        operating_contribution_amount__isnull=False,
+    ).order_by("-operating_contribution_amount", "code")
+    pending_contributions = projects.filter(
+        operating_contribution_amount__isnull=True,
+    ).order_by("code")
+    operating_revenue_total = documented_contributions.aggregate(
+        total=Sum("operating_contribution_amount")
+    )["total"] or Decimal("0")
+
     # --- Bailleurs ---
     donor_rows = []
     for donor in (
@@ -116,6 +127,10 @@ def finance_dashboard(request):
         "operating_by_category": operating_by_category,
         "operating_lines_empty": operating_lines_empty,
         "operating_lines_detail": operating_lines_detail,
+        "documented_contributions": documented_contributions,
+        "pending_contributions": pending_contributions,
+        "operating_revenue_total": operating_revenue_total,
+        "operating_balance": operating_revenue_total - operating_planned,
         "donor_rows": donor_rows,
         "active_donor_count": len([d for d in donor_rows if d["project_count"] > 0]),
         "transaction_counts": transaction_counts,

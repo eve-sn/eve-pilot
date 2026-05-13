@@ -214,6 +214,102 @@
 <section class="section">
     <div class="wrap">
         <div class="section-header">
+            <h2>Recettes du Budget General (contributions projets)</h2>
+            <p>
+                Chaque projet reverse au Budget General une part de son budget pour financer
+                les charges fixes et le personnel. Mecanisme variable selon la convention :
+                pourcentage frais indirect ou de gestion (Nous-Cims, AXA), ligne dediee
+                coordination (Oghogho), ou contributions dispersees (ONAS, ChildFund).
+            </p>
+        </div>
+        <div class="grid-3" style="margin-bottom: 18px;">
+            <div class="stat-card soft-green">
+                <div class="muted">Recettes documentees</div>
+                <div class="metric-money">{{ operating_revenue_total|floatformat:0 }} XOF</div>
+                <div class="muted">
+                    Cumul des contributions identifiees dans les conventions
+                    ({{ documented_contributions|length }} projet{{ documented_contributions|length|pluralize:"s" }}).
+                </div>
+            </div>
+            <div class="stat-card soft-amber">
+                <div class="muted">A documenter</div>
+                <div class="metric">{{ pending_contributions|length }}</div>
+                <div class="muted">
+                    Projet{{ pending_contributions|length|pluralize:"s" }} sans contribution renseignee
+                    (lecture PDF a faire).
+                </div>
+            </div>
+            <div class="stat-card {% if operating_balance >= 0 %}soft-blue{% else %}soft-rose{% endif %}">
+                <div class="muted">Solde indicatif (recettes - charges Budget General)</div>
+                <div class="metric-money">{{ operating_balance|floatformat:0 }} XOF</div>
+                <div class="muted">
+                    Recettes documentees moins charges du Budget General (avec double comptage
+                    sur les charges, voir avertissement ci-dessus). Indicatif, pas un solde net.
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>Projet</th>
+                        <th>Bailleur</th>
+                        <th class="right">Budget total</th>
+                        <th class="right">Contribution</th>
+                        <th class="right">Taux</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in documented_contributions %}
+                    <tr>
+                        <td>
+                            <a href="/projets/{{ project.public_uuid }}/"><strong>{{ project.code }}</strong></a>
+                            <div class="muted" style="font-size:0.84rem;">{{ project.short_title|default:project.title }}</div>
+                        </td>
+                        <td>{{ project.primary_donor.name|default:"&mdash;" }}</td>
+                        <td class="right">
+                            {% if project.total_budget %}{{ project.total_budget|floatformat:0 }}{% else %}<span class="muted">n/a</span>{% endif %}
+                        </td>
+                        <td class="right"><strong>{{ project.operating_contribution_amount|floatformat:0 }}</strong></td>
+                        <td class="right">
+                            {% if project.operating_contribution_pct %}{{ project.operating_contribution_pct }}%{% else %}<span class="muted">hors %</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td colspan="3">Total recettes documentees</td>
+                        <td class="right">{{ operating_revenue_total|floatformat:0 }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            {% if pending_contributions %}
+            <h3 style="margin-top: 22px; font-size: 1.05rem;">Projets a documenter</h3>
+            <div class="stack" style="margin-top: 10px;">
+                {% for project in pending_contributions %}
+                <div class="item">
+                    <strong>{{ project.code }} &mdash; {{ project.short_title|default:project.title }}</strong>
+                    <div class="muted" style="margin-bottom: 6px;">
+                        Bailleur : {{ project.primary_donor.name|default:"Non defini" }}
+                        &middot; Statut : {{ project.get_status_display }}
+                    </div>
+                    {% if project.operating_contribution_note %}
+                    <div class="muted" style="font-size: 0.86rem;">{{ project.operating_contribution_note }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
             <h2>Bailleurs</h2>
             <p>Volume finance par bailleur sur les projets actifs et en preparation.</p>
         </div>
