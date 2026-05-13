@@ -389,7 +389,7 @@
                 <tbody>
                     {% for account in bank_accounts %}
                     <tr>
-                        <td><strong>{{ account.name }}</strong></td>
+                        <td><a href="/finance/comptes/{{ account.public_uuid }}/"><strong>{{ account.name }}</strong></a></td>
                         <td>{{ account.bank_name|default:"&mdash;" }}</td>
                         <td class="right">
                             {% if account.opening_balance is not None %}

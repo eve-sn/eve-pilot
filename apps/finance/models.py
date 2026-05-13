@@ -59,6 +59,68 @@ class BankAccountSnapshot(TrackedModel):
         return f"{self.account.name} @ {self.date}: {self.balance}"
 
 
+class BankMovement(TrackedModel):
+    """Mouvement bancaire reel constate sur un compte (releve bancaire ou
+    rapprochement compta). Permet de reconstituer la trajectoire reelle d'un
+    compte, par opposition au plan previsionnel CashflowEntry.
+
+    Un mouvement = une ligne de relevé. Conventions :
+      - debit  > 0 : sortie de tresorerie (paiement, retrait, frais).
+      - credit > 0 : entree de tresorerie (virement recu, encaissement).
+      - exactement l'un des deux est non nul.
+      - balance_after : solde de la ligne tel qu'imprime sur le releve
+        (optionnel, pour reconciliation).
+    """
+
+    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="movements")
+    date_operation = models.DateField(help_text="Date d'operation telle qu'imprimee sur le releve.")
+    date_value = models.DateField(blank=True, null=True, help_text="Date de valeur, si differente.")
+    reference = models.CharField(max_length=50, blank=True, help_text="Reference banque (ex: G167265, F856524).")
+    label = models.CharField(max_length=300, help_text="Libelle complet du mouvement tel que sur le releve.")
+    debit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    balance_after = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Solde apres operation tel que sur le releve.",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="bank_movements",
+        help_text="Projet auquel le mouvement se rapporte, si identifiable.",
+    )
+    cashflow_entry = models.ForeignKey(
+        "CashflowEntry",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="bank_movements",
+        help_text="Ligne de plan tresorerie matchee, si applicable (suivi reel/prevu).",
+    )
+    source_document = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Document source (ex: 'Releve Banque Atlantique decembre 2025').",
+    )
+
+    class Meta:
+        db_table = "bank_movements"
+        ordering = ["-date_operation", "-id"]
+        indexes = [
+            models.Index(fields=["account", "-date_operation"]),
+            models.Index(fields=["reference"]),
+        ]
+
+    def __str__(self):
+        amount = self.credit if self.credit else -self.debit
+        return f"{self.account.name} {self.date_operation} {amount:+.2f}"
+
+
 class CashflowEntry(TrackedModel):
     """Ligne du plan de tresorerie mensuel.
 

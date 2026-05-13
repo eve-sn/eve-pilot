@@ -1,0 +1,168 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; {{ account.name }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Compte bancaire</div>
+                <h1>{{ account.name }}</h1>
+                <p class="lead">
+                    {{ account.bank_name|default:"Banque non renseignee" }}
+                    {% if account.account_reference %} &middot; N° {{ account.account_reference }}{% endif %}
+                </p>
+                <div style="margin-top:18px;">
+                    <a class="button" href="/finance/">&larr; Retour Finance</a>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card soft-green">
+                    <div class="muted">Solde d'ouverture {{ account.opening_date|date:"d/m/Y" }}</div>
+                    <div class="metric-money">
+                        {% if account.opening_balance is not None %}
+                            {{ account.opening_balance|floatformat:0 }} {{ account.currency }}
+                        {% else %}
+                            <span class="muted">non renseigne</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card soft-blue">
+                    <div class="muted">Mouvements (cumul base)</div>
+                    <div class="metric-money">Cr {{ total_credit|floatformat:0 }} &middot; Db {{ total_debit|floatformat:0 }}</div>
+                    <div class="muted">{{ movements|length }} mouvement(s) enregistre(s).</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-header"><h2>Projets rattaches</h2></div>
+                <div class="stack">
+                    {% for project in projects %}
+                    <a class="item" href="/projets/{{ project.public_uuid }}/">
+                        <strong>{{ project.code }}</strong>
+                        <div class="muted">{{ project.short_title|default:project.title }}</div>
+                        <div class="muted" style="font-size:0.86rem;">
+                            Bailleur : {{ project.primary_donor.name|default:"&mdash;" }}
+                            &middot; Statut : {{ project.get_status_display }}
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="placeholder-note">
+                        Aucun projet rattache. Compte central (Budget General) ou compte en
+                        attente d'affectation.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header"><h2>Snapshots de solde</h2></div>
+                <div class="stack">
+                    {% for snap in snapshots %}
+                    <div class="item">
+                        <strong>{{ snap.date|date:"d/m/Y" }}</strong>
+                        <div class="metric-money" style="font-size: 1.15rem;">{{ snap.balance|floatformat:0 }} {{ account.currency }}</div>
+                        {% if snap.source_note %}
+                        <div class="muted" style="font-size: 0.86rem;">{{ snap.source_note }}</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="placeholder-note">
+                        Aucun snapshot enregistre. Le solde d'ouverture du hero est la seule
+                        donnee de solde a date. Ajouter via /admin/ pour suivre l'evolution.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Mouvements bancaires</h2>
+            <p>
+                Lignes de releve saisies en base. Lien optionnel vers le projet et vers
+                l'entree CashflowEntry correspondante. Saisie via /admin/ ou
+                commande dediee a venir.
+            </p>
+        </div>
+        <div class="card" style="overflow-x: auto;">
+            <table class="finance-table" style="min-width: 980px;">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Référence</th>
+                        <th>Libelle</th>
+                        <th>Projet</th>
+                        <th class="right">Debit</th>
+                        <th class="right">Credit</th>
+                        <th class="right">Solde apres</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movements %}
+                    <tr>
+                        <td>{{ m.date_operation|date:"d/m/Y" }}</td>
+                        <td>{{ m.reference|default:"&mdash;" }}</td>
+                        <td>
+                            {{ m.label }}
+                            {% if m.cashflow_entry %}
+                            <div class="muted" style="font-size:0.78rem;">
+                                <em>matche cashflow {{ m.cashflow_entry.period_year }}-{{ m.cashflow_entry.period_month }} {{ m.cashflow_entry.label }}</em>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if m.project %}
+                                <a href="/projets/{{ m.project.public_uuid }}/">{{ m.project.code }}</a>
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td class="right">{% if m.debit %}{{ m.debit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right">{% if m.credit %}{{ m.credit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right">{% if m.balance_after is not None %}{{ m.balance_after|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <span class="muted">Aucun mouvement saisi pour ce compte.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if movements %}
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td colspan="4">Cumul</td>
+                        <td class="right">{{ total_debit|floatformat:0 }}</td>
+                        <td class="right">{{ total_credit|floatformat:0 }}</td>
+                        <td class="right">Net : {{ net_movement|floatformat:0 }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</section>
+
+{% if account.notes %}
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <h3>Notes</h3>
+            <p class="muted">{{ account.notes|linebreaksbr }}</p>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

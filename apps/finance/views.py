@@ -2,9 +2,17 @@ from collections import OrderedDict
 from decimal import Decimal
 
 from django.db.models import Count, Q, Sum
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
-from apps.finance.models import BankAccount, BudgetLine, CashflowEntry, Commitment, Disbursement
+from apps.finance.models import (
+    BankAccount,
+    BankAccountSnapshot,
+    BankMovement,
+    BudgetLine,
+    CashflowEntry,
+    Commitment,
+    Disbursement,
+)
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
 
@@ -234,3 +242,40 @@ def cashflow_dashboard(request):
         "solde_net_year": sum(solde_net, Decimal("0")),
     }
     return render(request, "finance/cashflow.html", context)
+
+
+def bank_account_detail(request, public_uuid):
+    """Detail d'un compte bancaire : projets rattaches, snapshots de solde,
+    mouvements bancaires (BankMovement) saisis pour ce compte."""
+
+    account = get_object_or_404(
+        BankAccount.objects.prefetch_related("projects", "snapshots", "movements"),
+        public_uuid=public_uuid,
+        **ACTIVE_DOMAIN,
+    )
+
+    snapshots = account.snapshots.filter(**ACTIVE_DOMAIN).order_by("-date")
+    movements = (
+        account.movements.filter(**ACTIVE_DOMAIN)
+        .select_related("project", "cashflow_entry")
+        .order_by("-date_operation", "-id")
+    )
+    movement_totals = movements.aggregate(
+        total_debit=Sum("debit"),
+        total_credit=Sum("credit"),
+    )
+    total_debit = movement_totals["total_debit"] or Decimal("0")
+    total_credit = movement_totals["total_credit"] or Decimal("0")
+
+    projects = account.projects.filter(**ACTIVE_DOMAIN).order_by("code")
+
+    context = {
+        "account": account,
+        "projects": projects,
+        "snapshots": snapshots,
+        "movements": movements,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "net_movement": total_credit - total_debit,
+    }
+    return render(request, "finance/bank_account_detail.html", context)

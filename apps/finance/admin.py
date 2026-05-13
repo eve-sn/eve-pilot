@@ -1,6 +1,52 @@
 from django.contrib import admin
 
-from apps.finance.models import BudgetLine, Commitment, Disbursement, SupportingDoc
+from apps.finance.models import (
+    BankAccount,
+    BankAccountSnapshot,
+    BankMovement,
+    BudgetLine,
+    CashflowEntry,
+    Commitment,
+    Disbursement,
+    SupportingDoc,
+)
+
+
+@admin.register(BankAccount)
+class BankAccountAdmin(admin.ModelAdmin):
+    list_display = ("name", "bank_name", "account_reference", "opening_balance", "opening_date", "currency", "is_active")
+    search_fields = ("name", "bank_name", "account_reference")
+    list_filter = ("bank_name", "is_active")
+    fieldsets = (
+        (None, {"fields": ("name", "bank_name", "account_reference", "currency")}),
+        ("Solde d'ouverture", {"fields": ("opening_balance", "opening_date")}),
+        ("Notes", {"fields": ("notes",)}),
+        ("Suivi", {"fields": ("is_active", "deleted_at"), "classes": ("collapse",)}),
+    )
+
+
+@admin.register(BankAccountSnapshot)
+class BankAccountSnapshotAdmin(admin.ModelAdmin):
+    list_display = ("account", "date", "balance", "is_active")
+    search_fields = ("account__name", "source_note")
+    list_filter = ("account", "is_active")
+    date_hierarchy = "date"
+
+
+@admin.register(BankMovement)
+class BankMovementAdmin(admin.ModelAdmin):
+    list_display = ("date_operation", "account", "label", "debit", "credit", "balance_after", "reference")
+    search_fields = ("label", "reference", "account__name")
+    list_filter = ("account", "is_active")
+    date_hierarchy = "date_operation"
+    autocomplete_fields = ("project", "cashflow_entry")
+
+
+@admin.register(CashflowEntry)
+class CashflowEntryAdmin(admin.ModelAdmin):
+    list_display = ("period_year", "period_month", "direction", "label", "planned_amount", "actual_amount")
+    search_fields = ("label", "project__code", "category__code")
+    list_filter = ("direction", "period_year", "period_month", "is_active")
 
 
 @admin.register(BudgetLine)
