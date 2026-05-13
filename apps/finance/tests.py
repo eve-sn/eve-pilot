@@ -247,6 +247,17 @@ class ChartOfAccountsViewTests(TestCase):
         self.assertContains(response, "LIAISON")
 
 
+class ExpensePublicUIPermissionsTests(TestCase):
+    """L'UI expense /finance/demandes/ doit exiger un user connecte."""
+
+    def test_anonymous_redirects_to_login(self):
+        client = Client()
+        response = client.get("/finance/demandes/")
+        # @login_required redirect vers /admin/login/?next=... (LOGIN_URL=admin)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response.url)
+
+
 class ExpenseRequestWorkflowTests(TestCase):
     """Workflow ExpenseRequest : SUBMITTED -> APPROVED si les 3 valideurs OK,
     REJECTED si un seul rejette."""

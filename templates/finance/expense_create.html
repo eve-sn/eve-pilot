@@ -1,0 +1,62 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Nouvelle demande de depense{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card" style="grid-template-columns: 1fr;">
+            <div>
+                <div class="eyebrow">Nouvelle demande de depense</div>
+                <h1>Saisir une demande (brouillon).</h1>
+                <p class="lead">
+                    La demande sera enregistree en statut <strong>Brouillon</strong>. Tu pourras
+                    y rattacher les pieces justificatives (proforma, contrat) et la soumettre
+                    aux trois valideurs RAF, DP, SE depuis la page de detail.
+                </p>
+                <div style="margin-top: 14px;">
+                    <a class="button" href="/finance/demandes/">&larr; Retour a la liste</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            {% if messages %}
+            <div style="margin-bottom: 18px;">
+                {% for message in messages %}
+                <div class="placeholder-note">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="stack" style="gap: 18px;">
+                    {% for field in form %}
+                    <div>
+                        <label style="font-weight: 700;">{{ field.label }}</label>
+                        {% if field.help_text %}<div class="muted" style="font-size:0.86rem; margin-bottom: 4px;">{{ field.help_text }}</div>{% endif %}
+                        {{ field }}
+                        {% if field.errors %}<div style="color: #8a2b2b; font-size: 0.86rem;">{{ field.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="margin-top: 22px; display: flex; gap: 10px;">
+                    <button type="submit" class="button primary">Creer en brouillon</button>
+                    <a class="button" href="/finance/demandes/">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+<style>
+    form input[type=text], form input[type=number], form select, form textarea {
+        width: 100%; padding: 12px 14px; border-radius: 14px;
+        border: 1px solid var(--line); background: rgba(255,255,255,0.85);
+        font: inherit;
+    }
+</style>
+{% endblock %}

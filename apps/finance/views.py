@@ -1,9 +1,18 @@
 from collections import OrderedDict
 from decimal import Decimal
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
+from apps.accounts.models import Role, UserRole
+from apps.finance.forms import (
+    ExpenseDocumentForm,
+    ExpenseRequestForm,
+    ExpenseValidationDecisionForm,
+)
 from apps.finance.models import (
     BankAccount,
     BankAccountSnapshot,
@@ -14,6 +23,9 @@ from apps.finance.models import (
     ChartOfAccount,
     Commitment,
     Disbursement,
+    ExpenseDocument,
+    ExpenseRequest,
+    ExpenseValidation,
 )
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
@@ -314,6 +326,165 @@ def chart_of_accounts_view(request):
         "unimputed_bank_movements": total_bank_movements - imputed_bank_movements,
     }
     return render(request, "finance/chart_of_accounts.html", context)
+
+
+@login_required
+def expense_list(request):
+    """Liste des demandes de depense. Filtre statut via ?status=SUBMITTED|APPROVED|...
+    et filtre mine=1 pour ne voir que mes demandes."""
+
+    qs = ExpenseRequest.objects.filter(**ACTIVE_DOMAIN).select_related(
+        "project", "budget_line", "requester"
+    )
+    status = request.GET.get("status", "").strip()
+    if status:
+        qs = qs.filter(status=status)
+    mine = request.GET.get("mine") == "1"
+    if mine and request.user.employee_id:
+        qs = qs.filter(requester=request.user.employee)
+    qs = qs.order_by("-id")
+
+    user_roles_codes = set(
+        UserRole.objects.filter(user=request.user)
+        .values_list("role__code", flat=True)
+    )
+    user_can_validate = bool(user_roles_codes & {"RAF", "DP", "SE"})
+
+    context = {
+        "requests": qs[:200],
+        "status_choices": ExpenseRequest.Status.choices,
+        "filters": {"status": status, "mine": mine},
+        "user_roles_codes": user_roles_codes,
+        "user_can_validate": user_can_validate,
+        "user_has_employee": bool(request.user.employee_id),
+    }
+    return render(request, "finance/expense_list.html", context)
+
+
+@login_required
+def expense_create(request):
+    """Formulaire de creation d'une demande de depense (status DRAFT)."""
+
+    if not request.user.employee_id:
+        messages.error(
+            request,
+            "Ton compte utilisateur n'est pas rattache a un Employee. "
+            "Demande au RAF de lier ton compte a un dossier RH avant de creer une demande.",
+        )
+        return redirect("finance:expense_list")
+
+    if request.method == "POST":
+        form = ExpenseRequestForm(request.POST)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.requester = request.user.employee
+            expense.status = ExpenseRequest.Status.DRAFT
+            expense.save()
+            messages.success(request, f"Demande DD-{expense.id} creee en brouillon.")
+            return redirect("finance:expense_detail", pk=expense.id)
+    else:
+        form = ExpenseRequestForm()
+
+    context = {"form": form}
+    return render(request, "finance/expense_create.html", context)
+
+
+@login_required
+def expense_detail(request, pk):
+    """Detail d'une demande : informations, validations, documents.
+    Gere les actions POST : submit (DRAFT->SUBMITTED), validate (RAF/DP/SE),
+    upload_document, cancel."""
+
+    expense = get_object_or_404(
+        ExpenseRequest.objects.select_related("project", "budget_line", "requester").prefetch_related(
+            "validations__role", "validations__validator", "documents__uploaded_by"
+        ),
+        pk=pk,
+        **ACTIVE_DOMAIN,
+    )
+
+    user_role_codes = set(
+        UserRole.objects.filter(user=request.user).values_list("role__code", flat=True)
+    )
+    is_requester = request.user.employee_id == expense.requester_id
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "submit" and is_requester and expense.status == ExpenseRequest.Status.DRAFT:
+            roles = list(Role.objects.filter(code__in=["RAF", "DP", "SE"]))
+            if len(roles) < 3:
+                messages.error(request, "Roles RAF/DP/SE manquants. Lancer seed_expense_validation_roles.")
+                return redirect("finance:expense_detail", pk=pk)
+            expense.status = ExpenseRequest.Status.SUBMITTED
+            expense.submitted_at = timezone.now()
+            expense.save(update_fields=["status", "submitted_at", "updated_at"])
+            for role in roles:
+                ExpenseValidation.objects.get_or_create(
+                    request=expense, role=role,
+                    defaults={"decision": ExpenseValidation.Decision.PENDING},
+                )
+            messages.success(request, "Demande soumise. Les 3 valideurs RAF/DP/SE sont notifies.")
+            return redirect("finance:expense_detail", pk=pk)
+
+        if action == "cancel" and is_requester and expense.status in (
+            ExpenseRequest.Status.DRAFT,
+            ExpenseRequest.Status.SUBMITTED,
+        ):
+            expense.status = ExpenseRequest.Status.CANCELLED
+            expense.save(update_fields=["status", "updated_at"])
+            messages.info(request, "Demande annulee.")
+            return redirect("finance:expense_detail", pk=pk)
+
+        if action == "validate":
+            form = ExpenseValidationDecisionForm(request.POST)
+            if form.is_valid():
+                v = ExpenseValidation.objects.filter(
+                    pk=form.cleaned_data["validation_id"], request=expense
+                ).first()
+                if v is None:
+                    messages.error(request, "Validation introuvable.")
+                elif v.role.code not in user_role_codes:
+                    messages.error(request, f"Tu n'as pas le role {v.role.code} pour valider cette ligne.")
+                elif v.decision != ExpenseValidation.Decision.PENDING:
+                    messages.warning(request, "Cette ligne a deja ete signee.")
+                else:
+                    v.decision = form.cleaned_data["decision"]
+                    v.comment = form.cleaned_data["comment"]
+                    v.validator = request.user
+                    v.save()
+                    messages.success(request, f"Decision {v.get_decision_display()} enregistree pour {v.role.code}.")
+            return redirect("finance:expense_detail", pk=pk)
+
+        if action == "upload_document":
+            doc_form = ExpenseDocumentForm(request.POST, request.FILES)
+            if doc_form.is_valid():
+                doc = doc_form.save(commit=False)
+                doc.request = expense
+                doc.uploaded_by = request.user
+                doc.save()
+                messages.success(request, f"Document '{doc.get_document_type_display()}' ajoute.")
+            else:
+                messages.error(request, "Document invalide : verifier le fichier et le type.")
+            return redirect("finance:expense_detail", pk=pk)
+
+    decision_forms = []
+    for v in expense.validations.filter(**ACTIVE_DOMAIN):
+        if v.decision == ExpenseValidation.Decision.PENDING and v.role.code in user_role_codes:
+            decision_forms.append(
+                (v, ExpenseValidationDecisionForm(initial={"validation_id": v.id}))
+            )
+        else:
+            decision_forms.append((v, None))
+
+    context = {
+        "expense": expense,
+        "decision_forms": decision_forms,
+        "document_form": ExpenseDocumentForm(),
+        "is_requester": is_requester,
+        "user_role_codes": user_role_codes,
+    }
+    return render(request, "finance/expense_detail.html", context)
 
 
 def bank_account_detail(request, public_uuid):

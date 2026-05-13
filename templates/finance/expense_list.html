@@ -1,0 +1,86 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Demandes de depense{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Demandes de depense</div>
+                <h1>Workflow d'engagement : initiation, validation RAF/DP/SE, justifications.</h1>
+                <p class="lead">
+                    Toute depense doit etre initiee par un responsable de projet et validee
+                    par les trois roles RAF, DP, SE avant execution. Les pieces justificatives
+                    (proforma, BC, PV de selection, facture, rapport) sont attachees au fil
+                    du workflow.
+                </p>
+                <div style="margin-top:18px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    {% if user_has_employee %}
+                        <a class="button primary" href="/finance/demandes/nouvelle/">+ Nouvelle demande</a>
+                    {% else %}
+                        <span class="badge warn">Ton compte n'a pas d'Employee lie - pas de creation possible.</span>
+                    {% endif %}
+                    {% if user_can_validate %}
+                        <span class="badge cool">Tu es valideur : {{ user_roles_codes|join:", " }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card" style="background: rgba(255,255,255,0.8);">
+                <div class="muted">Filtrer</div>
+                <form method="get" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                    <select name="status" onchange="this.form.submit()">
+                        <option value="">Tous statuts</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if filters.status == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <label style="font-size:0.9rem;">
+                        <input type="checkbox" name="mine" value="1" {% if filters.mine %}checked{% endif %} onchange="this.form.submit()">
+                        Mes demandes uniquement
+                    </label>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card" style="overflow-x: auto;">
+            <table class="finance-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Titre</th>
+                        <th>Projet / BG</th>
+                        <th>Ligne budgetaire</th>
+                        <th>Demandeur</th>
+                        <th class="right">Montant</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for er in requests %}
+                    <tr>
+                        <td><a href="/finance/demandes/{{ er.id }}/"><strong>DD-{{ er.id }}</strong></a></td>
+                        <td>{{ er.title }}</td>
+                        <td>{% if er.project %}<a href="/projets/{{ er.project.public_uuid }}/">{{ er.project.code }}</a>{% else %}<span class="muted">Budget General</span>{% endif %}</td>
+                        <td><code style="font-size: 0.82rem;">{{ er.budget_line.code }}</code></td>
+                        <td>{{ er.requester }}</td>
+                        <td class="right">{{ er.requested_amount|floatformat:0 }} {{ er.currency }}</td>
+                        <td>
+                            <span class="badge {% if er.status == 'APPROVED' %}{% elif er.status == 'REJECTED' %}alert{% elif er.status == 'EXECUTED' %}cool{% elif er.status == 'SUBMITTED' %}warn{% else %}muted{% endif %}">
+                                {{ er.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7"><span class="muted">Aucune demande en base{% if filters.status %} pour ce filtre{% endif %}.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; DD-{{ expense.id }}{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div class="wrap" style="padding-top: 14px;">
+    {% for message in messages %}
+    <div class="placeholder-note" style="margin-bottom: 8px;">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Demande de depense DD-{{ expense.id }}</div>
+                <h1>{{ expense.title }}</h1>
+                <p class="lead">
+                    {{ expense.motif|linebreaksbr }}
+                </p>
+                <div style="margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <span class="badge {% if expense.status == 'APPROVED' %}{% elif expense.status == 'REJECTED' %}alert{% elif expense.status == 'EXECUTED' %}cool{% elif expense.status == 'SUBMITTED' %}warn{% else %}muted{% endif %}">
+                        {{ expense.get_status_display }}
+                    </span>
+                    <a class="button" href="/finance/demandes/">&larr; Liste</a>
+                    {% if is_requester and expense.status == 'DRAFT' %}
+                    <form method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="submit">
+                        <button class="button primary" type="submit">Soumettre pour validation</button>
+                    </form>
+                    {% endif %}
+                    {% if is_requester and expense.status == 'SUBMITTED' or expense.status == 'DRAFT' %}
+                    <form method="post" style="display: inline;" onsubmit="return confirm('Annuler cette demande ?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel">
+                        <button class="button" type="submit">Annuler la demande</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card soft-green">
+                    <div class="muted">Montant demande</div>
+                    <div class="metric-money">{{ expense.requested_amount|floatformat:0 }} {{ expense.currency }}</div>
+                </div>
+                <div class="stat-card soft-blue">
+                    <div class="muted">Imputation</div>
+                    <div style="margin-top: 6px;">
+                        {% if expense.project %}
+                            <a href="/projets/{{ expense.project.public_uuid }}/"><strong>{{ expense.project.code }}</strong></a>
+                        {% else %}
+                            <strong>Budget General</strong>
+                        {% endif %}
+                        <div class="muted" style="font-size: 0.86rem;">
+                            <code>{{ expense.budget_line.code }}</code> {{ expense.budget_line.description|truncatechars:80 }}
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="muted">Demandeur</div>
+                    <div style="margin-top: 6px;"><strong>{{ expense.requester }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-header">
+                    <h2>Validations</h2>
+                    <p class="muted">Triple validation RAF + DP + SE (parallele).</p>
+                </div>
+                <div class="stack">
+                    {% for validation, decision_form in decision_forms %}
+                    <div class="item">
+                        <strong>
+                            {{ validation.role.code }} - {{ validation.role.name }}
+                            <span class="badge {% if validation.decision == 'APPROVED' %}{% elif validation.decision == 'REJECTED' %}alert{% else %}muted{% endif %}">
+                                {{ validation.get_decision_display }}
+                            </span>
+                        </strong>
+                        {% if validation.validator %}
+                        <div class="muted" style="font-size: 0.86rem;">
+                            Signe par {{ validation.validator }} le {{ validation.decided_at|date:"d/m/Y H:i" }}
+                        </div>
+                        {% endif %}
+                        {% if validation.comment %}
+                        <div class="muted" style="font-size: 0.86rem; margin-top: 6px;">{{ validation.comment|linebreaksbr }}</div>
+                        {% endif %}
+                        {% if decision_form %}
+                        <form method="post" style="margin-top: 10px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="validate">
+                            {{ decision_form.validation_id }}
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                {% for radio in decision_form.decision %}
+                                <label>{{ radio.tag }} {{ radio.choice_label }}</label>
+                                {% endfor %}
+                            </div>
+                            <textarea name="comment" rows="2" placeholder="Commentaire (optionnel)" style="width: 100%; margin-top: 6px;"></textarea>
+                            <button type="submit" class="button primary" style="margin-top: 6px;">Enregistrer ma decision</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="placeholder-note">
+                        La demande est en brouillon. Elle generera 3 validations RAF/DP/SE quand elle sera soumise.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h2>Pieces justificatives</h2>
+                    <p class="muted">Proforma, BC, PV selection, facture, rapport.</p>
+                </div>
+                <div class="stack">
+                    {% for doc in expense.documents.all %}
+                    <div class="item">
+                        <strong>{{ doc.get_document_type_display }}</strong>
+                        <div class="muted" style="font-size: 0.86rem;">
+                            {% if doc.label %}{{ doc.label }} &middot; {% endif %}
+                            <a href="{{ doc.file.url }}" target="_blank">Telecharger</a>
+                        </div>
+                        <div class="muted" style="font-size: 0.78rem;">
+                            Ajoute par {{ doc.uploaded_by|default:"?" }} le {{ doc.uploaded_at|date:"d/m/Y H:i" }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="placeholder-note">Aucune piece justificative pour l'instant.</div>
+                    {% endfor %}
+                </div>
+
+                <form method="post" enctype="multipart/form-data" style="margin-top: 18px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="upload_document">
+                    <div class="stack" style="gap: 12px;">
+                        <div>
+                            <label style="font-weight: 700;">Type :</label>
+                            {{ document_form.document_type }}
+                        </div>
+                        <div>
+                            <label style="font-weight: 700;">Fichier :</label>
+                            {{ document_form.file }}
+                        </div>
+                        <div>
+                            <label style="font-weight: 700;">Libelle :</label>
+                            {{ document_form.label }}
+                        </div>
+                    </div>
+                    <button type="submit" class="button primary" style="margin-top: 10px;">+ Ajouter une piece</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    form input[type=text], form input[type=file], form select, form textarea {
+        width: 100%; padding: 10px 12px; border-radius: 12px;
+        border: 1px solid var(--line); background: rgba(255,255,255,0.85);
+        font: inherit;
+    }
+</style>
+{% endblock %}
