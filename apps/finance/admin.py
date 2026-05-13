@@ -1,5 +1,8 @@
 from django.contrib import admin
 
+from django.utils import timezone
+
+from apps.accounts.models import Role
 from apps.finance.models import (
     BankAccount,
     BankAccountSnapshot,
@@ -11,8 +14,75 @@ from apps.finance.models import (
     ChartOfAccount,
     Commitment,
     Disbursement,
+    ExpenseDocument,
+    ExpenseRequest,
+    ExpenseValidation,
     SupportingDoc,
 )
+
+
+class ExpenseValidationInline(admin.TabularInline):
+    model = ExpenseValidation
+    extra = 0
+    autocomplete_fields = ("role", "validator")
+    readonly_fields = ("decided_at",)
+    fields = ("role", "decision", "validator", "comment", "decided_at")
+
+
+class ExpenseDocumentInline(admin.TabularInline):
+    model = ExpenseDocument
+    extra = 0
+    readonly_fields = ("uploaded_at",)
+    fields = ("document_type", "file", "label", "uploaded_by", "uploaded_at")
+
+
+@admin.register(ExpenseRequest)
+class ExpenseRequestAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "project", "requester", "requested_amount", "currency", "status", "submitted_at", "decided_at")
+    search_fields = ("title", "motif", "requester__last_name", "requester__matricule", "project__code", "budget_line__code")
+    list_filter = ("status", "project", "is_active")
+    autocomplete_fields = ("project", "budget_line", "requester", "executed_bank_movement", "executed_cash_movement")
+    readonly_fields = ("submitted_at", "decided_at", "executed_at")
+    inlines = [ExpenseValidationInline, ExpenseDocumentInline]
+    actions = ["action_submit"]
+
+    @admin.action(description="Soumettre les demandes selectionnees pour validation (cree RAF + DP + SE)")
+    def action_submit(self, request, queryset):
+        roles_required = list(Role.objects.filter(code__in=["RAF", "DP", "SE"]))
+        if len(roles_required) < 3:
+            self.message_user(request, "Roles RAF/DP/SE manquants. Lancer seed_expense_validation_roles.", level=40)
+            return
+        moved = 0
+        for er in queryset:
+            if er.status != ExpenseRequest.Status.DRAFT:
+                continue
+            er.status = ExpenseRequest.Status.SUBMITTED
+            er.submitted_at = timezone.now()
+            er.save(update_fields=["status", "submitted_at", "updated_at"])
+            for role in roles_required:
+                ExpenseValidation.objects.get_or_create(
+                    request=er,
+                    role=role,
+                    defaults={"decision": ExpenseValidation.Decision.PENDING},
+                )
+            moved += 1
+        self.message_user(request, f"{moved} demande(s) soumise(s) avec leurs 3 validations PENDING.")
+
+
+@admin.register(ExpenseValidation)
+class ExpenseValidationAdmin(admin.ModelAdmin):
+    list_display = ("request", "role", "decision", "validator", "decided_at")
+    list_filter = ("decision", "role")
+    autocomplete_fields = ("request", "role", "validator")
+    readonly_fields = ("decided_at",)
+
+
+@admin.register(ExpenseDocument)
+class ExpenseDocumentAdmin(admin.ModelAdmin):
+    list_display = ("request", "document_type", "label", "uploaded_by", "uploaded_at")
+    list_filter = ("document_type",)
+    autocomplete_fields = ("request", "uploaded_by")
+    readonly_fields = ("uploaded_at",)
 
 
 @admin.register(ChartOfAccount)

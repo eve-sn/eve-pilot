@@ -268,6 +268,213 @@ class CashRegister(TrackedModel):
         return self.name
 
 
+def _expense_doc_upload_to(instance, filename):
+    """Range les pieces justificatives sous media/expense_documents/<request_id>/."""
+    rid = instance.request_id or "draft"
+    return f"expense_documents/{rid}/{filename}"
+
+
+class ExpenseRequest(TrackedModel):
+    """Demande de depense initiee par un responsable projet et soumise a
+    validation triple (RAF + DP + SE)."""
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Brouillon"
+        SUBMITTED = "SUBMITTED", "Soumise"
+        APPROVED = "APPROVED", "Approuvee"
+        REJECTED = "REJECTED", "Rejetee"
+        EXECUTED = "EXECUTED", "Executee"
+        CANCELLED = "CANCELLED", "Annulee"
+
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        related_name="expense_requests",
+        help_text="Projet d'imputation. Null = Budget General.",
+    )
+    budget_line = models.ForeignKey(
+        "finance.BudgetLine",
+        on_delete=models.PROTECT,
+        related_name="expense_requests",
+        help_text="Ligne budgetaire eligible.",
+    )
+    requester = models.ForeignKey(
+        "hr.Employee",
+        on_delete=models.PROTECT,
+        related_name="expense_requests_created",
+        help_text="Employe initiateur (responsable projet).",
+    )
+    title = models.CharField(max_length=200, help_text="Intitule court de la demande.")
+    motif = models.TextField(help_text="Justification metier detaillee.")
+    requested_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=3, default="XOF")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    decided_at = models.DateTimeField(blank=True, null=True)
+    executed_at = models.DateTimeField(blank=True, null=True)
+    executed_bank_movement = models.ForeignKey(
+        "finance.BankMovement",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="originating_expense_requests",
+    )
+    executed_cash_movement = models.ForeignKey(
+        "finance.CashMovement",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="originating_expense_requests",
+    )
+
+    class Meta:
+        db_table = "expense_requests"
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"DD {self.id or '?'} - {self.title} - {self.requested_amount} {self.currency}"
+
+    def recompute_status(self):
+        """Met a jour le status global en fonction des ExpenseValidation.
+
+        - Si la demande est encore en DRAFT/EXECUTED/CANCELLED on ne touche pas.
+        - Sinon : si une validation est REJECTED -> REJECTED.
+                  si toutes APPROVED -> APPROVED.
+                  sinon -> SUBMITTED (en attente).
+        """
+        from django.utils import timezone
+
+        if self.status in (
+            self.Status.DRAFT,
+            self.Status.EXECUTED,
+            self.Status.CANCELLED,
+        ):
+            return
+        validations = list(self.validations.filter(is_active=True, deleted_at__isnull=True))
+        if not validations:
+            return
+        if any(v.decision == ExpenseValidation.Decision.REJECTED for v in validations):
+            self.status = self.Status.REJECTED
+            if not self.decided_at:
+                self.decided_at = timezone.now()
+            self.save(update_fields=["status", "decided_at", "updated_at"])
+            return
+        if all(v.decision == ExpenseValidation.Decision.APPROVED for v in validations):
+            self.status = self.Status.APPROVED
+            if not self.decided_at:
+                self.decided_at = timezone.now()
+            self.save(update_fields=["status", "decided_at", "updated_at"])
+            return
+        # Sinon, on reste a SUBMITTED.
+
+
+class ExpenseValidation(TrackedModel):
+    """Avis de validation d'une demande de depense par un role (RAF, DP, SE).
+
+    Une demande SUBMITTED genere automatiquement N ExpenseValidation (une par
+    role validateur) avec decision = PENDING. Le validateur fait passer
+    l'enregistrement a APPROVED ou REJECTED.
+    """
+
+    class Decision(models.TextChoices):
+        PENDING = "PENDING", "En attente"
+        APPROVED = "APPROVED", "Approuvee"
+        REJECTED = "REJECTED", "Rejetee"
+
+    request = models.ForeignKey(
+        ExpenseRequest, on_delete=models.CASCADE, related_name="validations"
+    )
+    role = models.ForeignKey(
+        "accounts.Role",
+        on_delete=models.PROTECT,
+        related_name="expense_validations",
+        help_text="Role attendu (RAF, DP, SE).",
+    )
+    validator = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="expense_validations_signed",
+        help_text="Utilisateur ayant pris la decision (rempli au moment de signer).",
+    )
+    decision = models.CharField(
+        max_length=15, choices=Decision.choices, default=Decision.PENDING
+    )
+    comment = models.TextField(blank=True)
+    decided_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "expense_validations"
+        ordering = ["request_id", "role__code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["request", "role"],
+                name="uq_expense_validation_per_role",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.request_id} / {self.role.code if self.role_id else '?'} : {self.decision}"
+
+    def save(self, *args, **kwargs):
+        from django.utils import timezone
+
+        if self.decision in (self.Decision.APPROVED, self.Decision.REJECTED) and not self.decided_at:
+            self.decided_at = timezone.now()
+        super().save(*args, **kwargs)
+        # Trigger recompute sur la demande parente
+        if self.request_id:
+            request = ExpenseRequest.objects.filter(pk=self.request_id).first()
+            if request:
+                request.recompute_status()
+
+
+class ExpenseDocument(TrackedModel):
+    """Piece justificative attachee a une demande de depense.
+
+    Types attendus (selon le workflow EVE) :
+      PROFORMA      : facture proforma ou contrat soumis avec la demande
+      BC            : bon de commande
+      PV_SELECTION  : proces-verbal de selection fournisseur
+      FACTURE       : facture definitive
+      RAPPORT       : rapport d'execution / livrable
+      AUTRE         : tout autre justificatif
+    """
+
+    class DocumentType(models.TextChoices):
+        PROFORMA = "PROFORMA", "Facture proforma / contrat (initial)"
+        BC = "BC", "Bon de commande"
+        PV_SELECTION = "PV_SELECTION", "PV de selection"
+        FACTURE = "FACTURE", "Facture definitive"
+        RAPPORT = "RAPPORT", "Rapport / livrable"
+        AUTRE = "AUTRE", "Autre justificatif"
+
+    request = models.ForeignKey(
+        ExpenseRequest, on_delete=models.CASCADE, related_name="documents"
+    )
+    document_type = models.CharField(max_length=20, choices=DocumentType.choices)
+    file = models.FileField(upload_to=_expense_doc_upload_to)
+    label = models.CharField(max_length=200, blank=True)
+    uploaded_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="expense_documents_uploaded",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "expense_documents"
+        ordering = ["request_id", "document_type"]
+
+    def __str__(self):
+        return f"{self.request_id} / {self.document_type} : {self.label or self.file.name}"
+
+
 class CashMovement(TrackedModel):
     """Mouvement de caisse. Cf. plafonds CashRegister.
 

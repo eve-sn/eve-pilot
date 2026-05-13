@@ -247,6 +247,101 @@ class ChartOfAccountsViewTests(TestCase):
         self.assertContains(response, "LIAISON")
 
 
+class ExpenseRequestWorkflowTests(TestCase):
+    """Workflow ExpenseRequest : SUBMITTED -> APPROVED si les 3 valideurs OK,
+    REJECTED si un seul rejette."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.accounts.models import Role
+        from apps.finance.models import BudgetLine, ExpenseRequest, ExpenseValidation
+        from apps.hr.models import Employee
+        from apps.references.models import BudgetCategory
+
+        cls.raf = Role.objects.create(code="RAF", name="RAF")
+        cls.dp = Role.objects.create(code="DP", name="DP")
+        cls.se = Role.objects.create(code="SE", name="SE")
+        cls.category = BudgetCategory.objects.create(code="EX_CAT", name="Cat test")
+        cls.budget_line = BudgetLine.objects.create(
+            project=None,
+            category=cls.category,
+            code="EX-LINE-1",
+            description="Ligne test",
+            planned_amount=Decimal("0"),
+            fiscal_year=2026,
+        )
+        cls.employee = Employee.objects.create(
+            matricule="EX-001",
+            first_name="Test",
+            last_name="Requester",
+            hire_date=date(2024, 1, 1),
+            status=Employee.Status.ACTIVE,
+        )
+
+    def _make_submitted_request(self):
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        req = ExpenseRequest.objects.create(
+            project=None,
+            budget_line=self.budget_line,
+            requester=self.employee,
+            title="Achat papier",
+            motif="Reapprovisionnement papier bureau",
+            requested_amount=Decimal("25000"),
+            status=ExpenseRequest.Status.SUBMITTED,
+        )
+        # Cree les 3 validations PENDING
+        for role in (self.raf, self.dp, self.se):
+            ExpenseValidation.objects.create(
+                request=req, role=role, decision=ExpenseValidation.Decision.PENDING
+            )
+        return req
+
+    def test_request_becomes_approved_when_all_three_approve(self):
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        req = self._make_submitted_request()
+        for v in req.validations.all():
+            v.decision = ExpenseValidation.Decision.APPROVED
+            v.save()
+        req.refresh_from_db()
+        self.assertEqual(req.status, ExpenseRequest.Status.APPROVED)
+        self.assertIsNotNone(req.decided_at)
+
+    def test_request_becomes_rejected_on_first_rejection(self):
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        req = self._make_submitted_request()
+        first_validation = req.validations.first()
+        first_validation.decision = ExpenseValidation.Decision.REJECTED
+        first_validation.comment = "Motif insuffisant"
+        first_validation.save()
+        req.refresh_from_db()
+        self.assertEqual(req.status, ExpenseRequest.Status.REJECTED)
+
+    def test_request_stays_submitted_when_partial_approval(self):
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        req = self._make_submitted_request()
+        v = req.validations.first()
+        v.decision = ExpenseValidation.Decision.APPROVED
+        v.save()
+        req.refresh_from_db()
+        self.assertEqual(req.status, ExpenseRequest.Status.SUBMITTED)
+
+    def test_unique_validation_per_role(self):
+        from django.db import IntegrityError, transaction
+        from apps.finance.models import ExpenseValidation
+
+        req = self._make_submitted_request()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ExpenseValidation.objects.create(
+                    request=req, role=self.raf, decision=ExpenseValidation.Decision.PENDING
+                )
+
+
 class BankMovementUniqueConstraintTests(TestCase):
     def test_duplicate_movement_is_rejected(self):
         from datetime import date
