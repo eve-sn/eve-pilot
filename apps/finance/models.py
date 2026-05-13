@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -70,6 +72,14 @@ class BankMovement(TrackedModel):
       - exactement l'un des deux est non nul.
       - balance_after : solde de la ligne tel qu'imprime sur le releve
         (optionnel, pour reconciliation).
+
+    Imputation analytique :
+      - budget_line designe la ligne budgetaire eligible (du BG ou d'un projet).
+      - project peut etre deduit de budget_line.project mais reste stocke
+        independamment pour les cas ou la budget_line n'est pas (encore)
+        renseignee.
+      - commentary porte la justification metier (numero piece, beneficiaire
+        reel, motif).
     """
 
     account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="movements")
@@ -86,13 +96,21 @@ class BankMovement(TrackedModel):
         null=True,
         help_text="Solde apres operation tel que sur le releve.",
     )
+    budget_line = models.ForeignKey(
+        "finance.BudgetLine",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="bank_movements",
+        help_text="Imputation analytique : ligne budgetaire (BG ou projet) eligible.",
+    )
     project = models.ForeignKey(
         "projects.Project",
         on_delete=models.SET_NULL,
         blank=True,
         null=True,
         related_name="bank_movements",
-        help_text="Projet auquel le mouvement se rapporte, si identifiable.",
+        help_text="Projet auquel le mouvement se rapporte. Cohere avec budget_line.project quand les deux sont renseignes.",
     )
     cashflow_entry = models.ForeignKey(
         "CashflowEntry",
@@ -101,6 +119,10 @@ class BankMovement(TrackedModel):
         null=True,
         related_name="bank_movements",
         help_text="Ligne de plan tresorerie matchee, si applicable (suivi reel/prevu).",
+    )
+    commentary = models.TextField(
+        blank=True,
+        help_text="Justification metier de l'operation (numero piece, beneficiaire reel, motif).",
     )
     source_document = models.CharField(
         max_length=200,
@@ -114,11 +136,132 @@ class BankMovement(TrackedModel):
         indexes = [
             models.Index(fields=["account", "-date_operation"]),
             models.Index(fields=["reference"]),
+            models.Index(fields=["budget_line"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["account", "date_operation", "reference", "debit", "credit"],
+                name="uq_bank_movement_idempotent_key",
+            )
         ]
 
     def __str__(self):
         amount = self.credit if self.credit else -self.debit
         return f"{self.account.name} {self.date_operation} {amount:+.2f}"
+
+
+class CashRegister(TrackedModel):
+    """Caisse centrale EVE (menue depense). Une seule caisse a date.
+
+    Regles metier :
+    - Plafond unitaire : 40 000 FCFA par operation (rejet si depassement).
+    - Plafond hebdomadaire (semaine ISO) : 100 000 FCFA cumule sur les
+      sorties de caisse (rejet si depassement).
+    """
+
+    UNIT_LIMIT = Decimal("40000.00")
+    WEEKLY_LIMIT = Decimal("100000.00")
+
+    name = models.CharField(max_length=80, unique=True, default="Caisse centrale BG")
+    currency = models.CharField(max_length=3, default="XOF")
+    opening_balance = models.DecimalField(max_digits=14, decimal_places=2, blank=True, null=True)
+    opening_date = models.DateField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "cash_registers"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class CashMovement(TrackedModel):
+    """Mouvement de caisse. Cf. plafonds CashRegister.
+
+    Conventions identiques a BankMovement : debit/credit en positif,
+    exactement l'un des deux non nul.
+    """
+
+    register = models.ForeignKey(CashRegister, on_delete=models.CASCADE, related_name="movements")
+    date_operation = models.DateField()
+    reference = models.CharField(max_length=50, blank=True)
+    label = models.CharField(max_length=300)
+    debit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    budget_line = models.ForeignKey(
+        "finance.BudgetLine",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cash_movements",
+    )
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cash_movements",
+    )
+    commentary = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "cash_movements"
+        ordering = ["-date_operation", "-id"]
+        indexes = [
+            models.Index(fields=["register", "-date_operation"]),
+            models.Index(fields=["budget_line"]),
+        ]
+
+    def clean(self):
+        """Validation stricte des plafonds caisse."""
+        from django.core.exceptions import ValidationError
+
+        if self.debit and self.credit:
+            raise ValidationError("Un mouvement caisse a soit un debit, soit un credit, pas les deux.")
+        if not self.debit and not self.credit:
+            raise ValidationError("Un mouvement caisse doit avoir un debit ou un credit non nul.")
+
+        # Plafond unitaire (sur le debit, sortie de caisse)
+        if self.debit and self.debit > CashRegister.UNIT_LIMIT:
+            raise ValidationError(
+                f"Plafond unitaire caisse depasse : {self.debit} FCFA > "
+                f"{CashRegister.UNIT_LIMIT} FCFA autorises par operation."
+            )
+
+        # Plafond hebdomadaire (semaine ISO du date_operation, cumul des debits)
+        if self.debit and self.date_operation:
+            year, week, _ = self.date_operation.isocalendar()
+            week_qs = CashMovement.objects.filter(
+                register=self.register,
+                is_active=True,
+                deleted_at__isnull=True,
+            )
+            if self.pk:
+                week_qs = week_qs.exclude(pk=self.pk)
+            same_week_debit = Decimal("0")
+            for other in week_qs.only("debit", "date_operation"):
+                if not other.date_operation:
+                    continue
+                oy, ow, _ = other.date_operation.isocalendar()
+                if (oy, ow) == (year, week):
+                    same_week_debit += other.debit or Decimal("0")
+            projected = same_week_debit + self.debit
+            if projected > CashRegister.WEEKLY_LIMIT:
+                raise ValidationError(
+                    f"Plafond hebdomadaire caisse depasse : cumul "
+                    f"semaine ISO {year}-W{week:02d} = {projected} FCFA "
+                    f"(deja {same_week_debit} + cette operation {self.debit}), "
+                    f"plafond {CashRegister.WEEKLY_LIMIT} FCFA."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        amount = self.credit if self.credit else -self.debit
+        return f"Caisse {self.date_operation} {amount:+.2f}"
 
 
 class CashflowEntry(TrackedModel):

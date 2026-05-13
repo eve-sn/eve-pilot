@@ -156,3 +156,80 @@ class BudgetLineNullableProjectTests(TestCase):
             fiscal_year=2026,
         )
         self.assertIsNone(line.project)
+
+
+class CashRegisterValidationTests(TestCase):
+    """Plafonds caisse : 40 000 par operation, 100 000 par semaine ISO."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.finance.models import CashRegister
+
+        cls.register = CashRegister.objects.create(name="Caisse test")
+
+    def _make_movement(self, debit, day):
+        from apps.finance.models import CashMovement
+        from datetime import date
+
+        return CashMovement(
+            register=self.register,
+            date_operation=date(2026, 5, day),
+            label="Test op",
+            debit=Decimal(str(debit)),
+            credit=Decimal("0"),
+        )
+
+    def test_unit_cap_rejects_more_than_40000(self):
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            self._make_movement(45000, 5).save()
+
+    def test_unit_cap_accepts_exactly_40000(self):
+        movement = self._make_movement(40000, 5)
+        movement.save()
+        self.assertIsNotNone(movement.pk)
+
+    def test_weekly_cap_rejects_cumulative_over_100000(self):
+        from django.core.exceptions import ValidationError
+
+        # All four days are within the same ISO week (W19 of 2026 :
+        # Monday 4 May -> Sunday 10 May).
+        self._make_movement(40000, 4).save()
+        self._make_movement(40000, 5).save()
+        self._make_movement(20000, 6).save()  # cumul = 100 000 pile, OK
+        with self.assertRaises(ValidationError):
+            # 5e operation 1 FCFA -> cumul 100 001 -> rejet
+            self._make_movement(1, 7).save()
+
+    def test_weekly_cap_resets_across_iso_weeks(self):
+        # 5 mai (W19) cumul 40k, puis 12 mai (W20) doit recommencer a 0
+        self._make_movement(40000, 5).save()
+        self._make_movement(40000, 12).save()  # autre semaine ISO -> OK
+
+
+class BankMovementUniqueConstraintTests(TestCase):
+    def test_duplicate_movement_is_rejected(self):
+        from datetime import date
+        from django.db import IntegrityError, transaction
+        from apps.finance.models import BankAccount, BankMovement
+
+        account = BankAccount.objects.create(name="Test BA", bank_name="X")
+        BankMovement.objects.create(
+            account=account,
+            date_operation=date(2026, 1, 15),
+            reference="REF-1",
+            label="Mouvement test",
+            debit=Decimal("100.00"),
+            credit=Decimal("0"),
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                BankMovement.objects.create(
+                    account=account,
+                    date_operation=date(2026, 1, 15),
+                    reference="REF-1",
+                    label="Mouvement test (doublon)",
+                    debit=Decimal("100.00"),
+                    credit=Decimal("0"),
+                )

@@ -141,6 +141,7 @@ class Command(BaseCommand):
                 name=spec["name"],
                 defaults={
                     "bank_name": spec["bank_name"],
+                    "account_reference": spec.get("account_reference", ""),
                     "opening_balance": spec["opening_balance"],
                     "opening_date": OPENING_DATE if spec["opening_balance"] is not None else None,
                     "currency": "XOF",
