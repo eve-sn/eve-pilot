@@ -57,7 +57,7 @@ class Command(BaseCommand):
             "total_budget": Decimal("3279785.00"),
             "currency": "XOF",
             "start_date": date(2025, 7, 15),
-            "end_date": date(2025, 12, 31),
+            "end_date": date(2026, 7, 14),  # 12 mois conventionnels
             "status": Project.Status.ACTIVE,
             "sector": "NUTRITION",
             "progress_percentage": Decimal("0.00"),
