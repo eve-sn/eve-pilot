@@ -125,6 +125,18 @@ KNOWN_CONTRIBUTIONS = {
             "comme recette du Budget General EVE."
         ),
     },
+    "NOUSCIMS-GT-WALLU-DOOM-2025": {
+        "amount": Decimal("103535.00"),
+        "pct": Decimal("3.16"),  # 103535 / 3279785
+        "note": (
+            "Source: budget Campagne Wallu_GT.xlsx, ligne R58 'Frais de gestion' "
+            "(orthographiee 'Frais e gestion' dans le xlsx). Seule ligne du "
+            "budget consideree comme recette du Budget General EVE pour ce "
+            "projet ponctuel (campagne Wallu Dome). Le reste finance "
+            "directement les activites de la campagne (preparation, "
+            "communication, mobilisation, divers et imprevus)."
+        ),
+    },
     "ONASAFD-PDBH-IEC-2025": {
         "amount": Decimal("243025423.73"),
         "pct": Decimal("84.75"),  # 243025424 / 286770000 (HT / TTC)
