@@ -247,6 +247,98 @@ class ChartOfAccountsViewTests(TestCase):
         self.assertContains(response, "LIAISON")
 
 
+class JournalPostingTests(TestCase):
+    """Auto-generation des ecritures en partie double depuis BankMovement."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import BankAccount, ChartOfAccount
+
+        cls.bank = BankAccount.objects.create(name="Banque test posting", bank_name="X")
+        # Compte de tresorerie 512.x lie au compte bancaire
+        cls.treasury = ChartOfAccount.objects.create(
+            code="512.99", name="Banque test - tresorerie", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        # Compte de charge contrepartie
+        cls.charge = ChartOfAccount.objects.create(
+            code="64.99", name="Charges de personnel test", class_number=6,
+        )
+        # Compte de produit contrepartie
+        cls.produit = ChartOfAccount.objects.create(
+            code="75.99", name="Subventions test", class_number=7,
+        )
+
+    def test_no_entry_without_contra_account(self):
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 1),
+            reference="NOCONTRA", label="Sans imputation",
+            debit=Decimal("50000"), credit=Decimal("0"),
+        )
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+
+    def test_debit_movement_posts_debit_contra_credit_treasury(self):
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 2),
+            reference="PAY-1", label="Paiement salaire",
+            debit=Decimal("120000"), credit=Decimal("0"),
+            contra_account=self.charge,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertTrue(entry.is_balanced)
+        self.assertEqual(entry.total_debit, Decimal("120000"))
+        charge_line = entry.lines.get(account=self.charge)
+        treasury_line = entry.lines.get(account=self.treasury)
+        self.assertEqual(charge_line.debit, Decimal("120000"))
+        self.assertEqual(treasury_line.credit, Decimal("120000"))
+
+    def test_credit_movement_posts_debit_treasury_credit_contra(self):
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 3),
+            reference="SUBV-1", label="Subvention recue",
+            debit=Decimal("0"), credit=Decimal("900000"),
+            contra_account=self.produit,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertTrue(entry.is_balanced)
+        treasury_line = entry.lines.get(account=self.treasury)
+        produit_line = entry.lines.get(account=self.produit)
+        self.assertEqual(treasury_line.debit, Decimal("900000"))
+        self.assertEqual(produit_line.credit, Decimal("900000"))
+
+    def test_changing_contra_account_regenerates_entry(self):
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 4),
+            reference="REGEN-1", label="Mouvement a re-imputer",
+            debit=Decimal("30000"), credit=Decimal("0"),
+            contra_account=self.charge,
+        )
+        first = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertEqual(first.lines.get(account=self.charge).debit, Decimal("30000"))
+        # Re-imputation
+        m.contra_account = self.produit
+        m.save()
+        m.refresh_from_db()
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        # L'ancienne ligne sur self.charge a disparu, remplacee par self.produit
+        self.assertFalse(entry.lines.filter(account=self.charge).exists())
+        self.assertTrue(entry.lines.filter(account=self.produit).exists())
+        self.assertTrue(entry.is_balanced)
+
+
 class ExpensePublicUIPermissionsTests(TestCase):
     """L'UI expense /finance/demandes/ doit exiger un user connecte."""
 
