@@ -623,6 +623,128 @@ def trial_balance(request):
     return render(request, "finance/trial_balance.html", context)
 
 
+def _account_balances():
+    """Retourne {ChartOfAccount: solde_net} pour tous les comptes ayant des
+    JournalLine. solde_net = total_debit - total_credit (positif = debiteur)."""
+    rows = (
+        JournalLine.objects.filter(**ACTIVE_DOMAIN)
+        .values("account_id")
+        .annotate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    )
+    balances = {}
+    account_ids = [r["account_id"] for r in rows]
+    accounts = {
+        a.id: a
+        for a in ChartOfAccount.objects.filter(id__in=account_ids).order_by("code")
+    }
+    for r in rows:
+        acc = accounts.get(r["account_id"])
+        if acc is None:
+            continue
+        net = (r["total_debit"] or Decimal("0")) - (r["total_credit"] or Decimal("0"))
+        balances[acc] = {
+            "debit": r["total_debit"] or Decimal("0"),
+            "credit": r["total_credit"] or Decimal("0"),
+            "net": net,
+        }
+    return balances
+
+
+def income_statement(request):
+    """Compte de resultat SYCEBNL : charges (classe 6) vs produits (classe 7)."""
+
+    balances = _account_balances()
+
+    charges = []
+    produits = []
+    total_charges = Decimal("0")
+    total_produits = Decimal("0")
+
+    for account, data in sorted(balances.items(), key=lambda kv: kv[0].code):
+        if account.class_number == ChartOfAccount.AccountClass.EXPENSES:
+            # Charge : montant = solde debiteur
+            amount = data["net"]
+            charges.append({"account": account, "amount": amount})
+            total_charges += amount
+        elif account.class_number == ChartOfAccount.AccountClass.REVENUE:
+            # Produit : montant = solde crediteur (donc -net)
+            amount = -data["net"]
+            produits.append({"account": account, "amount": amount})
+            total_produits += amount
+
+    result = total_produits - total_charges
+
+    context = {
+        "charges": charges,
+        "produits": produits,
+        "total_charges": total_charges,
+        "total_produits": total_produits,
+        "result": result,
+        "is_profit": result >= 0,
+        "has_data": bool(charges or produits),
+    }
+    return render(request, "finance/income_statement.html", context)
+
+
+def balance_sheet(request):
+    """Bilan SYCEBNL simplifie : actif (soldes debiteurs classes 1-5) /
+    passif (soldes crediteurs classes 1-5) + resultat de l'exercice.
+
+    Note : tant que les ecritures d'a-nouveau (report des soldes
+    d'ouverture) ne sont pas saisies, ce bilan reflete les flux de la
+    periode, pas un patrimoine complet.
+    """
+
+    balances = _account_balances()
+
+    actif = []
+    passif = []
+    total_actif = Decimal("0")
+    total_passif = Decimal("0")
+    total_charges = Decimal("0")
+    total_produits = Decimal("0")
+
+    for account, data in sorted(balances.items(), key=lambda kv: kv[0].code):
+        cls = account.class_number
+        net = data["net"]
+        if cls == ChartOfAccount.AccountClass.EXPENSES:
+            total_charges += net
+            continue
+        if cls == ChartOfAccount.AccountClass.REVENUE:
+            total_produits += -net
+            continue
+        # Classes 1 a 5 (et 8) : actif si debiteur, passif si crediteur
+        if net > 0:
+            actif.append({"account": account, "amount": net})
+            total_actif += net
+        elif net < 0:
+            passif.append({"account": account, "amount": -net})
+            total_passif += -net
+
+    result = total_produits - total_charges
+    # Le resultat va au passif si benefice, a l'actif si perte.
+    if result >= 0:
+        total_passif_with_result = total_passif + result
+        total_actif_with_result = total_actif
+    else:
+        total_passif_with_result = total_passif
+        total_actif_with_result = total_actif + (-result)
+
+    context = {
+        "actif": actif,
+        "passif": passif,
+        "total_actif": total_actif,
+        "total_passif": total_passif,
+        "result": result,
+        "is_profit": result >= 0,
+        "total_actif_with_result": total_actif_with_result,
+        "total_passif_with_result": total_passif_with_result,
+        "is_balanced": total_actif_with_result == total_passif_with_result,
+        "has_data": bool(actif or passif),
+    }
+    return render(request, "finance/balance_sheet.html", context)
+
+
 def bank_account_detail(request, public_uuid):
     """Detail d'un compte bancaire : projets rattaches, snapshots de solde,
     mouvements bancaires (BankMovement) saisis pour ce compte."""

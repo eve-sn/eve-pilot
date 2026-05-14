@@ -208,6 +208,63 @@ class CashRegisterValidationTests(TestCase):
         self._make_movement(40000, 12).save()  # autre semaine ISO -> OK
 
 
+class FinancialStatementsTests(TestCase):
+    """Compte de resultat + bilan : routes 200 et coherence comptable."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import (
+            BankAccount, ChartOfAccount, JournalEntry, JournalLine,
+        )
+
+        bank = BankAccount.objects.create(name="Banque stmt test", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="512.STMT", name="Tresorerie test", class_number=5,
+            linked_bank_account=bank,
+        )
+        cls.charge = ChartOfAccount.objects.create(
+            code="64.STMT", name="Charges personnel test", class_number=6,
+        )
+        cls.produit = ChartOfAccount.objects.create(
+            code="75.STMT", name="Subventions test", class_number=7,
+        )
+        # Ecriture 1 : charge 200 000 (debit charge / credit tresorerie)
+        e1 = JournalEntry.objects.create(entry_date=date(2026, 1, 10), label="Charge test")
+        JournalLine.objects.create(entry=e1, account=cls.charge, debit=Decimal("200000"), credit=Decimal("0"))
+        JournalLine.objects.create(entry=e1, account=cls.treasury, debit=Decimal("0"), credit=Decimal("200000"))
+        # Ecriture 2 : produit 500 000 (debit tresorerie / credit produit)
+        e2 = JournalEntry.objects.create(entry_date=date(2026, 1, 11), label="Produit test")
+        JournalLine.objects.create(entry=e2, account=cls.treasury, debit=Decimal("500000"), credit=Decimal("0"))
+        JournalLine.objects.create(entry=e2, account=cls.produit, debit=Decimal("0"), credit=Decimal("500000"))
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_income_statement_returns_200_and_computes_result(self):
+        response = self.client.get("/finance/compte-resultat/")
+        self.assertEqual(response.status_code, 200)
+        # produits 500 000 - charges 200 000 = resultat 300 000 (excedent)
+        content = response.content.decode("utf-8")
+        self.assertIn("300000", content.replace(" ", ""))
+        self.assertIn("Excedent", content)
+
+    def test_balance_sheet_returns_200_and_is_balanced(self):
+        response = self.client.get("/finance/bilan/")
+        self.assertEqual(response.status_code, 200)
+        # tresorerie nette = -200000 + 500000 = +300000 -> actif
+        # resultat +300000 -> passif. Bilan equilibre.
+        self.assertContains(response, "OK")
+
+    def test_balance_sheet_balances_actif_equals_passif(self):
+        response = self.client.get("/finance/bilan/")
+        self.assertTrue(response.context["is_balanced"])
+        self.assertEqual(
+            response.context["total_actif_with_result"],
+            response.context["total_passif_with_result"],
+        )
+
+
 class ChartOfAccountsViewTests(TestCase):
     """Smoke test plan comptable SYCEBNL : route 200 + comptes de liaison rendus."""
 

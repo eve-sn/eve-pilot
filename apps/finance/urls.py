@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.finance.views import (
+    balance_sheet,
     bank_account_detail,
     cashflow_dashboard,
     chart_of_accounts_view,
@@ -9,6 +10,7 @@ from apps.finance.views import (
     expense_list,
     finance_dashboard,
     general_ledger,
+    income_statement,
     trial_balance,
 )
 
@@ -20,6 +22,8 @@ urlpatterns = [
     path("tresorerie/", cashflow_dashboard, name="cashflow"),
     path("plan-comptable/", chart_of_accounts_view, name="chart_of_accounts"),
     path("balance/", trial_balance, name="trial_balance"),
+    path("compte-resultat/", income_statement, name="income_statement"),
+    path("bilan/", balance_sheet, name="balance_sheet"),
     path("grand-livre/<str:code>/", general_ledger, name="general_ledger"),
     path("comptes/<uuid:public_uuid>/", bank_account_detail, name="bank_account"),
     path("demandes/", expense_list, name="expense_list"),
