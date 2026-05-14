@@ -14,6 +14,10 @@ from apps.finance.forms import (
     ExpenseRequestForm,
     ExpenseValidationDecisionForm,
 )
+from apps.finance.notifications import (
+    notify_requester_on_decision,
+    notify_validators_on_submit,
+)
 from apps.finance.models import (
     BankAccount,
     BankAccountSnapshot,
@@ -448,6 +452,7 @@ def expense_detail(request, pk):
                     request=expense, role=role,
                     defaults={"decision": ExpenseValidation.Decision.PENDING},
                 )
+            notify_validators_on_submit(expense)
             messages.success(request, "Demande soumise. Les 3 valideurs RAF/DP/SE sont notifies.")
             return redirect("finance:expense_detail", pk=pk)
 
@@ -478,6 +483,14 @@ def expense_detail(request, pk):
                     v.validator = request.user
                     v.save()
                     messages.success(request, f"Decision {v.get_decision_display()} enregistree pour {v.role.code}.")
+                    # v.save() a declenche recompute_status() sur une autre
+                    # instance ; on relit l'etat reel depuis la base.
+                    expense.refresh_from_db()
+                    if expense.status in (
+                        ExpenseRequest.Status.APPROVED,
+                        ExpenseRequest.Status.REJECTED,
+                    ):
+                        notify_requester_on_decision(expense)
             return redirect("finance:expense_detail", pk=pk)
 
         if action == "upload_document":

@@ -5,7 +5,8 @@ Smoke tests for the Finance module : dashboard, cash-flow plan, bank accounts.
 from datetime import date
 from decimal import Decimal
 
-from django.test import Client, TestCase
+from django.core import mail
+from django.test import Client, TestCase, override_settings
 
 from apps.finance.models import BankAccount, BudgetLine, CashflowEntry
 from apps.projects.models import Donor, Project
@@ -528,3 +529,155 @@ class BankMovementUniqueConstraintTests(TestCase):
                     debit=Decimal("100.00"),
                     credit=Decimal("0"),
                 )
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="EVE Pilot <no-reply@eve-sn.org>",
+    SITE_BASE_URL="http://testserver",
+)
+class ExpenseNotificationTests(TestCase):
+    """Notifications email du workflow de demande de depense."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import Role, User, UserRole
+        from apps.finance.models import BudgetLine, ExpenseRequest, ExpenseValidation
+        from apps.hr.models import Employee
+
+        cls.raf = Role.objects.create(code="RAF", name="RAF")
+        cls.dp = Role.objects.create(code="DP", name="DP")
+        cls.se = Role.objects.create(code="SE", name="SE")
+        cls.category = BudgetCategory.objects.create(code="NOTIF_CAT", name="Cat notif")
+        cls.budget_line = BudgetLine.objects.create(
+            project=None,
+            category=cls.category,
+            code="NOTIF-LINE-1",
+            description="Ligne notif",
+            planned_amount=Decimal("0"),
+            fiscal_year=2026,
+        )
+        cls.requester_employee = Employee.objects.create(
+            matricule="NOTIF-001",
+            first_name="Demandeur",
+            last_name="Notif",
+            hire_date=date(2024, 1, 1),
+            status=Employee.Status.ACTIVE,
+            email_professional="demandeur@eve-sn.org",
+        )
+        # Valideurs avec comptes User + roles
+        cls.user_raf = User.objects.create_user(
+            username="raf_user", email="raf@eve-sn.org",
+            first_name="Le", last_name="Raf", password="x",
+        )
+        cls.user_dp = User.objects.create_user(
+            username="dp_user", email="dp@eve-sn.org",
+            first_name="Le", last_name="Dp", password="x",
+        )
+        cls.user_se = User.objects.create_user(
+            username="se_user", email="se@eve-sn.org",
+            first_name="Le", last_name="Se", password="x",
+        )
+        UserRole.objects.create(user=cls.user_raf, role=cls.raf)
+        UserRole.objects.create(user=cls.user_dp, role=cls.dp)
+        UserRole.objects.create(user=cls.user_se, role=cls.se)
+
+    def _make_submitted_request(self):
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        req = ExpenseRequest.objects.create(
+            project=None,
+            budget_line=self.budget_line,
+            requester=self.requester_employee,
+            title="Achat fournitures",
+            motif="Test notification",
+            requested_amount=Decimal("30000"),
+            status=ExpenseRequest.Status.SUBMITTED,
+        )
+        for role in (self.raf, self.dp, self.se):
+            ExpenseValidation.objects.create(
+                request=req, role=role, decision=ExpenseValidation.Decision.PENDING
+            )
+        return req
+
+    def test_notify_validators_on_submit_emails_all_three(self):
+        from apps.finance.notifications import notify_validators_on_submit
+
+        req = self._make_submitted_request()
+        mail.outbox = []
+        sent = notify_validators_on_submit(req)
+        self.assertTrue(sent)
+        self.assertEqual(len(mail.outbox), 1)
+        msg = mail.outbox[0]
+        self.assertCountEqual(
+            msg.to, ["raf@eve-sn.org", "dp@eve-sn.org", "se@eve-sn.org"]
+        )
+        self.assertIn(f"DD-{req.id}", msg.subject)
+
+    def test_notify_requester_on_decision_emails_requester(self):
+        from apps.finance.models import ExpenseRequest
+        from apps.finance.notifications import notify_requester_on_decision
+
+        req = self._make_submitted_request()
+        req.status = ExpenseRequest.Status.APPROVED
+        req.save(update_fields=["status", "updated_at"])
+        mail.outbox = []
+        sent = notify_requester_on_decision(req)
+        self.assertTrue(sent)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["demandeur@eve-sn.org"])
+        self.assertIn("APPROUVEE", mail.outbox[0].body)
+
+    def test_notify_requester_without_email_returns_false(self):
+        from apps.finance.models import ExpenseRequest
+        from apps.finance.notifications import notify_requester_on_decision
+        from apps.hr.models import Employee
+
+        no_email_emp = Employee.objects.create(
+            matricule="NOTIF-002",
+            first_name="Sans",
+            last_name="Mail",
+            hire_date=date(2024, 1, 1),
+            status=Employee.Status.ACTIVE,
+        )
+        req = self._make_submitted_request()
+        req.requester = no_email_emp
+        req.status = ExpenseRequest.Status.REJECTED
+        req.save(update_fields=["requester", "status", "updated_at"])
+        mail.outbox = []
+        sent = notify_requester_on_decision(req)
+        self.assertFalse(sent)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_submit_action_triggers_validator_notification(self):
+        from apps.accounts.models import User
+        from apps.finance.models import ExpenseRequest
+
+        # Le demandeur a besoin d'un compte User lie a son Employee.
+        requester_user = User.objects.create_user(
+            username="demandeur_user", email="demandeur@eve-sn.org",
+            first_name="Demandeur", last_name="Notif", password="x",
+        )
+        requester_user.employee = self.requester_employee
+        requester_user.save(update_fields=["employee"])
+
+        req = ExpenseRequest.objects.create(
+            project=None,
+            budget_line=self.budget_line,
+            requester=self.requester_employee,
+            title="Achat via UI",
+            motif="Test soumission",
+            requested_amount=Decimal("12000"),
+            status=ExpenseRequest.Status.DRAFT,
+        )
+        client = Client()
+        client.force_login(requester_user)
+        mail.outbox = []
+        response = client.post(
+            f"/finance/demandes/{req.id}/", {"action": "submit"}
+        )
+        self.assertEqual(response.status_code, 302)
+        req.refresh_from_db()
+        self.assertEqual(req.status, ExpenseRequest.Status.SUBMITTED)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(f"DD-{req.id}", mail.outbox[0].subject)
