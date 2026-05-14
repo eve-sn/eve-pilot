@@ -56,6 +56,9 @@ class ActivityForm(forms.ModelForm):
         self.fields["responsible"].empty_label = "-- Aucun responsable --"
         self.fields["planned_end_date"].required = False
         self.fields["planned_budget"].required = False
+        # Le modele autorise une date vide (import cadre logique), mais la
+        # saisie manuelle d'une activite doit rester calendarisee.
+        self.fields["planned_start_date"].required = True
 
     def clean(self):
         cleaned = super().clean()

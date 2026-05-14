@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import Client, TestCase
 
 from apps.accounts.models import Role, User, UserRole
@@ -238,3 +239,31 @@ class ActivityReportWorkflowTests(TestCase):
             },
         )
         self.assertEqual(ActivityEvidence.objects.filter(activity_report=report).count(), 1)
+
+
+class SaintLouisImportTests(TestCase):
+    """Commande d'import du cadre logique du projet Saint-Louis."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.project = Project.objects.create(
+            code="NOUSCIMS-SL-2026",
+            title="Saint-Louis - Gouvernance Multisectorielle (Nous-Cims)",
+            start_date=date(2025, 8, 1),
+            end_date=date(2028, 7, 31),
+        )
+
+    def test_import_creates_17_activities(self):
+        call_command("import_activities_saint_louis")
+        activities = Activity.objects.filter(project=self.project)
+        self.assertEqual(activities.count(), 17)
+        # Une activite par resultat est presente, dates non calendarisees.
+        a = Activity.objects.get(code="SL-R1-A1")
+        self.assertIsNone(a.planned_start_date)
+        self.assertEqual(a.status, Activity.Status.PLANNED)
+        self.assertIn("Objectif specifique 1", a.description)
+
+    def test_import_is_idempotent(self):
+        call_command("import_activities_saint_louis")
+        call_command("import_activities_saint_louis")
+        self.assertEqual(Activity.objects.filter(project=self.project).count(), 17)

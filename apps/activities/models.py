@@ -16,7 +16,14 @@ class Activity(TrackedModel):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     activity_type = models.CharField(max_length=40, blank=True)
-    planned_start_date = models.DateField()
+    planned_start_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text=(
+            "Date de debut prevue. Peut etre vide pour une activite issue d'un "
+            "cadre logique non encore calendarise ; la saisie manuelle l'exige."
+        ),
+    )
     planned_end_date = models.DateField(blank=True, null=True)
     planned_budget = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     responsible = models.ForeignKey(
