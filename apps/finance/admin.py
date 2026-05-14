@@ -17,8 +17,39 @@ from apps.finance.models import (
     ExpenseDocument,
     ExpenseRequest,
     ExpenseValidation,
+    JournalEntry,
+    JournalLine,
     SupportingDoc,
 )
+
+
+class JournalLineInline(admin.TabularInline):
+    model = JournalLine
+    extra = 0
+    autocomplete_fields = ("account",)
+    fields = ("account", "debit", "credit", "label")
+
+
+@admin.register(JournalEntry)
+class JournalEntryAdmin(admin.ModelAdmin):
+    list_display = ("id", "entry_date", "reference", "label", "posted", "total_debit", "total_credit", "is_balanced")
+    search_fields = ("reference", "label")
+    list_filter = ("posted", "entry_date", "is_active")
+    date_hierarchy = "entry_date"
+    inlines = [JournalLineInline]
+    readonly_fields = ("source_bank_movement", "source_cash_movement")
+
+    @admin.display(boolean=True, description="Equilibree")
+    def is_balanced(self, obj):
+        return obj.is_balanced
+
+
+@admin.register(JournalLine)
+class JournalLineAdmin(admin.ModelAdmin):
+    list_display = ("entry", "account", "debit", "credit", "label")
+    search_fields = ("account__code", "account__name", "label")
+    list_filter = ("account__class_number",)
+    autocomplete_fields = ("entry", "account")
 
 
 class ExpenseValidationInline(admin.TabularInline):

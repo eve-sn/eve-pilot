@@ -268,6 +268,83 @@ class CashRegister(TrackedModel):
         return self.name
 
 
+class JournalEntry(TrackedModel):
+    """Ecriture comptable en partie double (SYCEBNL).
+
+    Une ecriture regroupe N JournalLine dont la somme des debits doit egaler
+    la somme des credits. Une ecriture peut etre auto-generee a partir d'un
+    BankMovement ou d'un CashMovement (la source est tracee par FK), ou
+    saisie manuellement.
+    """
+
+    entry_date = models.DateField(help_text="Date comptable de l'ecriture.")
+    reference = models.CharField(max_length=50, blank=True, help_text="Reference piece (numero d'ecriture).")
+    label = models.CharField(max_length=300, help_text="Libelle de l'ecriture.")
+    source_bank_movement = models.OneToOneField(
+        "finance.BankMovement",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="journal_entry",
+        help_text="Mouvement bancaire a l'origine de l'ecriture, si auto-generee.",
+    )
+    source_cash_movement = models.OneToOneField(
+        "finance.CashMovement",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="journal_entry",
+        help_text="Mouvement caisse a l'origine de l'ecriture, si auto-generee.",
+    )
+    posted = models.BooleanField(default=True, help_text="True = ecriture validee (sortie du brouillard).")
+
+    class Meta:
+        db_table = "journal_entries"
+        ordering = ["-entry_date", "-id"]
+        indexes = [models.Index(fields=["-entry_date"])]
+        verbose_name = "Journal entry"
+        verbose_name_plural = "Journal entries"
+
+    def __str__(self):
+        return f"Ecriture {self.id or '?'} {self.entry_date} - {self.label}"
+
+    @property
+    def total_debit(self):
+        from decimal import Decimal as _D
+        return sum((line.debit for line in self.lines.all()), _D("0"))
+
+    @property
+    def total_credit(self):
+        from decimal import Decimal as _D
+        return sum((line.credit for line in self.lines.all()), _D("0"))
+
+    @property
+    def is_balanced(self):
+        return self.total_debit == self.total_credit
+
+
+class JournalLine(TrackedModel):
+    """Ligne d'ecriture comptable : un compte SYCEBNL, un debit OU un credit."""
+
+    entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name="lines")
+    account = models.ForeignKey(
+        "finance.ChartOfAccount",
+        on_delete=models.PROTECT,
+        related_name="journal_lines",
+    )
+    debit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    credit = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    label = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "journal_lines"
+        ordering = ["entry_id", "id"]
+        indexes = [models.Index(fields=["account", "entry"])]
+
+    def __str__(self):
+        return f"{self.account.code if self.account_id else '?'} D:{self.debit} C:{self.credit}"
+
+
 def _expense_doc_upload_to(instance, filename):
     """Range les pieces justificatives sous media/expense_documents/<request_id>/."""
     rid = instance.request_id or "draft"
