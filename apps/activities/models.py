@@ -100,6 +100,10 @@ class ActivityReport(TrackedModel):
         choices=ValidationStatus.choices,
         default=ValidationStatus.SUBMITTED,
     )
+    validation_comment = models.TextField(
+        blank=True,
+        help_text="Commentaire du valideur (Suivi & Evaluation), notamment en cas de rejet.",
+    )
     validated_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
@@ -108,6 +112,12 @@ class ActivityReport(TrackedModel):
 
     def __str__(self):
         return f"{self.activity.title} / {self.report_date}"
+
+
+def _activity_evidence_upload_to(instance, filename):
+    """Range les preuves sous media/activity_evidences/<report_id>/."""
+    rid = instance.activity_report_id or "draft"
+    return f"activity_evidences/{rid}/{filename}"
 
 
 class ActivityEvidence(TrackedModel):
@@ -125,7 +135,7 @@ class ActivityEvidence(TrackedModel):
         related_name="evidences",
     )
     evidence_type = models.CharField(max_length=20, choices=EvidenceType.choices, blank=True)
-    file_url = models.CharField(max_length=255)
+    file = models.FileField(upload_to=_activity_evidence_upload_to)
     caption = models.CharField(max_length=200, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

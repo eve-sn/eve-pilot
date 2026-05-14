@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}EVE Pilot Projets{% endblock %}</title>
+    <title>{% block title %}EVE Pilot Activites{% endblock %}</title>
     <style>
         :root {
             --bg: #f6f1e8;
@@ -22,7 +22,6 @@
             --radius-md: 16px;
             --max: 1220px;
         }
-
         * { box-sizing: border-box; }
         body {
             margin: 0;
@@ -39,12 +38,8 @@
         .wrap { width: min(calc(100% - 36px), var(--max)); margin: 0 auto; }
         .topbar { padding: 22px 0 10px; }
         .topbar-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            padding: 18px 22px;
-            border-radius: 24px;
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 16px; padding: 18px 22px; border-radius: 24px;
             background: rgba(255, 255, 255, 0.76);
             border: 1px solid rgba(217, 210, 196, 0.8);
             box-shadow: var(--shadow);
@@ -53,49 +48,33 @@
         .brand span { color: var(--muted); font-size: 0.92rem; }
         .nav { display: flex; gap: 10px; flex-wrap: wrap; }
         .nav a, .button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 11px 14px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: rgba(255,255,255,0.8);
-            font-weight: 700;
-            font-size: 0.92rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line);
+            background: rgba(255,255,255,0.8); font-weight: 700; font-size: 0.92rem;
             cursor: pointer;
         }
         .nav a.primary, .button.primary { background: var(--green-900); color: white; border-color: var(--green-900); }
+        .button.small { padding: 7px 12px; font-size: 0.84rem; }
         .hero { padding: 18px 0 24px; }
         .hero-card, .card {
-            padding: 24px;
-            border-radius: var(--radius-xl);
-            background: var(--paper);
-            border: 1px solid rgba(217, 210, 196, 0.84);
-            box-shadow: var(--shadow);
+            padding: 24px; border-radius: var(--radius-xl); background: var(--paper);
+            border: 1px solid rgba(217, 210, 196, 0.84); box-shadow: var(--shadow);
         }
         .hero-card { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; }
         .eyebrow {
-            display: inline-flex;
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(28, 75, 61, 0.08);
-            color: var(--green-900);
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 16px;
+            display: inline-flex; padding: 10px 14px; border-radius: 999px;
+            background: rgba(28, 75, 61, 0.08); color: var(--green-900);
+            font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 16px;
         }
-        .hero h1 { font-size: clamp(2rem, 4vw, 4rem); line-height: 0.98; margin-bottom: 14px; }
+        .hero h1 { font-size: clamp(2rem, 4vw, 3.6rem); line-height: 0.98; margin-bottom: 14px; }
         .lead { color: var(--muted); max-width: 720px; }
         .grid-4, .grid-3, .grid-2 { display: grid; gap: 18px; }
         .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .grid-2 { grid-template-columns: 1.1fr 0.9fr; }
         .stat-card, .card.soft-green, .card.soft-blue, .card.soft-amber, .card.soft-rose {
-            padding: 20px;
-            border-radius: 24px;
-            border: 1px solid rgba(217, 210, 196, 0.78);
+            padding: 20px; border-radius: 24px; border: 1px solid rgba(217, 210, 196, 0.78);
         }
         .stat-card { background: rgba(255,255,255,0.8); }
         .soft-green { background: linear-gradient(180deg, rgba(232,242,237,0.95), rgba(255,255,255,0.86)); }
@@ -106,62 +85,74 @@
         .muted { color: var(--muted); }
         .section { padding: 0 0 28px; }
         .section-header { margin-bottom: 18px; }
-        .section-header h2 { font-size: clamp(1.8rem, 3vw, 2.7rem); margin-bottom: 6px; }
+        .section-header h2 { font-size: clamp(1.6rem, 3vw, 2.3rem); margin-bottom: 6px; }
         .section-header p { color: var(--muted); max-width: 760px; }
         .list, .stack { display: grid; gap: 12px; }
         .item {
-            padding: 16px 18px;
-            border-radius: 18px;
-            background: rgba(255,255,255,0.76);
+            padding: 16px 18px; border-radius: 18px; background: rgba(255,255,255,0.76);
             border: 1px solid rgba(217, 210, 196, 0.78);
         }
         .item strong { display: block; margin-bottom: 6px; font-size: 1rem; }
         .badge {
-            display: inline-flex;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: var(--green-100);
-            color: var(--green-900);
-            font-size: 0.82rem;
-            font-weight: 700;
+            display: inline-flex; padding: 6px 11px; border-radius: 999px;
+            background: var(--green-100); color: var(--green-900);
+            font-size: 0.8rem; font-weight: 700;
         }
         .badge.warn { background: var(--amber-100); color: #8a5b1b; }
         .badge.alert { background: var(--rose-100); color: #8a2b2b; }
         .badge.cool { background: var(--blue-100); color: #1f5972; }
+        .badge.muted { background: rgba(100, 113, 106, 0.12); color: var(--muted); }
         .filters {
-            display: grid;
-            grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr auto;
-            gap: 10px;
-            margin-bottom: 16px;
+            display: grid; grid-template-columns: 1.4fr 0.9fr 0.9fr auto;
+            gap: 10px; margin-bottom: 16px;
         }
         .filters input, .filters select {
-            width: 100%;
-            padding: 12px 14px;
-            border-radius: 14px;
-            border: 1px solid var(--line);
-            background: rgba(255,255,255,0.82);
-            font: inherit;
+            width: 100%; padding: 12px 14px; border-radius: 14px;
+            border: 1px solid var(--line); background: rgba(255,255,255,0.82); font: inherit;
         }
         .detail-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 18px; }
         .meta dt { color: var(--muted); font-size: 0.86rem; margin-bottom: 4px; }
         .meta dd { margin: 0 0 12px; font-weight: 700; }
         .progress {
-            position: relative;
-            height: 10px;
-            background: rgba(28, 75, 61, 0.08);
-            border-radius: 999px;
-            overflow: hidden;
-            margin-top: 10px;
+            position: relative; height: 10px; background: rgba(28, 75, 61, 0.08);
+            border-radius: 999px; overflow: hidden; margin-top: 10px;
         }
-        .progress > span {
-            display: block;
-            height: 100%;
-            background: var(--green-900);
-            border-radius: 999px;
+        .progress > span { display: block; height: 100%; background: var(--green-900); border-radius: 999px; }
+        table.data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        table.data-table th, table.data-table td {
+            text-align: left; padding: 10px 12px;
+            border-bottom: 1px solid rgba(217, 210, 196, 0.5);
+        }
+        table.data-table th {
+            color: var(--muted); font-weight: 600; font-size: 0.84rem;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        table.data-table td.right, table.data-table th.right { text-align: right; }
+        .form-grid { display: grid; gap: 14px; }
+        .form-grid label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+        .form-grid input, .form-grid select, .form-grid textarea {
+            width: 100%; padding: 11px 13px; border-radius: 14px;
+            border: 1px solid var(--line); background: rgba(255,255,255,0.85); font: inherit;
+        }
+        .form-grid .help { color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+        .form-grid .errorlist { color: #8a2b2b; font-size: 0.84rem; margin: 4px 0 0; padding-left: 18px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .messages { display: grid; gap: 8px; margin-bottom: 16px; }
+        .messages .msg {
+            padding: 12px 16px; border-radius: 14px; font-weight: 600; font-size: 0.92rem;
+            background: var(--green-100); color: var(--green-900);
+            border: 1px solid rgba(28,75,61,0.18);
+        }
+        .messages .msg.error { background: var(--rose-100); color: #8a2b2b; border-color: rgba(138,43,43,0.2); }
+        .messages .msg.warning { background: var(--amber-100); color: #8a5b1b; border-color: rgba(138,91,27,0.2); }
+        .placeholder-note {
+            background: rgba(217, 210, 196, 0.25);
+            border: 1px dashed rgba(100, 113, 106, 0.4);
+            border-radius: 14px; padding: 16px; color: var(--muted); font-size: 0.94rem;
         }
         .footer { padding: 0 0 36px; text-align: center; color: var(--muted); }
         @media (max-width: 980px) {
-            .hero-card, .grid-4, .grid-3, .grid-2, .detail-grid, .filters { grid-template-columns: 1fr; }
+            .hero-card, .grid-4, .grid-3, .grid-2, .detail-grid, .filters, .form-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -170,15 +161,15 @@
         <div class="wrap">
             <div class="topbar-card">
                 <div class="brand">
-                    <strong>EVE Pilot Projets</strong>
-                    <span>Portefeuille projets, bailleurs, indicateurs et equipes</span>
+                    <strong>EVE Pilot Activites</strong>
+                    <span>Planification des activites et rapports terrain</span>
                 </div>
                 <nav class="nav">
                     <a href="/">Accueil</a>
-                    <a class="primary" href="/projets/">Espace Projets</a>
-                    <a href="/activites/">Activites</a>
-                    <a href="/rh/">Espace RH</a>
+                    <a href="/projets/">Projets</a>
+                    <a class="primary" href="/activites/">Activites</a>
                     <a href="/finance/">Finance</a>
+                    <a href="/rh/">RH</a>
                     <a href="/admin/">Administration</a>
                     {% if user.is_authenticated %}
                     <a href="/deconnexion/">Deconnexion ({{ user.username }})</a>
@@ -190,10 +181,18 @@
         </div>
     </header>
 
+    {% if messages %}
+    <div class="wrap"><div class="messages">
+        {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div></div>
+    {% endif %}
+
     {% block content %}{% endblock %}
 
     <footer class="footer">
-        EVE Pilot &bull; Module Projets aligne sur le portefeuille EVE.
+        EVE Pilot &bull; Module Activites &bull; Suivi operationnel et reporting terrain.
     </footer>
 </body>
 </html>

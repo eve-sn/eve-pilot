@@ -26,7 +26,7 @@ class ActivityReportAdmin(admin.ModelAdmin):
 @admin.register(ActivityEvidence)
 class ActivityEvidenceAdmin(admin.ModelAdmin):
     list_display = ("activity_report", "evidence_type", "uploaded_at", "is_active")
-    search_fields = ("caption", "file_url")
+    search_fields = ("caption",)
     list_filter = ("evidence_type", "is_active")
 
 

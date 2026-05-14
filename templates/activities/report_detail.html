@@ -1,0 +1,173 @@
+{% extends "activities/base.html" %}
+
+{% block title %}EVE Pilot &mdash; Rapport {{ report.report_date|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Rapport terrain &bull; {{ report.activity.project.code }}</div>
+                <h1 style="font-size:2.2rem;">{{ report.activity.title }}</h1>
+                <p class="lead">
+                    Rapport du {{ report.report_date|date:"d/m/Y" }}
+                    {% if report.reported_by %}&bull; soumis par {{ report.reported_by }}{% endif %}
+                </p>
+                <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="button" href="{% url 'activities:detail' report.activity.public_uuid %}">&larr; Retour activite</a>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card {% if report.validation_status == 'VALIDE' %}soft-green{% elif report.validation_status == 'REJETE' %}soft-rose{% else %}soft-amber{% endif %}">
+                    <div class="muted">Statut de validation</div>
+                    <div class="metric" style="font-size:1.5rem;">
+                        {% if report.validation_status == 'VALIDE' %}Valide
+                        {% elif report.validation_status == 'REJETE' %}Rejete
+                        {% else %}Soumis{% endif %}
+                    </div>
+                    {% if report.validated_by %}
+                    <div class="muted">Par {{ report.validated_by }} le {{ report.validated_at|date:"d/m/Y H:i" }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        {% if report.validation_comment %}
+        <div class="placeholder-note" style="margin-bottom:18px; {% if report.validation_status == 'REJETE' %}color:#8a2b2b;{% endif %}">
+            <strong>Commentaire du valideur (Suivi &amp; Evaluation) :</strong> {{ report.validation_comment }}
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <div class="stack">
+                <div class="card">
+                    <div class="section-header"><h2 style="font-size:1.4rem;">Participation</h2></div>
+                    <dl class="meta">
+                        <dt>Lieu reel</dt><dd>{{ report.actual_location|default:"&mdash;" }}</dd>
+                        <dt>Commune</dt><dd>{{ report.commune.name|default:"&mdash;" }}</dd>
+                        <dt>GPS</dt>
+                        <dd>{% if report.gps_latitude %}{{ report.gps_latitude }}, {{ report.gps_longitude }}{% else %}&mdash;{% endif %}</dd>
+                        <dt>Participants</dt><dd>{{ report.participants_count|default:"&mdash;" }}</dd>
+                        <dt>Hommes / Femmes / Enfants</dt>
+                        <dd>{{ report.male_count|default:0 }} / {{ report.female_count|default:0 }} / {{ report.children_count|default:0 }}</dd>
+                    </dl>
+                </div>
+                {% if decision_form %}
+                <div class="card soft-amber">
+                    <div class="section-header"><h2 style="font-size:1.3rem;">Decision Suivi &amp; Evaluation</h2></div>
+                    <form method="post" class="form-grid">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="decide">
+                        {% for field in decision_form %}
+                        <div>
+                            <label>{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+                            {{ field.errors }}
+                        </div>
+                        {% endfor %}
+                        <button class="button primary" type="submit">Enregistrer la decision</button>
+                    </form>
+                </div>
+                {% elif is_pending and not can_validate %}
+                <div class="placeholder-note">
+                    Ce rapport attend la validation d'un utilisateur Suivi &amp; Evaluation (SE).
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="stack">
+                <div class="card">
+                    <div class="section-header"><h2 style="font-size:1.4rem;">Compte rendu</h2></div>
+                    <p><strong>Narratif</strong></p>
+                    <p class="muted" style="margin-bottom:12px;">{{ report.narrative|default:"&mdash;"|linebreaksbr }}</p>
+                    <p><strong>Resultats</strong></p>
+                    <p class="muted" style="margin-bottom:12px;">{{ report.outcomes|default:"&mdash;"|linebreaksbr }}</p>
+                    <p><strong>Difficultes</strong></p>
+                    <p class="muted" style="margin-bottom:12px;">{{ report.challenges|default:"&mdash;"|linebreaksbr }}</p>
+                    <p><strong>Recommandations</strong></p>
+                    <p class="muted">{{ report.recommendations|default:"&mdash;"|linebreaksbr }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.4rem;">Beneficiaires ({{ beneficiaries|length }})</h2></div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Nom</th><th>Genre</th><th class="right">Age</th><th>Commune</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in beneficiaries %}
+                        <tr>
+                            <td>{{ b.first_name }} {{ b.last_name }}</td>
+                            <td>{{ b.get_gender_display|default:"&mdash;" }}</td>
+                            <td class="right">{{ b.age|default:"&mdash;" }}</td>
+                            <td>{{ b.commune.name|default:"&mdash;" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4"><span class="muted">Aucun beneficiaire enregistre.</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <details style="margin-top:14px;">
+                    <summary class="button small" style="display:inline-flex;">+ Ajouter un beneficiaire</summary>
+                    <form method="post" class="form-grid" style="margin-top:12px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_beneficiary">
+                        {% for field in beneficiary_form %}
+                        <div>
+                            <label>{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                        {% endfor %}
+                        <button class="button primary" type="submit">Ajouter</button>
+                    </form>
+                </details>
+            </div>
+
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.4rem;">Preuves ({{ evidences|length }})</h2></div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Type</th><th>Legende</th><th>Fichier</th><th>Ajoutee</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for e in evidences %}
+                        <tr>
+                            <td>{{ e.get_evidence_type_display|default:"&mdash;" }}</td>
+                            <td>{{ e.caption|default:"&mdash;" }}</td>
+                            <td>{% if e.file %}<a href="{{ e.file.url }}">Ouvrir</a>{% else %}&mdash;{% endif %}</td>
+                            <td>{{ e.uploaded_at|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4"><span class="muted">Aucune preuve televersee.</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <details style="margin-top:14px;">
+                    <summary class="button small" style="display:inline-flex;">+ Televerser une preuve</summary>
+                    <form method="post" class="form-grid" style="margin-top:12px;" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_evidence">
+                        {% for field in evidence_form %}
+                        <div>
+                            <label>{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                        {% endfor %}
+                        <button class="button primary" type="submit">Televerser</button>
+                    </form>
+                </details>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

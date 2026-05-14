@@ -1,0 +1,110 @@
+{% extends "activities/base.html" %}
+
+{% block title %}EVE Pilot &mdash; Activites{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Module Activites</div>
+                <h1>Planifier et suivre les activites de terrain.</h1>
+                <p class="lead">
+                    Chaque activite est rattachee a un projet du portefeuille. Les
+                    equipes terrain y soumettent des rapports (participants,
+                    beneficiaires, preuves) valides par le Suivi &amp; Evaluation.
+                </p>
+                <div style="margin-top:18px;">
+                    <a class="button primary" href="{% url 'activities:create' %}">+ Nouvelle activite</a>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card soft-blue">
+                    <div class="muted">Total activites</div>
+                    <div class="metric">{{ total_activities }}</div>
+                </div>
+                <div class="grid-2" style="gap:12px;">
+                    <div class="stat-card soft-amber">
+                        <div class="muted">Planifiees</div>
+                        <div class="metric" style="font-size:1.4rem;">{{ planned_count }}</div>
+                    </div>
+                    <div class="stat-card soft-green">
+                        <div class="muted">En cours</div>
+                        <div class="metric" style="font-size:1.4rem;">{{ in_progress_count }}</div>
+                    </div>
+                    <div class="stat-card soft-green">
+                        <div class="muted">Realisees</div>
+                        <div class="metric" style="font-size:1.4rem;">{{ completed_count }}</div>
+                    </div>
+                    <div class="stat-card soft-rose">
+                        <div class="muted">Annulees</div>
+                        <div class="metric" style="font-size:1.4rem;">{{ canceled_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <form method="get" class="filters">
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Rechercher (titre, code, description)">
+            <select name="project">
+                <option value="">Tous les projets</option>
+                {% for project in projects %}
+                <option value="{{ project.id }}" {% if filters.project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.code }}</option>
+                {% endfor %}
+            </select>
+            <select name="status">
+                <option value="">Tous les statuts</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button class="button primary" type="submit">Filtrer</button>
+        </form>
+
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Projet</th>
+                        <th>Activite</th>
+                        <th>Type</th>
+                        <th>Debut prevu</th>
+                        <th>Responsable</th>
+                        <th>Statut</th>
+                        <th class="right">Avancement</th>
+                        <th class="right">Rapports</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for activity in activities %}
+                    <tr>
+                        <td><code>{{ activity.project.code }}</code></td>
+                        <td>
+                            <a href="{% url 'activities:detail' activity.public_uuid %}"><strong>{{ activity.title }}</strong></a>
+                            {% if activity.code %}<div class="muted" style="font-size:0.82rem;">{{ activity.code }}</div>{% endif %}
+                        </td>
+                        <td>{{ activity.activity_type|default:"&mdash;" }}</td>
+                        <td>{{ activity.planned_start_date|date:"d/m/Y" }}</td>
+                        <td>{{ activity.responsible|default:"&mdash;" }}</td>
+                        <td>
+                            {% if activity.status == 'REALISE' %}<span class="badge">Realise</span>
+                            {% elif activity.status == 'EN_COURS' %}<span class="badge cool">En cours</span>
+                            {% elif activity.status == 'ANNULE' %}<span class="badge alert">Annule</span>
+                            {% else %}<span class="badge muted">Planifie</span>{% endif %}
+                        </td>
+                        <td class="right">{{ activity.completion_rate|floatformat:0 }}%</td>
+                        <td class="right">{{ activity.report_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8"><span class="muted">Aucune activite. Commencer par en creer une.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

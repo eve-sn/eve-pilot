@@ -1,0 +1,97 @@
+{% extends "activities/base.html" %}
+
+{% block title %}EVE Pilot &mdash; {{ activity.title }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Activite &bull; {{ activity.project.code }}</div>
+                <h1 style="font-size:2.4rem;">{{ activity.title }}</h1>
+                <p class="lead">{{ activity.description|default:"Aucune description." }}</p>
+                <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <a class="button" href="{% url 'activities:list' %}">&larr; Toutes les activites</a>
+                    <a class="button" href="{% url 'activities:edit' activity.public_uuid %}">Modifier</a>
+                    <a class="button primary" href="{% url 'activities:report_create' activity.public_uuid %}">+ Rapport terrain</a>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card">
+                    <div class="muted">Statut</div>
+                    <div style="margin-top:6px;">
+                        {% if activity.status == 'REALISE' %}<span class="badge">Realise</span>
+                        {% elif activity.status == 'EN_COURS' %}<span class="badge cool">En cours</span>
+                        {% elif activity.status == 'ANNULE' %}<span class="badge alert">Annule</span>
+                        {% else %}<span class="badge muted">Planifie</span>{% endif %}
+                    </div>
+                    <div class="muted" style="margin-top:12px;">Avancement</div>
+                    <div class="progress"><span style="width: {{ activity.completion_rate|floatformat:0 }}%;"></span></div>
+                    <div style="margin-top:6px; font-weight:700;">{{ activity.completion_rate|floatformat:0 }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="detail-grid">
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.5rem;">Fiche</h2></div>
+                <dl class="meta">
+                    <dt>Projet</dt><dd>{{ activity.project.code }} &mdash; {{ activity.project.title }}</dd>
+                    <dt>Code interne</dt><dd>{{ activity.code|default:"&mdash;" }}</dd>
+                    <dt>Type</dt><dd>{{ activity.activity_type|default:"&mdash;" }}</dd>
+                    <dt>Periode prevue</dt>
+                    <dd>{{ activity.planned_start_date|date:"d/m/Y" }}{% if activity.planned_end_date %} &rarr; {{ activity.planned_end_date|date:"d/m/Y" }}{% endif %}</dd>
+                    <dt>Budget prevu</dt>
+                    <dd>{% if activity.planned_budget %}{{ activity.planned_budget|floatformat:0 }} XOF{% else %}&mdash;{% endif %}</dd>
+                    <dt>Responsable</dt><dd>{{ activity.responsible|default:"&mdash;" }}</dd>
+                    <dt>Communes ciblees</dt>
+                    <dd>
+                        {% for loc in locations %}{{ loc.commune.name }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}
+                    </dd>
+                </dl>
+                {% if activity.notes %}
+                <div class="placeholder-note" style="margin-top:8px;"><strong>Notes :</strong> {{ activity.notes }}</div>
+                {% endif %}
+            </div>
+            <div class="card">
+                <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="font-size:1.5rem;">Rapports terrain</h2>
+                    <a class="button small primary" href="{% url 'activities:report_create' activity.public_uuid %}">+ Soumettre</a>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Lieu</th>
+                            <th class="right">Participants</th>
+                            <th class="right">Benef.</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td><a href="{% url 'activities:report_detail' report.public_uuid %}">{{ report.report_date|date:"d/m/Y" }}</a></td>
+                            <td>{{ report.actual_location|default:report.commune.name|default:"&mdash;" }}</td>
+                            <td class="right">{{ report.participants_count|default:"&mdash;" }}</td>
+                            <td class="right">{{ report.beneficiary_count }}</td>
+                            <td>
+                                {% if report.validation_status == 'VALIDE' %}<span class="badge">Valide</span>
+                                {% elif report.validation_status == 'REJETE' %}<span class="badge alert">Rejete</span>
+                                {% else %}<span class="badge warn">Soumis</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5"><span class="muted">Aucun rapport soumis pour cette activite.</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
