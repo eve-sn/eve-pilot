@@ -67,6 +67,22 @@ CASH_REGISTER_TO_CODE = {
 }
 
 
+# Comptes de liaison "speciaux" : projets clos ou hors-perimetre base dont
+# le reliquat continue de circuler. Pas de linked_project (le Project
+# n'existe pas en base).
+EXTRA_LIAISON_ACCOUNTS = [
+    {
+        "code": "181.110",
+        "name": "Liaison Pikine Phase I (cloture - reliquat)",
+        "description": (
+            "Compte de liaison du projet AGIR Pikine Phase I, cloture en "
+            "fevrier 2026 et donc hors base Project. Son reliquat continue de "
+            "transiter par le Budget General en 2026."
+        ),
+    },
+]
+
+
 def _suffix_for_project(index):
     """Genere un suffixe sur 3 chiffres (010, 020, ..., 100) pour assurer un
     tri lexicographique stable jusqu'a 9 projets (au-dela passer en 4 chiffres)."""
@@ -122,6 +138,20 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"  {code} ({project.code}): {'cree' if created else 'mis a jour'}"
             )
+
+        # 3 bis) Comptes de liaison speciaux (projets clos / hors base)
+        for spec in EXTRA_LIAISON_ACCOUNTS:
+            acc, created = ChartOfAccount.objects.update_or_create(
+                code=spec["code"],
+                defaults={
+                    "name": spec["name"],
+                    "class_number": 1,
+                    "parent": accounts["181"],
+                    "is_liaison": True,
+                    "description": spec.get("description", ""),
+                },
+            )
+            self.stdout.write(f"  {spec['code']} (liaison speciale): {'cree' if created else 'mis a jour'}")
 
         # 4) Comptes bancaires 512.x
         for bank_name, (code, label) in BANK_TO_CODE.items():
