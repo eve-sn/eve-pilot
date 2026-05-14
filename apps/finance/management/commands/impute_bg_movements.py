@@ -29,6 +29,17 @@ from apps.finance.models import BankMovement, ChartOfAccount
 BG_ACCOUNT_NAME = "Budget General"
 
 
+# --- Niveau 0 : mapping cible par reference bancaire exacte -------------
+# Pour les mouvements sans VIxxxx dans le libelle mais arbitres par EVE
+# (ex: les virements du 30/04 depuis Banque Atlantique, meme affectation
+# que leurs equivalents de mars).
+REF_MAPPING = {
+    "I247986": "181.050",   # 500 000 - Pikine Phase II (equiv. VI3326 mars)
+    "I248189": "181.050",   # 2 648 773 - Pikine Phase II (equiv. VI3328 mars)
+    "I248190": "181.030",   # 650 000 - ECP (equiv. VI3327 mars)
+}
+
+
 # --- Niveau 1 : mapping cible par reference VIxxxx (arbitrage EVE) -------
 # La cle est cherchee comme sous-chaine du libelle (les libelles BG portent
 # 'VI2341...', 'VI3328...', etc.).
@@ -83,7 +94,11 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, dry_run=False, **options):
         # Resolution des comptes SYCEBNL
-        codes_needed = set(VI_MAPPING.values()) | {code for _, code in GENERIC_RULES}
+        codes_needed = (
+            set(REF_MAPPING.values())
+            | set(VI_MAPPING.values())
+            | {code for _, code in GENERIC_RULES}
+        )
         accounts = {
             a.code: a
             for a in ChartOfAccount.objects.filter(
@@ -102,6 +117,7 @@ class Command(BaseCommand):
             account__name=BG_ACCOUNT_NAME, is_active=True, deleted_at__isnull=True
         ).order_by("date_operation", "id")
 
+        imputed_ref = 0
         imputed_vi = 0
         imputed_generic = 0
         unresolved = []
@@ -111,12 +127,18 @@ class Command(BaseCommand):
             target_code = None
             rule_kind = None
 
-            # Niveau 1 : reference VIxxxx
-            for vi_ref, code in VI_MAPPING.items():
-                if vi_ref in label_upper:
-                    target_code = code
-                    rule_kind = f"VI:{vi_ref}"
-                    break
+            # Niveau 0 : reference bancaire exacte
+            if movement.reference and movement.reference in REF_MAPPING:
+                target_code = REF_MAPPING[movement.reference]
+                rule_kind = f"ref:{movement.reference}"
+
+            # Niveau 1 : reference VIxxxx dans le libelle
+            if target_code is None:
+                for vi_ref, code in VI_MAPPING.items():
+                    if vi_ref in label_upper:
+                        target_code = code
+                        rule_kind = f"VI:{vi_ref}"
+                        break
 
             # Niveau 2 : regles generiques
             if target_code is None:
@@ -135,7 +157,9 @@ class Command(BaseCommand):
                 if movement.contra_account_id != account.id:
                     movement.contra_account = account
                     movement.save(update_fields=["contra_account", "updated_at"])
-            if rule_kind.startswith("VI:"):
+            if rule_kind.startswith("ref:"):
+                imputed_ref += 1
+            elif rule_kind.startswith("VI:"):
                 imputed_vi += 1
             else:
                 imputed_generic += 1
@@ -144,7 +168,8 @@ class Command(BaseCommand):
         prefix = "[DRY-RUN] " if dry_run else ""
         self.stdout.write(
             self.style.SUCCESS(
-                f"{prefix}Imputation BG : {imputed_vi} par reference VIxxxx, "
+                f"{prefix}Imputation BG : {imputed_ref} par reference bancaire, "
+                f"{imputed_vi} par reference VIxxxx, "
                 f"{imputed_generic} par regle generique, "
                 f"{len(unresolved)} non resolus."
             )
