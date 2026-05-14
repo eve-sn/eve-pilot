@@ -178,6 +178,11 @@
                     <a href="/projets/">Projets</a>
                     <a href="/rh/">RH</a>
                     <a href="/admin/">Administration</a>
+                    {% if user.is_authenticated %}
+                    <a href="/deconnexion/">Deconnexion ({{ user.username }})</a>
+                    {% else %}
+                    <a href="/connexion/">Connexion</a>
+                    {% endif %}
                 </nav>
             </div>
         </div>

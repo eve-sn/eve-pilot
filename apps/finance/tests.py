@@ -345,9 +345,10 @@ class ExpensePublicUIPermissionsTests(TestCase):
     def test_anonymous_redirects_to_login(self):
         client = Client()
         response = client.get("/finance/demandes/")
-        # @login_required redirect vers /admin/login/?next=... (LOGIN_URL=admin)
+        # @login_required redirect vers /connexion/?next=... (LOGIN_URL applicatif)
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin/login/", response.url)
+        self.assertIn("/connexion/", response.url)
+        self.assertIn("next=/finance/demandes/", response.url)
 
 
 class ExpenseRequestWorkflowTests(TestCase):

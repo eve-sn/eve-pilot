@@ -179,6 +179,11 @@
                     <a href="/rh/">Espace RH</a>
                     <a href="/finance/">Finance</a>
                     <a href="/admin/">Administration</a>
+                    {% if user.is_authenticated %}
+                    <a href="/deconnexion/">Deconnexion ({{ user.username }})</a>
+                    {% else %}
+                    <a href="/connexion/">Connexion</a>
+                    {% endif %}
                 </nav>
             </div>
         </div>
