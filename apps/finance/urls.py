@@ -8,6 +8,8 @@ from apps.finance.views import (
     expense_detail,
     expense_list,
     finance_dashboard,
+    general_ledger,
+    trial_balance,
 )
 
 
@@ -17,6 +19,8 @@ urlpatterns = [
     path("", finance_dashboard, name="dashboard"),
     path("tresorerie/", cashflow_dashboard, name="cashflow"),
     path("plan-comptable/", chart_of_accounts_view, name="chart_of_accounts"),
+    path("balance/", trial_balance, name="trial_balance"),
+    path("grand-livre/<str:code>/", general_ledger, name="general_ledger"),
     path("comptes/<uuid:public_uuid>/", bank_account_detail, name="bank_account"),
     path("demandes/", expense_list, name="expense_list"),
     path("demandes/nouvelle/", expense_create, name="expense_create"),

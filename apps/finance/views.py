@@ -27,6 +27,7 @@ from apps.finance.models import (
     ExpenseDocument,
     ExpenseRequest,
     ExpenseValidation,
+    JournalLine,
 )
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
@@ -535,6 +536,91 @@ def expense_detail(request, pk):
         ),
     }
     return render(request, "finance/expense_detail.html", context)
+
+
+def general_ledger(request, code):
+    """Grand livre d'un compte SYCEBNL : toutes ses ecritures, solde progressif."""
+
+    account = get_object_or_404(ChartOfAccount, code=code, **ACTIVE_DOMAIN)
+
+    lines = (
+        JournalLine.objects.filter(account=account, **ACTIVE_DOMAIN)
+        .select_related("entry", "entry__source_bank_movement", "entry__source_cash_movement")
+        .order_by("entry__entry_date", "entry_id", "id")
+    )
+
+    rows = []
+    running = Decimal("0")
+    total_debit = Decimal("0")
+    total_credit = Decimal("0")
+    for line in lines:
+        running += (line.debit or Decimal("0")) - (line.credit or Decimal("0"))
+        total_debit += line.debit or Decimal("0")
+        total_credit += line.credit or Decimal("0")
+        rows.append({"line": line, "running_balance": running})
+
+    context = {
+        "account": account,
+        "rows": rows,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "final_balance": running,
+        "movement_count": len(rows),
+    }
+    return render(request, "finance/general_ledger.html", context)
+
+
+def trial_balance(request):
+    """Balance generale SYCEBNL : par compte, total debit / credit / solde,
+    groupee par classe."""
+
+    aggregates = (
+        JournalLine.objects.filter(**ACTIVE_DOMAIN)
+        .values("account_id")
+        .annotate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    )
+    agg_by_account = {
+        row["account_id"]: (row["total_debit"] or Decimal("0"), row["total_credit"] or Decimal("0"))
+        for row in aggregates
+    }
+
+    accounts = (
+        ChartOfAccount.objects.filter(**ACTIVE_DOMAIN, id__in=agg_by_account.keys())
+        .order_by("class_number", "code")
+    )
+
+    classes = OrderedDict()
+    for cls_value, cls_label in ChartOfAccount.AccountClass.choices:
+        classes[cls_value] = {"label": cls_label, "accounts": [], "total_debit": Decimal("0"), "total_credit": Decimal("0")}
+
+    grand_debit = Decimal("0")
+    grand_credit = Decimal("0")
+    for account in accounts:
+        td, tc = agg_by_account.get(account.id, (Decimal("0"), Decimal("0")))
+        balance = td - tc
+        bucket = classes[account.class_number]
+        bucket["accounts"].append(
+            {
+                "account": account,
+                "total_debit": td,
+                "total_credit": tc,
+                "balance": balance,
+                "balance_debit": balance if balance > 0 else Decimal("0"),
+                "balance_credit": -balance if balance < 0 else Decimal("0"),
+            }
+        )
+        bucket["total_debit"] += td
+        bucket["total_credit"] += tc
+        grand_debit += td
+        grand_credit += tc
+
+    context = {
+        "classes": classes,
+        "grand_debit": grand_debit,
+        "grand_credit": grand_credit,
+        "is_balanced": grand_debit == grand_credit,
+    }
+    return render(request, "finance/trial_balance.html", context)
 
 
 def bank_account_detail(request, public_uuid):

@@ -1,0 +1,95 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Grand livre {{ account.code }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card">
+            <div>
+                <div class="eyebrow">Grand livre &mdash; compte {{ account.code }}</div>
+                <h1>{{ account.name }}</h1>
+                <p class="lead">
+                    Detail chronologique de toutes les ecritures passees sur ce compte
+                    SYCEBNL, avec le solde progressif. Classe {{ account.class_number }}.
+                    {% if account.is_liaison %}Compte de liaison interne projet &harr; BG.{% endif %}
+                </p>
+                <div style="margin-top:18px;">
+                    <a class="button" href="/finance/balance/">&larr; Balance generale</a>
+                    {% if account.linked_project %}
+                    <a class="button" href="/projets/{{ account.linked_project.public_uuid }}/">Projet {{ account.linked_project.code }}</a>
+                    {% endif %}
+                    {% if account.linked_bank_account %}
+                    <a class="button" href="/finance/comptes/{{ account.linked_bank_account.public_uuid }}/">Compte {{ account.linked_bank_account.name }}</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="stack">
+                <div class="stat-card soft-green">
+                    <div class="muted">Total debit</div>
+                    <div class="metric-money">{{ total_debit|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">Total credit</div>
+                    <div class="metric-money">{{ total_credit|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card {% if final_balance >= 0 %}soft-blue{% else %}soft-rose{% endif %}">
+                    <div class="muted">Solde final</div>
+                    <div class="metric-money">{{ final_balance|floatformat:0 }} XOF</div>
+                    <div class="muted">{{ movement_count }} ecriture(s).</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card" style="overflow-x: auto;">
+            <table class="finance-table" style="min-width: 1000px;">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Libelle</th>
+                        <th class="right">Debit</th>
+                        <th class="right">Credit</th>
+                        <th class="right">Solde progressif</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.line.entry.entry_date|date:"d/m/Y" }}</td>
+                        <td>{{ row.line.entry.reference|default:"&mdash;" }}</td>
+                        <td>
+                            {{ row.line.label|default:row.line.entry.label }}
+                            {% if row.line.entry.source_bank_movement %}
+                            <div class="muted" style="font-size:0.78rem;">
+                                <em>mouvement bancaire {{ row.line.entry.source_bank_movement.account.name }}</em>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="right">{% if row.line.debit %}{{ row.line.debit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right">{% if row.line.credit %}{{ row.line.credit|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+                        <td class="right" style="{% if row.running_balance < 0 %}color:#8a2b2b;{% endif %}">{{ row.running_balance|floatformat:0 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6"><span class="muted">Aucune ecriture sur ce compte.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if rows %}
+                <tfoot>
+                    <tr style="font-weight: 700;">
+                        <td colspan="3">Totaux</td>
+                        <td class="right">{{ total_debit|floatformat:0 }}</td>
+                        <td class="right">{{ total_credit|floatformat:0 }}</td>
+                        <td class="right">{{ final_balance|floatformat:0 }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
