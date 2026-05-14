@@ -51,8 +51,10 @@ VI_MAPPING = {
 # --- Niveau 2 : regles generiques par motif (ordre = priorite) ----------
 # (pattern en MAJUSCULES cherche dans le libelle, code compte SYCEBNL)
 GENERIC_RULES = [
-    ("ST LOUIS", "181.060"),                  # virement recu Saint-Louis
+    ("SONATEL", "61"),                         # facture telecom Sonatel -> services exterieurs
+    ("ST LOUIS", "181.060"),                   # virement recu Saint-Louis
     ("EAU VIE-ENVIRONNEMENT SOD", "181.080"),  # virement recu du compte ONAS/SODIS
+    ("ENVIRONNEMENT SE", "181.060"),           # Vir.recu '...ENVIRONNEMENT SE...SALAIRE' = EVE SErvice (CBAO) = Saint-Louis
     ("TRESOR PUBLIC", "63"),                   # reversement impots/taxes a l'Etat
     ("FR CPT INSTIT", "66"),                   # frais de compte institutionnel
     ("COMMISSION", "66"),                      # commissions bancaires
