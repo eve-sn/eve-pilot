@@ -7,9 +7,11 @@ Iteration 1 (perimetre A + B) :
      (SOUMIS -> VALIDE / REJETE).
 """
 
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -22,6 +24,7 @@ from apps.activities.forms import (
     BeneficiaryForm,
 )
 from apps.activities.models import Activity, ActivityReport
+from apps.finance.models import BudgetLine
 from apps.projects.models import Project
 
 ACTIVE_DOMAIN = {"is_active": True, "deleted_at__isnull": True}
@@ -143,10 +146,24 @@ def activity_detail(request, public_uuid):
         )
         .order_by("-report_date", "-created_at")
     )
+    budget_lines = (
+        BudgetLine.objects.filter(activity=activity, **ACTIVE_DOMAIN)
+        .select_related("category")
+        .order_by("code")
+    )
+    budget_totals = budget_lines.aggregate(
+        planned=Sum("planned_amount"),
+        committed=Sum("committed_amount"),
+        disbursed=Sum("disbursed_amount"),
+    )
     context = {
         "activity": activity,
         "reports": reports,
         "locations": activity.locations.all(),
+        "budget_lines": budget_lines,
+        "budget_planned": budget_totals["planned"] or Decimal("0"),
+        "budget_committed": budget_totals["committed"] or Decimal("0"),
+        "budget_disbursed": budget_totals["disbursed"] or Decimal("0"),
     }
     return render(request, "activities/detail.html", context)
 

@@ -58,6 +58,32 @@
                 {% endif %}
             </div>
             <div class="card">
+                <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <h2 style="font-size:1.4rem;">Budget rattache</h2>
+                    <div class="muted" style="font-size:0.86rem;">
+                        Prevu <strong style="color:var(--green-900);">{{ budget_planned|floatformat:0 }} XOF</strong>
+                        &bull; Engage {{ budget_committed|floatformat:0 }}
+                        &bull; Decaisse {{ budget_disbursed|floatformat:0 }}
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Code</th><th>Description</th><th class="right">Prevu</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for bl in budget_lines %}
+                        <tr>
+                            <td><code>{{ bl.code }}</code></td>
+                            <td>{{ bl.description }}</td>
+                            <td class="right">{{ bl.planned_amount|floatformat:0 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3"><span class="muted">Aucune ligne budgetaire rattachee. (Lignes transverses : personnel, suivi-evaluation, frais admin.)</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
                 <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
                     <h2 style="font-size:1.5rem;">Rapports terrain</h2>
                     <a class="button small primary" href="{% url 'activities:report_create' activity.public_uuid %}">+ Soumettre</a>

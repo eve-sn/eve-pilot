@@ -681,3 +681,72 @@ class ExpenseNotificationTests(TestCase):
         self.assertEqual(req.status, ExpenseRequest.Status.SUBMITTED)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(f"DD-{req.id}", mail.outbox[0].subject)
+
+
+class SaintLouisBudgetLinkingTests(TestCase):
+    """Commande link_budget_lines_to_activities_saint_louis : prefix -> Activity."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.activities.models import Activity
+
+        cls.project = Project.objects.create(
+            code="NOUSCIMS-SL-2026",
+            title="SL test",
+            start_date=date(2025, 8, 1),
+            end_date=date(2028, 7, 31),
+        )
+        cls.category = BudgetCategory.objects.create(code="SL_TEST", name="cat test")
+        # Trois activites cibles, plus une activite hors mapping.
+        cls.a_r1_a2 = Activity.objects.create(
+            project=cls.project, code="SL-R1-A2", title="Orientation des elus"
+        )
+        cls.a_r3_a1 = Activity.objects.create(
+            project=cls.project, code="SL-R3-A1", title="Conventions tripartites"
+        )
+        cls.a_r3_a8 = Activity.objects.create(
+            project=cls.project, code="SL-R3-A8", title="Prise en charge malnutris"
+        )
+        # 4 lignes : 3 doivent matcher, 1 reste transverse.
+        cls.bl_t1 = BudgetLine.objects.create(
+            project=cls.project, category=cls.category,
+            code="SL-A111-T1-S1-2026", description="Theme 1 / sub 1",
+            planned_amount=Decimal("100000"), fiscal_year=2026,
+        )
+        cls.bl_pec_mam = BudgetLine.objects.create(
+            project=cls.project, category=cls.category,
+            code="SL-A114-02-2026", description="PEC MAM",
+            planned_amount=Decimal("1400000"), fiscal_year=2026,
+        )
+        cls.bl_conv = BudgetLine.objects.create(
+            project=cls.project, category=cls.category,
+            code="SL-A114-01-2026", description="Conventions tripartites",
+            planned_amount=Decimal("3000000"), fiscal_year=2026,
+        )
+        cls.bl_admin = BudgetLine.objects.create(
+            project=cls.project, category=cls.category,
+            code="SL-A4-01-2026", description="Location bureau",
+            planned_amount=Decimal("3000000"), fiscal_year=2026,
+        )
+
+    def test_linking_assigns_correct_activities(self):
+        from django.core.management import call_command
+
+        call_command("link_budget_lines_to_activities_saint_louis")
+        self.bl_t1.refresh_from_db()
+        self.bl_pec_mam.refresh_from_db()
+        self.bl_conv.refresh_from_db()
+        self.bl_admin.refresh_from_db()
+        self.assertEqual(self.bl_t1.activity_id, self.a_r1_a2.id)
+        self.assertEqual(self.bl_pec_mam.activity_id, self.a_r3_a8.id)
+        self.assertEqual(self.bl_conv.activity_id, self.a_r3_a1.id)
+        # Ligne transverse : non rattachee.
+        self.assertIsNone(self.bl_admin.activity_id)
+
+    def test_linking_is_idempotent(self):
+        from django.core.management import call_command
+
+        call_command("link_budget_lines_to_activities_saint_louis")
+        call_command("link_budget_lines_to_activities_saint_louis")
+        self.bl_t1.refresh_from_db()
+        self.assertEqual(self.bl_t1.activity_id, self.a_r1_a2.id)

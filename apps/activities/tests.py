@@ -267,3 +267,74 @@ class SaintLouisImportTests(TestCase):
         call_command("import_activities_saint_louis")
         call_command("import_activities_saint_louis")
         self.assertEqual(Activity.objects.filter(project=self.project).count(), 17)
+
+
+class SaintLouisCommunesAndLocationsTests(TestCase):
+    """Communes manquantes et rattachement geographique des activites."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.project = Project.objects.create(
+            code="NOUSCIMS-SL-2026",
+            title="Saint-Louis - test",
+            start_date=date(2025, 8, 1),
+            end_date=date(2028, 7, 31),
+        )
+
+    def test_seed_communes_creates_four_missing(self):
+        from apps.references.models import Commune
+
+        before = Commune.objects.count()
+        call_command("seed_communes_saint_louis")
+        after = Commune.objects.count()
+        self.assertEqual(after - before, 4)
+        for name in ("Mpal", "Fass Ngom", "Gandon", "Ndiebene Gandiol"):
+            self.assertTrue(Commune.objects.filter(name=name).exists())
+
+    def test_seed_communes_is_idempotent(self):
+        call_command("seed_communes_saint_louis")
+        call_command("seed_communes_saint_louis")
+        from apps.references.models import Commune
+
+        self.assertEqual(
+            Commune.objects.filter(
+                name__in=["Mpal", "Fass Ngom", "Gandon", "Ndiebene Gandiol"]
+            ).count(),
+            4,
+        )
+
+    def test_seed_activity_locations_creates_53_links(self):
+        from apps.activities.models import ActivityLocation
+        from apps.references.models import Commune
+
+        # Saint-Louis doit exister.
+        Commune.objects.create(
+            name="Saint-Louis", department="Saint-Louis", region="Saint-Louis"
+        )
+        call_command("seed_communes_saint_louis")
+        call_command("import_activities_saint_louis")
+        call_command("seed_activity_locations_saint_louis")
+        self.assertEqual(
+            ActivityLocation.objects.filter(
+                activity__project=self.project
+            ).count(),
+            53,
+        )
+
+    def test_seed_activity_locations_is_idempotent(self):
+        from apps.activities.models import ActivityLocation
+        from apps.references.models import Commune
+
+        Commune.objects.create(
+            name="Saint-Louis", department="Saint-Louis", region="Saint-Louis"
+        )
+        call_command("seed_communes_saint_louis")
+        call_command("import_activities_saint_louis")
+        call_command("seed_activity_locations_saint_louis")
+        call_command("seed_activity_locations_saint_louis")
+        self.assertEqual(
+            ActivityLocation.objects.filter(
+                activity__project=self.project
+            ).count(),
+            53,
+        )
