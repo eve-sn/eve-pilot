@@ -338,3 +338,50 @@ class SaintLouisCommunesAndLocationsTests(TestCase):
             ).count(),
             53,
         )
+
+
+class SaintLouisScheduleTests(TestCase):
+    """Calage des dates et du responsable (chronogramme + organigramme)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.hr.models import Employee
+
+        cls.project = Project.objects.create(
+            code="NOUSCIMS-SL-2026",
+            title="Saint-Louis - test",
+            start_date=date(2025, 8, 1),
+            end_date=date(2028, 7, 31),
+        )
+        cls.chef = Employee.objects.create(
+            matricule="REF-2026-011",
+            first_name="Moustapha",
+            last_name="FALL",
+            position="Chef de projet S&E",
+            hire_date=date(2025, 8, 1),
+            status=Employee.Status.ACTIVE,
+        )
+
+    def test_schedule_sets_dates_and_responsible_on_17_activities(self):
+        call_command("import_activities_saint_louis")
+        call_command("seed_activity_schedule_saint_louis")
+        a = Activity.objects.get(code="SL-R1-A1")
+        self.assertEqual(a.planned_start_date, date(2025, 12, 1))
+        self.assertEqual(a.planned_end_date, date(2025, 12, 31))
+        self.assertEqual(a.responsible_id, self.chef.id)
+        # Activite "ongoing" : end_date est NULL.
+        a_ongoing = Activity.objects.get(code="SL-R1-A6")
+        self.assertIsNone(a_ongoing.planned_end_date)
+        # Toutes les activites du projet ont un responsable.
+        without_owner = Activity.objects.filter(
+            project=self.project, responsible__isnull=True
+        ).count()
+        self.assertEqual(without_owner, 0)
+
+    def test_schedule_command_fails_when_chef_missing(self):
+        from django.core.management.base import CommandError
+
+        self.chef.delete()
+        call_command("import_activities_saint_louis")
+        with self.assertRaises(CommandError):
+            call_command("seed_activity_schedule_saint_louis")
