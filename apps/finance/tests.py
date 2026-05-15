@@ -750,3 +750,58 @@ class SaintLouisBudgetLinkingTests(TestCase):
         call_command("link_budget_lines_to_activities_saint_louis")
         self.bl_t1.refresh_from_db()
         self.assertEqual(self.bl_t1.activity_id, self.a_r1_a2.id)
+
+
+class SaintLouisBudgetAmountsImportTests(TestCase):
+    """Helper _row_total et garde-fou fichier absent de l'import xls."""
+
+    def _mock_sheet(self, rows):
+        class _Sheet:
+            def __init__(self, data):
+                self._data = data
+
+            def cell_value(self, row, col):
+                return self._data[row][col]
+        return _Sheet(rows)
+
+    def test_row_total_uses_total_column_when_filled(self):
+        from apps.finance.management.commands.import_budget_amounts_saint_louis import (
+            _row_total,
+        )
+
+        row = ["", "lib", 25000.0, 6.0, 75000.0, "", 50000.0, "", "", "", 125000.0]
+        sheet = self._mock_sheet([row])
+        self.assertEqual(_row_total(sheet, 0), Decimal("125000.0"))
+
+    def test_row_total_falls_back_to_annual_sum_when_total_empty(self):
+        from apps.finance.management.commands.import_budget_amounts_saint_louis import (
+            _row_total,
+        )
+
+        # Cas A.1.5/1 : col TOTAL vide, seule ANNEE 1 renseignee.
+        row = ["", "lib", 100000.0, 1.0, 100000.0, "", "", "", "", "", ""]
+        sheet = self._mock_sheet([row])
+        self.assertEqual(_row_total(sheet, 0), Decimal("100000.0"))
+
+    def test_row_total_returns_none_when_all_empty(self):
+        from apps.finance.management.commands.import_budget_amounts_saint_louis import (
+            _row_total,
+        )
+
+        row = ["", "header sans montant", "", "", "", "", "", "", "", "", ""]
+        sheet = self._mock_sheet([row])
+        self.assertIsNone(_row_total(sheet, 0))
+
+    def test_command_fails_clean_when_xls_missing(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        Project.objects.create(
+            code="NOUSCIMS-SL-2026", title="SL",
+            start_date=date(2025, 8, 1), end_date=date(2028, 7, 31),
+        )
+        with self.assertRaises(CommandError):
+            call_command(
+                "import_budget_amounts_saint_louis",
+                file="/tmp/this-file-does-not-exist-xyz.xls",
+            )

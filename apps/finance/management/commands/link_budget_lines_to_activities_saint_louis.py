@@ -44,8 +44,8 @@ PREFIX_TO_ACTIVITY = [
     ("SL-A114-03-", "SL-R3-A8"),  # Prise en charge MAS
     # A.1.5 AUTRES
     ("SL-A115-1-", "SL-R1-A1"),   # Ceremonie de lancement
-    ("SL-A115-2-", "SL-R1-A5"),   # 5 cadres territoriaux de concertation
-    ("SL-A115-3-", "SL-R1-A4"),   # CDDN
+    ("SL-A115-2-", "SL-R1-A4"),   # CDDN (cf. xls row 59 "2-")
+    ("SL-A115-3-", "SL-R1-A5"),   # 5 cadres communaux (cf. xls row 64 "3-")
     ("SL-A115-4-", "SL-R1-A6"),   # Atelier feuilles de route CDDN/CLDN
     ("SL-A115-5-", "SL-R1-A6"),   # Rencontres annuelle de suivi CDDN/CLDN
     ("SL-A115-6-", "SL-R2-A2"),   # Plans d'action communaux
