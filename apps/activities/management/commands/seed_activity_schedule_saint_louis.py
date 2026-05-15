@@ -34,7 +34,40 @@ from apps.hr.models import Employee
 from apps.projects.models import Project
 
 PROJECT_CODE = "NOUSCIMS-SL-2026"
-RESPONSIBLE_MATRICULE = "REF-2026-011"  # Moustapha FALL, Chef de projet S&E
+
+# Bureau local Saint-Louis - matricules par poste fonctionnel.
+CHEF_PROJET = "REF-2026-011"        # Moustapha FALL
+POINT_FOCAL = "REF-2026-005"        # Cheikh Pathe FALL
+ANIMATEUR_1 = "REF-2026-015"        # Papa Iba Mar FALL
+ANIMATEUR_2 = "REF-2026-016"        # Farma DIEYE
+SUPERVISEUR_1 = "REF-2026-020"      # Alassane BA
+SUPERVISEUR_2 = "REF-2026-021"      # Youssoupha SY
+# Rokhaya BA (secretaire comptable) ne pilote pas d'activite terrain.
+
+# Repartition par activite, etablie a partir de la nature du travail :
+#   - cadres institutionnels / signature / suivi-eval -> Chef de projet
+#   - concertation communale / formations elus / plaidoyer -> Animateurs
+#   - formations terrain PECMA(S|M) / campagnes / PEC -> Superviseurs
+#   - formation CIP / supervision nutrition -> Point focal nutrition
+RESPONSIBLE_BY_ACTIVITY = {
+    "SL-R1-A1": CHEF_PROJET,     # Ceremonie de lancement
+    "SL-R1-A2": ANIMATEUR_1,     # Orientation des elus
+    "SL-R1-A3": ANIMATEUR_2,     # Renforcement acteurs contributifs
+    "SL-R1-A4": CHEF_PROJET,     # CDDN (departemental)
+    "SL-R1-A5": ANIMATEUR_1,     # 5 cadres communaux
+    "SL-R1-A6": ANIMATEUR_1,     # Animation CDDN + CLDN
+    "SL-R2-A1": ANIMATEUR_2,     # Capacites de planification
+    "SL-R2-A2": ANIMATEUR_1,     # PAN communaux
+    "SL-R2-A3": CHEF_PROJET,     # Plaidoyer DOB
+    "SL-R3-A1": CHEF_PROJET,     # Conventions tripartites (signature)
+    "SL-R3-A2": SUPERVISEUR_1,   # Formation prestataires PECMAS
+    "SL-R3-A3": POINT_FOCAL,     # Formation acteurs communautaires CIP
+    "SL-R3-A4": SUPERVISEUR_2,   # Formation acteurs communautaires PECMAM
+    "SL-R3-A5": CHEF_PROJET,     # Planification campagnes (coordination)
+    "SL-R3-A6": SUPERVISEUR_1,   # Organisation campagnes depistage
+    "SL-R3-A7": CHEF_PROJET,     # Evaluation campagnes (S&E)
+    "SL-R3-A8": SUPERVISEUR_2,   # Prise en charge enfants malnutris
+}
 
 # Calendrier des activites issu du chronogramme.
 # Format : code -> (start_date, end_date or None)
@@ -78,16 +111,19 @@ class Command(BaseCommand):
         except Project.DoesNotExist:
             raise CommandError(f"Projet {PROJECT_CODE} introuvable.")
 
-        try:
-            chef = Employee.objects.get(
-                matricule=RESPONSIBLE_MATRICULE,
-                is_active=True,
-                deleted_at__isnull=True,
+        # Charge en un coup les 6 employes pilotes.
+        matricules = set(RESPONSIBLE_BY_ACTIVITY.values())
+        employees = {
+            e.matricule: e
+            for e in Employee.objects.filter(
+                matricule__in=matricules, is_active=True, deleted_at__isnull=True
             )
-        except Employee.DoesNotExist:
+        }
+        missing_employees = matricules - set(employees.keys())
+        if missing_employees:
             raise CommandError(
-                f"Employee {RESPONSIBLE_MATRICULE} introuvable. "
-                "Importer d'abord la liste du personnel."
+                f"Employes introuvables : {sorted(missing_employees)}. "
+                "Lancer d'abord seed_saint_louis_team."
             )
 
         activities = {
@@ -104,9 +140,12 @@ class Command(BaseCommand):
             if activity is None:
                 missing.append(code)
                 continue
+            matricule = RESPONSIBLE_BY_ACTIVITY.get(code)
+            owner = employees[matricule] if matricule else None
+
             activity.planned_start_date = start
             activity.planned_end_date = end
-            activity.responsible = chef
+            activity.responsible = owner
             activity.save(
                 update_fields=[
                     "planned_start_date",
@@ -117,13 +156,16 @@ class Command(BaseCommand):
             )
             updated += 1
             end_str = end.isoformat() if end else "ongoing"
-            self.stdout.write(f"  ~ {code} : {start.isoformat()} -> {end_str}")
+            owner_str = f"{owner.first_name} {owner.last_name}" if owner else "-"
+            self.stdout.write(
+                f"  ~ {code} : {start.isoformat()} -> {end_str}  [{owner_str}]"
+            )
 
         self.stdout.write("")
         self.stdout.write(
             self.style.SUCCESS(
-                f"Calendrier Saint-Louis : {updated} activites calees, "
-                f"responsable = {chef.first_name} {chef.last_name}."
+                f"Calendrier Saint-Louis : {updated} activites calees avec "
+                f"dates et responsable nominal par poste."
             )
         )
         if missing:

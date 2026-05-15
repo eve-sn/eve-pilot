@@ -353,22 +353,40 @@ class SaintLouisScheduleTests(TestCase):
             start_date=date(2025, 8, 1),
             end_date=date(2028, 7, 31),
         )
-        cls.chef = Employee.objects.create(
-            matricule="REF-2026-011",
-            first_name="Moustapha",
-            last_name="FALL",
-            position="Chef de projet S&E",
-            hire_date=date(2025, 8, 1),
-            status=Employee.Status.ACTIVE,
-        )
+        # Equipe locale Saint-Louis (7 personnes, matricules existants).
+        cls.team = {}
+        for matricule, fname, lname in [
+            ("REF-2026-005", "Cheikh Pathe", "FALL"),
+            ("REF-2026-011", "Moustapha", "FALL"),
+            ("REF-2026-015", "Papa Iba Mar", "FALL"),
+            ("REF-2026-016", "Farma", "DIEYE"),
+            ("REF-2026-020", "Alassane", "BA"),
+            ("REF-2026-021", "Youssoupha", "SY"),
+            ("REF-2026-022", "Rokhaya", "BA"),
+        ]:
+            cls.team[matricule] = Employee.objects.create(
+                matricule=matricule,
+                first_name=fname,
+                last_name=lname,
+                position="Agent terrain",
+                hire_date=date(2025, 8, 1),
+                status=Employee.Status.ACTIVE,
+            )
+        cls.chef = cls.team["REF-2026-011"]
 
-    def test_schedule_sets_dates_and_responsible_on_17_activities(self):
+    def test_schedule_sets_dates_and_role_based_owner(self):
         call_command("import_activities_saint_louis")
         call_command("seed_activity_schedule_saint_louis")
+        # Chef de projet pilote la ceremonie de lancement.
         a = Activity.objects.get(code="SL-R1-A1")
         self.assertEqual(a.planned_start_date, date(2025, 12, 1))
-        self.assertEqual(a.planned_end_date, date(2025, 12, 31))
         self.assertEqual(a.responsible_id, self.chef.id)
+        # Formation des elus pilotee par un animateur, pas le chef.
+        a_anim = Activity.objects.get(code="SL-R1-A2")
+        self.assertEqual(a_anim.responsible_id, self.team["REF-2026-015"].id)
+        # Formation CIP pilotee par le Point focal nutrition.
+        a_cip = Activity.objects.get(code="SL-R3-A3")
+        self.assertEqual(a_cip.responsible_id, self.team["REF-2026-005"].id)
         # Activite "ongoing" : end_date est NULL.
         a_ongoing = Activity.objects.get(code="SL-R1-A6")
         self.assertIsNone(a_ongoing.planned_end_date)
@@ -378,10 +396,62 @@ class SaintLouisScheduleTests(TestCase):
         ).count()
         self.assertEqual(without_owner, 0)
 
-    def test_schedule_command_fails_when_chef_missing(self):
+    def test_schedule_fails_when_an_employee_is_missing(self):
         from django.core.management.base import CommandError
 
-        self.chef.delete()
+        # Supprime un animateur : la commande doit refuser de s'executer.
+        self.team["REF-2026-015"].delete()
         call_command("import_activities_saint_louis")
         with self.assertRaises(CommandError):
             call_command("seed_activity_schedule_saint_louis")
+
+
+class SaintLouisTeamSeedTests(TestCase):
+    """Commande seed_saint_louis_team : maj fiches + ProjectTeam."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.hr.models import Employee
+
+        cls.project = Project.objects.create(
+            code="NOUSCIMS-SL-2026",
+            title="Saint-Louis - test",
+            start_date=date(2025, 8, 1),
+            end_date=date(2028, 7, 31),
+        )
+        cls.emp = Employee.objects.create(
+            matricule="REF-2026-011",
+            first_name="Moustapha",
+            last_name="FALL",
+            position="Agent terrain",  # position generique avant maj
+            hire_date=date(2025, 8, 1),
+            status=Employee.Status.ACTIVE,
+        )
+
+    def test_team_seed_updates_position_and_creates_project_team(self):
+        from apps.projects.models import ProjectTeam
+
+        call_command("seed_saint_louis_team")
+        self.emp.refresh_from_db()
+        self.assertEqual(
+            self.emp.position, "Chef de projet charge du suivi-evaluation"
+        )
+        self.assertEqual(self.emp.assignment_label, "Nous-Cims Saint-Louis")
+        # Une entree ProjectTeam doit avoir ete creee pour cet employe.
+        self.assertTrue(
+            ProjectTeam.objects.filter(
+                project=self.project, employee=self.emp
+            ).exists()
+        )
+
+    def test_team_seed_is_idempotent(self):
+        from apps.projects.models import ProjectTeam
+
+        call_command("seed_saint_louis_team")
+        call_command("seed_saint_louis_team")
+        self.assertEqual(
+            ProjectTeam.objects.filter(
+                project=self.project, employee=self.emp
+            ).count(),
+            1,
+        )
