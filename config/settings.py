@@ -67,6 +67,10 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Connexion obligatoire par defaut (deny-by-default) sur tout le site,
+    # sauf liste blanche (login, health, static, admin, api). Doit etre APRES
+    # AuthenticationMiddleware.
+    "apps.common.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
