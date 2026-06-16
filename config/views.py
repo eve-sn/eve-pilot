@@ -84,7 +84,32 @@ def home(request):
             ],
         }
     else:
-        rh_reference = RH_REFERENCE_SNAPSHOT
+        # Aucune donnee RH en base : on affiche un tableau vide (zeros) plutot
+        # que des chiffres codes en dur. Les vrais chiffres apparaitront quand
+        # un WorkforceSnapshot sera seede (ex: import_rh_reference_2026).
+        rh_reference = {
+            "title": "Tableau de bord RH",
+            "scope": "",
+            "source_date": None,
+            "staff": {
+                "salaried_and_contractual": 0,
+                "service_providers": 0,
+                "consultants": 0,
+                "detailed_total_listed": 0,
+                "reported_summary_total": 0,
+                "has_total_discrepancy": False,
+            },
+            "community": {
+                "relay_workers": 0,
+                "icp": 0,
+                "health_posts": 0,
+                "companions": 0,
+                "community_supervisors": 0,
+                "regions": 0,
+                "total_actors": 0,
+            },
+            "geographies": [],
+        }
 
     rh_reference_staff = rh_reference["staff"]
     rh_reference_community = rh_reference["community"]
