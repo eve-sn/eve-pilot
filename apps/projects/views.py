@@ -1,6 +1,9 @@
+from django.contrib import messages
 from django.db.models import Count, Prefetch, Q
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.accounts.access import can_see_everything
+from apps.projects.forms import ProjectForm
 from apps.projects.models import (
     Donor,
     Indicator,
@@ -12,6 +15,29 @@ from apps.projects.models import (
 
 
 ACTIVE_DOMAIN = {"is_active": True, "deleted_at__isnull": True}
+
+
+def project_create(request):
+    """Création manuelle d'un projet. Réservé aux rôles globaux (RAF/DP/SE)
+    et aux administrateurs."""
+    if not can_see_everything(request.user):
+        return render(
+            request, "accounts/access_denied.html",
+            {"message": "La création de projets est réservée à la Direction (RAF, DP, SE)."},
+            status=403,
+        )
+    if request.method == "POST":
+        form = ProjectForm(request.POST)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.created_by = request.user
+            project.save()
+            form.save_m2m()
+            messages.success(request, f"Projet « {project.title} » créé.")
+            return redirect("projects:detail", public_uuid=project.public_uuid)
+    else:
+        form = ProjectForm()
+    return render(request, "projects/form.html", {"form": form, "mode": "create"})
 
 
 def project_list(request):
@@ -66,6 +92,7 @@ def project_list(request):
         "preparation_count": status_counts.get(Project.Status.PREPARATION, 0),
         "suspended_count": status_counts.get(Project.Status.SUSPENDED, 0),
         "closed_count": status_counts.get(Project.Status.CLOSED, 0),
+        "can_create_project": can_see_everything(request.user),
     }
     return render(request, "projects/list.html", context)
 

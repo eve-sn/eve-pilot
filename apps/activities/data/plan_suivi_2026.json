@@ -1,0 +1,184 @@
+{
+  "projects": [
+    {
+      "code": "AGRI-NUT-2026",
+      "title": "Agri avec les communautées et les autorités pour des services de nutrition renforcés à Pikine",
+      "activities": [
+        {
+          "title": "Faciliter la mise à disposition, dans les délais requis, des ressources nécessaires aux techniciens pour la mise en œuvre efficace des activités",
+          "responsable": "Finance",
+          "echeance": "",
+          "commentaire": ""
+        },
+        {
+          "title": "Organiser des sessions de renforcement des capacités (dans quels domaines) à l’intention des techniciens du projet",
+          "responsable": "DP",
+          "echeance": "à confimer",
+          "commentaire": ""
+        },
+        {
+          "title": "Appuyer la collecte, la consolidation et l'analyse des données de suivi des AGR",
+          "responsable": "MEAL",
+          "echeance": "continu",
+          "commentaire": ""
+        },
+        {
+          "title": "Réaliser des rencontres avec les maires des communes participantes (plaidoyer auprès des autorités locales et partenaires) pour renforcer l'engagement autour des activités nutritionnelles",
+          "responsable": "SE",
+          "echeance": "46192",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "PDBH-2026",
+      "title": "Projet de dépollution de la baie de Hann",
+      "activities": [
+        {
+          "title": "Mis à disposition de moyens financiers  pour la production des outils de communication et la réalisation d’activités de communication de masse  pour la vulgarisation des activités de raccordement des ménages",
+          "responsable": "Finance",
+          "echeance": "Si toutes les validations sont faites on decaise dans les 24h ouvrables",
+          "commentaire": ""
+        },
+        {
+          "title": "Interpeller le coordonnateur du PDBH pour la disponibilité des chefs de projet durant les réunions communautaires d’information_Demander une réunion",
+          "responsable": "DP",
+          "echeance": "46183",
+          "commentaire": ""
+        },
+        {
+          "title": "Appui à la validation  des rapports mensuels d’activités",
+          "responsable": "MEAL",
+          "echeance": "Mensuel",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "GOUV-NUT-2026",
+      "title": "Projet d’appui à la gouvernance multisectorielle de la nutrition dans le département de Saint-Louis",
+      "activities": [
+        {
+          "title": "Planifier des missions de suivi semestrielles pour renforcer la qualité de la mise en œuvre des activités et assurer une meilleure préparation des missions de suivi des partenaires",
+          "responsable": "DP",
+          "echeance": "semestrielle",
+          "commentaire": ""
+        },
+        {
+          "title": "Mettre à la disposition de l'équipe un véhicule pour assurer efficacement les déplacements et missions de terrain",
+          "responsable": "DP _DE",
+          "echeance": "46185",
+          "commentaire": ""
+        },
+        {
+          "title": "Former l'équipe du projet sur ODK Collect (en ligne)",
+          "responsable": "MEAL",
+          "echeance": "à confirmer avant fin de semaine",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "YKK-2026",
+      "title": "Yokk Kom Kom",
+      "activities": [
+        {
+          "title": "Diligenter la finalisation et la formalisation des contrats de l’opérateur social",
+          "responsable": "DE",
+          "echeance": "46185",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "WASH-2026",
+      "title": "Wash en milieu scolaire",
+      "activities": [
+        {
+          "title": "Mettre en contact Samira avec le GT Education de Nous Cims pour voir quelle articulation et opportunités de collaboration (intégrer l'acteur dans la dynamique des acteurs/informateurs clés)",
+          "responsable": "Nutrition technical advisor",
+          "echeance": "à confimer",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "KEDOUGOU-2026",
+      "title": "Bureau Kédougou",
+      "activities": [
+        {
+          "title": "Accompagnement dans la recherche de financements et la préparation des budgets de projets",
+          "responsable": "Finance",
+          "echeance": "confirmation",
+          "commentaire": ""
+        },
+        {
+          "title": "Accompagnement dans l’élaboration de projets sur l’assainissement, la gouvernance locale et le développement communautaire_ Call avec coordo régional",
+          "responsable": "DP",
+          "echeance": "46183",
+          "commentaire": ""
+        },
+        {
+          "title": "Renforcement du positionnement d’EVE Kédougou dans les réseaux et plateformes régionaux.",
+          "responsable": "DP",
+          "echeance": "continu",
+          "commentaire": ""
+        },
+        {
+          "title": "Formation du coordonnateur régional sur la collecte des données",
+          "responsable": "MEAL",
+          "echeance": "46357",
+          "commentaire": ""
+        },
+        {
+          "title": "Renforcement des moyens logistiques du bureau (ordinateur, fournitures)",
+          "responsable": "Admin",
+          "echeance": "à confirmer",
+          "commentaire": ""
+        },
+        {
+          "title": "Appui à la mobilisation de partenariats stratégiques et de financements",
+          "responsable": "DE",
+          "echeance": "continu",
+          "commentaire": ""
+        },
+        {
+          "title": "Facilitation des relations institutionnelles avec les services techniques de l’État et les partenaires",
+          "responsable": "DE",
+          "echeance": "continu",
+          "commentaire": ""
+        }
+      ]
+    },
+    {
+      "code": "GLOBAL-2026",
+      "title": "Global",
+      "activities": [
+        {
+          "title": "Former les staffs sur les procédures administratives et financières",
+          "responsable": "Finance",
+          "echeance": "Après la demande et validation",
+          "commentaire": ""
+        },
+        {
+          "title": "Définir un délai de soumission des demandes et de justification des fonds",
+          "responsable": "DP",
+          "echeance": "immédiat",
+          "commentaire": ""
+        },
+        {
+          "title": "Réaliser des réunions mensuelles de suivi budgétaire avec les chefs de projets",
+          "responsable": "RAF - DP",
+          "echeance": "mensuel",
+          "commentaire": ""
+        },
+        {
+          "title": "Former les staffs sur la planification technique et financière",
+          "responsable": "DP",
+          "echeance": "46266",
+          "commentaire": ""
+        }
+      ]
+    }
+  ]
+}

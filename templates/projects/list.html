@@ -13,8 +13,13 @@
                 <p class="lead">
                     Une vue d'ensemble des projets actifs, en préparation ou suspendus,
                     avec leurs bailleurs principaux, leurs responsables et leur avancement.
-                    Chaque fiche ouvre un détail complet equipe, indicateurs et localisations.
+                    Chaque fiche ouvre un détail complet : équipe, indicateurs et localisations.
                 </p>
+                {% if can_create_project %}
+                <div style="margin-top:14px;">
+                    <a class="button primary" href="{% url 'projects:create' %}">+ Nouveau projet</a>
+                </div>
+                {% endif %}
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
                 <div class="stat-card soft-green">
