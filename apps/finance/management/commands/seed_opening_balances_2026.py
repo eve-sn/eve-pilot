@@ -49,7 +49,7 @@ class Command(BaseCommand):
             except ChartOfAccount.DoesNotExist:
                 raise CommandError(
                     "Compte 1211 (officiel SYCEBNL) ni 1101 (legacy EVE) "
-                    "introuvable. Lancer d'abord seed_chart_of_accounts_official."
+                    "introuvable. Lancer d'abord seed_chart_of_accounts."
                 )
 
         created = 0

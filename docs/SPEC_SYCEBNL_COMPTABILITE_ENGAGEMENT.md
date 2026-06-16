@@ -106,7 +106,7 @@ Lors d'un échange antérieur, j'avais affirmé que les comptes **462** et **702
 | 409 | Fournisseurs débiteurs (4091 avances et acomptes versés) | Acomptes fournisseurs |
 | **481** | Fournisseurs d'investissements | Achats d'immobilisations à crédit (≠ 401 exploitation) |
 
-> ⚠️ **À CONFIRMER** : numérotation exacte 401/408 dans le référentiel SYCEBNL (très probablement identique au SYSCOHADA, mais à vérifier dans le guide officiel). Action : `seed_chart_of_accounts_sycebnl` à compléter.
+> ℹ️ La classe 40 (401 Fournisseurs - exploitation, 4011 Fournisseurs locaux) et le compte 4812 (fournisseurs d'investissement) sont intégrés au plan comptable resserré conforme. Source unique : `seed_chart_of_accounts`. Les sous-comptes de cut-off 408/409 restent à ajouter si la clôture l'exige.
 
 ---
 
@@ -304,7 +304,8 @@ Cible : ajouter des fonctions de posting déclenchées par **l'engagement**, pas
 - La neutralisation 462/702 doit migrer du décaissement vers l'**engagement**.
 
 ### 6.4 Seed
-- Compléter `seed_chart_of_accounts_sycebnl` avec la classe 40 (401, 408, 409, 481).
+- Source unique du plan comptable : `seed_chart_of_accounts` (plan SYCEBNL/SYSCOHADA resserré et conforme, ~236 comptes). Remplace l'ancien trio `_sycebnl` / `_detailed` / `_official`.
+- Classe 40 intégrée (401, 4011) ; 4812 pour les fournisseurs d'investissement. 408/409 (cut-off) à ajouter si la clôture l'exige.
 
 ---
 

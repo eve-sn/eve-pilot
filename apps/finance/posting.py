@@ -65,7 +65,7 @@ def _treasury_account_for_bank(bank_account):
     if account is None:
         raise PostingError(
             f"Aucun compte SYCEBNL 5211.x lie au compte bancaire '{bank_account.name}'. "
-            "Lancer seed_chart_of_accounts_sycebnl."
+            "Lancer seed_chart_of_accounts."
         )
     return account
 
@@ -78,7 +78,7 @@ def _treasury_account_for_register(register):
     if account is None:
         raise PostingError(
             f"Aucun compte SYCEBNL 571.x lie a la caisse '{register.name}'. "
-            "Lancer seed_chart_of_accounts_sycebnl."
+            "Lancer seed_chart_of_accounts."
         )
     return account
 
@@ -93,7 +93,7 @@ def _get_sycebnl_account(code: str):
     if acc is None:
         raise PostingError(
             f"Compte SYCEBNL {code} introuvable. "
-            "Lancer seed_chart_of_accounts_sycebnl."
+            "Lancer seed_chart_of_accounts."
         )
     return acc
 

@@ -110,7 +110,7 @@ class Command(BaseCommand):
         if missing:
             self.stderr.write(
                 f"Comptes SYCEBNL manquants : {sorted(missing)}. "
-                "Lancer seed_chart_of_accounts_sycebnl."
+                "Lancer seed_chart_of_accounts."
             )
             return
 
