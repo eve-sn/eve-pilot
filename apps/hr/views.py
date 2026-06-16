@@ -1,8 +1,35 @@
+from django.contrib import messages
 from django.db.models import Count, Prefetch, Q
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.accounts.access import can_see_everything
+from apps.hr.forms import EmployeeForm
 from apps.hr.models import Contract, Employee, Leave, WorkforceSnapshot
 from apps.hr.reference_data import RH_REFERENCE_SOURCE
+
+
+def employee_create(request):
+    """Création manuelle d'une fiche du personnel. Réservée au responsable RH
+    (rôles globaux RAF/DP/SE) et aux administrateurs."""
+    if not can_see_everything(request.user):
+        return render(
+            request, "accounts/access_denied.html",
+            {"message": "La création de fiches du personnel est réservée à la Direction / RH."},
+            status=403,
+        )
+    if request.method == "POST":
+        form = EmployeeForm(request.POST)
+        if form.is_valid():
+            employee = form.save(commit=False)
+            employee.created_by = request.user
+            if not employee.reference_source:
+                employee.reference_source = RH_REFERENCE_SOURCE
+            employee.save()
+            messages.success(request, f"Fiche créée : {employee.first_name} {employee.last_name}.")
+            return redirect("hr:employee_detail", public_uuid=employee.public_uuid)
+    else:
+        form = EmployeeForm()
+    return render(request, "hr/form.html", {"form": form, "mode": "create"})
 
 
 def rh_dashboard(request):
@@ -87,6 +114,7 @@ def rh_dashboard(request):
         ).count(),
         "units": units,
         "category_choices": Employee.WorkforceCategory.choices,
+        "can_create_employee": can_see_everything(request.user),
     }
     return render(request, "hr/dashboard.html", context)
 

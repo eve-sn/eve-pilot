@@ -1,0 +1,42 @@
+{% extends "hr/base.html" %}
+
+{% block title %}EVE Pilot &mdash; {% if mode == 'edit' %}Modifier la fiche{% else %}Nouvel employé{% endif %}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">{% if mode == 'edit' %}Édition{% else %}Création{% endif %}</div>
+            <h1 style="font-size:2rem;">
+                {% if mode == 'edit' %}Modifier &laquo; {{ employee.first_name }} {{ employee.last_name }} &raquo;{% else %}Nouvelle fiche du personnel{% endif %}
+            </h1>
+            <p class="lead">Renseigner l'agent. Seuls le matricule, le nom, le prénom, le poste et la date d'embauche sont obligatoires ; le reste peut être complété plus tard.</p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <form method="post" class="form-grid">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="placeholder-note" style="color:#8a2b2b;">{{ form.non_field_errors }}</div>
+                {% endif %}
+                {% for field in form %}
+                <div>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+                    {{ field.errors }}
+                </div>
+                {% endfor %}
+                <div style="display:flex; gap:10px; margin-top:8px;">
+                    <button class="button primary" type="submit">{% if mode == 'edit' %}Enregistrer{% else %}Créer la fiche{% endif %}</button>
+                    <a class="button" href="{% url 'hr:dashboard' %}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -7,12 +7,17 @@
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Referentiel RH EVE</div>
-                <h1>Le personnel EVE visible dans une vraie base RH consultable.</h1>
+                <div class="eyebrow">Référentiel RH EVE</div>
+                <h1>Le personnel EVE dans une vraie base RH consultable.</h1>
                 <p class="lead">
-                    Cette page consolide les personnes du referentiel RH 2025-2026 et les rend
-                    navigables par catégorie, unite et affectation, avec acces direct aux fiches détaillées.
+                    Cette page regroupe le personnel et le rend navigable par catégorie, unité
+                    et affectation, avec accès direct à chaque fiche détaillée.
                 </p>
+                {% if can_create_employee %}
+                <div style="margin-top:14px;">
+                    <a class="button primary" href="{% url 'hr:employee_create' %}">+ Nouvel employé</a>
+                </div>
+                {% endif %}
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
                 <div class="stat-card soft-green">
