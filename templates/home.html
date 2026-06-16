@@ -435,33 +435,34 @@
         <div class="wrap">
             <div class="section-header">
                 <div>
-                    <h2>Dashboard de pilotage</h2>
+                    <h2>L'essentiel en un coup d'œil</h2>
                     <p>
-                        Une lecture immediatement utile pour la direction et les responsables de modules,
-                        basee sur les donnees actuellement chargees dans la plateforme.
+                        Les chiffres clés du budget et des congés, calculés en direct à partir
+                        de ce qui a été saisi dans la plateforme. Ils restent à zéro tant qu'aucune
+                        donnée n'a encore été enregistrée.
                     </p>
                 </div>
             </div>
             <div class="grid-4">
                 <div class="card soft-green">
-                    <h3>Budget total</h3>
+                    <h3>Budget prévu</h3>
                     <div class="budget-number">{{ total_budget|floatformat:0 }} XOF</div>
-                    <p class="sub">Montant planifie sur l'ensemble des lignes budgetaires actives.</p>
+                    <p class="sub">Total planifié sur toutes les lignes budgétaires en cours.</p>
                 </div>
                 <div class="card soft-blue">
-                    <h3>Engage</h3>
+                    <h3>Déjà engagé</h3>
                     <div class="budget-number">{{ total_committed|floatformat:0 }} XOF</div>
-                    <p class="sub">Valeur engagee sur les projets et activites suivis.</p>
+                    <p class="sub">Montant réservé par des commandes ou contrats, pas encore payé.</p>
                 </div>
                 <div class="card soft-amber">
-                    <h3>Decaisse</h3>
+                    <h3>Déjà dépensé</h3>
                     <div class="budget-number">{{ total_disbursed|floatformat:0 }} XOF</div>
-                    <p class="sub">Depenses deja sorties et rattachees au pilotage financier.</p>
+                    <p class="sub">Dépenses réellement payées et enregistrées à ce jour.</p>
                 </div>
                 <div class="card">
-                    <h3>Alertes RH</h3>
+                    <h3>Congés à valider</h3>
                     <div class="budget-number">{{ pending_leaves_count }}</div>
-                    <p class="sub">Demandes de conges en attente de validation.</p>
+                    <p class="sub">Demandes de congé du personnel en attente de validation.</p>
                 </div>
             </div>
         </div>
@@ -471,10 +472,11 @@
         <div class="wrap">
             <div class="section-header">
                 <div>
-                    <h2>Reference RH 2025-2026</h2>
+                    <h2>Le dispositif humain</h2>
                     <p>
-                        Ces chiffres proviennent du document RH transmis par EVE et donnent
-                        une lecture reelle du dispositif humain deploye au 23 avril 2026.
+                        Vue d'ensemble du personnel et des acteurs de terrain enregistrés dans
+                        EVE Pilot. Les compteurs se remplissent au fur et à mesure de la saisie
+                        des fiches du personnel.
                     </p>
                 </div>
             </div>
@@ -487,12 +489,13 @@
                 </div>
                 {% endfor %}
             </div>
+            {% if rh_reference.source_date %}
             <div class="grid-2" style="margin-top: 18px;">
                 <div class="card">
                     <h3>Couverture communautaire</h3>
                     <p class="sub">
-                        Repartition issue du tableau RH EVE 2025-2026 sur les principales zones
-                        d'intervention communautaire.
+                        Répartition des acteurs de terrain sur les principales zones
+                        d'intervention de l'organisation.
                     </p>
                     <div class="data-list">
                         {% for geography in rh_reference.geographies %}
@@ -501,32 +504,30 @@
                             <span>
                                 Relais : {{ geography.relay_workers }}<br>
                                 Appui : {{ geography.support_structures }}<br>
-                                Portee : {{ geography.beneficiaries }}
+                                Portée : {{ geography.beneficiaries }}
                             </span>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="card">
-                    <h3>Source et vigilance</h3>
+                    <h3>Source de référence</h3>
                     <p class="sub">
-                        Le dashboard applicatif reste branche sur la base PostgreSQL, et cette section
-                        joue le role de reference documentaire controlee.
+                        Origine du document RH qui a servi à renseigner ces chiffres.
                     </p>
                     <div class="check-list">
                         <div class="check-item">Document source : {{ rh_reference.title }}</div>
-                        <div class="check-item">Perimetre : {{ rh_reference.scope }}</div>
-                        <div class="check-item">Date de reference : {{ rh_reference.source_date|date:"d/m/Y" }}</div>
+                        <div class="check-item">Périmètre : {{ rh_reference.scope }}</div>
+                        <div class="check-item">Date de référence : {{ rh_reference.source_date|date:"d/m/Y" }}</div>
+                        {% if rh_reference.staff.has_total_discrepancy %}
                         <div class="check-item">
-                            {% if rh_reference.staff.has_total_discrepancy %}
-                            Le total de synthese du PDF mentionne {{ rh_reference.staff.reported_summary_total }} personnes, alors que les listes detaillees en totalisent {{ rh_reference.staff.detailed_total_listed }}. A arbitrer cote source avant consolidation en base.
-                            {% else %}
-                            Les totaux du document sont coherents et exploitables tels quels.
-                            {% endif %}
+                            À vérifier : le total de synthèse ({{ rh_reference.staff.reported_summary_total }} personnes) diffère des listes détaillées ({{ rh_reference.staff.detailed_total_listed }}). À arbitrer avant consolidation.
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
     </section>
 
@@ -534,54 +535,53 @@
         <div class="wrap">
             <div class="section-header">
                 <div>
-                    <h2>Modules metier</h2>
+                    <h2>Ce que vous pouvez faire dans EVE Pilot</h2>
                     <p>
-                        La V1 pose les fondations d'une plateforme de gestion institutionnelle
-                        capable d'accompagner EVE sur les volets administratifs, programmatiques
-                        et financiers.
+                        Trois grands espaces de travail couvrent l'administratif, les projets
+                        de terrain et les finances de l'organisation.
                     </p>
                 </div>
             </div>
             <div class="grid-3">
                 <div class="card soft-green">
                     <h3>Ressources humaines</h3>
-                    <p class="sub">Gestion des agents, contrats, conges, paie et documents du personnel.</p>
+                    <p class="sub">Gérer le personnel : contrats, congés, paie et documents.</p>
                     <div class="module-list">
                         <div class="module-item">
-                            <strong>Fiches agents</strong>
-                            <span>Etat civil, poste, rattachement, contacts et completude documentaire.</span>
+                            <strong>Fiches du personnel</strong>
+                            <span>État civil, poste, affectation, contacts et pièces justificatives.</span>
                         </div>
                         <div class="module-item">
-                            <strong>Cycle RH</strong>
-                            <span>Contrats, absences, evaluations et historique administratif.</span>
+                            <strong>Vie du contrat</strong>
+                            <span>Contrats, absences, évaluations et historique de chaque agent.</span>
                         </div>
                     </div>
                 </div>
                 <div class="card soft-blue">
-                    <h3>Projets & terrain</h3>
-                    <p class="sub">Suivi du portefeuille, equipe projet, activites, indicateurs et preuves.</p>
+                    <h3>Projets et terrain</h3>
+                    <p class="sub">Suivre les projets, les équipes, les activités et leurs résultats.</p>
                     <div class="module-list">
                         <div class="module-item">
-                            <strong>Pilotage projet</strong>
+                            <strong>Suivi des projets</strong>
                             <span>Calendrier, avancement, livrables, risques et responsables.</span>
                         </div>
                         <div class="module-item">
-                            <strong>Execution terrain</strong>
-                            <span>Rapports d'activite, beneficiaires, geolocalisation et evidences.</span>
+                            <strong>Activités de terrain</strong>
+                            <span>Rapports d'activité, bénéficiaires, lieux et pièces de preuve.</span>
                         </div>
                     </div>
                 </div>
                 <div class="card soft-amber">
-                    <h3>Finances & reporting</h3>
-                    <p class="sub">Suivi budgetaire, engagements, decaissements et generation de rapports.</p>
+                    <h3>Finances et rapports</h3>
+                    <p class="sub">Suivre le budget, les dépenses et produire les rapports.</p>
                     <div class="module-list">
                         <div class="module-item">
-                            <strong>Controle budgetaire</strong>
-                            <span>{{ budget_line_count }} lignes budgetaires pour lire le prevu, l'engage et le decaisse.</span>
+                            <strong>Suivi du budget</strong>
+                            <span>{{ budget_line_count }} ligne(s) budgétaire(s) : comparer le prévu, l'engagé et le dépensé.</span>
                         </div>
                         <div class="module-item">
-                            <strong>Production documentaire</strong>
-                            <span>Rapports direction, bailleurs, RH et exports PDF, DOCX, XLSX.</span>
+                            <strong>Rapports et exports</strong>
+                            <span>Documents pour la direction, les bailleurs et la RH (PDF, Word, Excel).</span>
                         </div>
                     </div>
                 </div>
@@ -594,61 +594,61 @@
         <div class="wrap">
             <div class="section-header">
                 <div>
-                    <h2>Vue dynamique</h2>
+                    <h2>Aperçu en temps réel</h2>
                     <p>
-                        Les blocs ci-dessous sont alimentes par les donnees metier en base
-                        pour offrir un premier dashboard reel au lieu d'une simple page statique.
+                        Ces blocs se mettent à jour automatiquement à partir des données
+                        saisies : projets prioritaires, dernières activités et rapports récents.
                     </p>
                 </div>
             </div>
             <div class="grid-3" style="margin-bottom: 18px;">
                 <div class="card soft-green">
                     <h3>Projets prioritaires</h3>
-                    <p class="sub">Les projets les plus avances ou structurants du portefeuille.</p>
+                    <p class="sub">Les projets les plus avancés ou les plus structurants.</p>
                     <div class="data-list">
                         {% for project in priority_projects %}
                         <a class="data-item" href="/projets/{{ project.public_uuid }}/">
                             <strong>{{ project.code }} — {{ project.title }}</strong>
                             <span>
-                                Bailleur : {{ project.primary_donor.name|default:"Non defini" }}<br>
-                                Responsable : {{ project.project_manager|default:"Non defini" }}<br>
+                                Bailleur : {{ project.primary_donor.name|default:"Non défini" }}<br>
+                                Responsable : {{ project.project_manager|default:"Non défini" }}<br>
                                 Avancement : {{ project.progress_percentage }}%
                             </span>
                             <div class="badge">{{ project.get_status_display }}</div>
                         </a>
                         {% empty %}
-                        <div class="data-item"><strong>Aucun projet</strong><span>Charge des projets de demonstration pour voir cette zone vivre.</span></div>
+                        <div class="data-item"><strong>Aucun projet pour l'instant</strong><span>Les projets apparaîtront ici une fois enregistrés.</span></div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="card soft-blue">
-                    <h3>Activites recentes</h3>
-                    <p class="sub">Les activites les plus proches du terrain ou du calendrier.</p>
+                    <h3>Activités récentes</h3>
+                    <p class="sub">Les activités les plus proches dans le calendrier.</p>
                     <div class="data-list">
                         {% for activity in recent_activities %}
                         <div class="data-item">
                             <strong>{{ activity.title }}</strong>
                             <span>
                                 Projet : {{ activity.project.code }}<br>
-                                Responsable : {{ activity.responsible|default:"Non defini" }}<br>
+                                Responsable : {{ activity.responsible|default:"Non défini" }}<br>
                                 Date : {{ activity.planned_start_date }}
                             </span>
                             <div class="badge">{{ activity.get_status_display }} • {{ activity.completion_rate }}%</div>
                         </div>
                         {% empty %}
-                        <div class="data-item"><strong>Aucune activite</strong><span>Le calendrier des activites apparaitra ici.</span></div>
+                        <div class="data-item"><strong>Aucune activité pour l'instant</strong><span>Le calendrier des activités apparaîtra ici.</span></div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="card soft-amber">
-                    <h3>Rapports et statut du portefeuille</h3>
-                    <p class="sub">Un melange de production documentaire et d'etat general des projets.</p>
+                    <h3>Rapports et état des projets</h3>
+                    <p class="sub">Les derniers rapports produits et la répartition des projets par statut.</p>
                     <div class="data-list">
                         <div class="data-item">
-                            <strong>Statuts projets</strong>
+                            <strong>Projets par statut</strong>
                             <span>
                                 Actifs : {{ project_status_map.ACTIF|default:0 }}<br>
-                                En preparation : {{ project_status_map.PREPARATION|default:0 }}<br>
+                                En préparation : {{ project_status_map.PREPARATION|default:0 }}<br>
                                 Suspendus : {{ project_status_map.SUSPENDU|default:0 }}
                             </span>
                         </div>
@@ -662,7 +662,7 @@
                             <div class="badge">{{ report.get_status_display }}</div>
                         </div>
                         {% empty %}
-                        <div class="data-item"><strong>Aucun rapport</strong><span>Les rapports generes apparaitront ici.</span></div>
+                        <div class="data-item"><strong>Aucun rapport pour l'instant</strong><span>Les rapports produits apparaîtront ici.</span></div>
                         {% endfor %}
                     </div>
                 </div>
@@ -670,54 +670,54 @@
 
             <div class="grid-2">
                 <div class="card">
-                    <h3>Acces rapides</h3>
-                    <p class="sub">Les portes d'entree utiles pour commencer a travailler dans EVE Pilot.</p>
+                    <h3>Accès rapides</h3>
+                    <p class="sub">Par où commencer, selon ce que vous avez à faire aujourd'hui.</p>
                     <div class="quick-links">
                         <a class="quick-item" href="/projets/">
                             <strong>Espace Projets</strong>
-                            <span>Parcourir le portefeuille EVE, filtrer par statut, bailleur ou secteur.</span>
+                            <span>Parcourir les projets et filtrer par statut, bailleur ou secteur.</span>
                         </a>
                         <a class="quick-item" href="/finance/">
                             <strong>Tableau Finance</strong>
-                            <span>Lire le portefeuille budgetaire, le Budget General EVE et les flux par bailleur.</span>
+                            <span>Consulter le budget, le Budget Général EVE et les mouvements par bailleur.</span>
                         </a>
                         <a class="quick-item" href="/rh/">
                             <strong>Espace RH</strong>
-                            <span>Consulter le repertoire du personnel et ouvrir les fiches detaillees.</span>
+                            <span>Voir l'annuaire du personnel et ouvrir les fiches détaillées.</span>
                         </a>
                         <a class="quick-item" href="/activites/">
-                            <strong>Module Activites</strong>
-                            <span>Planifier les activites projet et suivre les rapports terrain valides par le Secretaire Executif.</span>
+                            <strong>Activités</strong>
+                            <span>Planifier les activités et suivre les rapports de terrain validés.</span>
                         </a>
                         <a class="quick-item" href="/aide/">
                             <strong>Aide &amp; mode d'emploi</strong>
-                            <span>Voir le guide d'utilisation correspondant a votre role.</span>
+                            <span>Le guide d'utilisation adapté à votre rôle.</span>
                         </a>
                         {% if user.is_superuser %}
                         <a class="quick-item" href="/admin/">
-                            <strong>Administration Django</strong>
-                            <span>Gerer les donnees, les comptes, les referentiels et les contenus metier.</span>
+                            <strong>Administration</strong>
+                            <span>Gérer les comptes, les référentiels et les données de l'application.</span>
                         </a>
                         <a class="quick-item" href="/api/">
                             <strong>API REST</strong>
-                            <span>Acceder aux ressources backend pour le futur frontend ou des integrations.</span>
+                            <span>Accéder aux données pour des intégrations ou un futur frontend.</span>
                         </a>
                         <a class="quick-item" href="/health/">
-                            <strong>Etat du service</strong>
-                            <span>Verifier rapidement que le backend repond correctement.</span>
+                            <strong>État du service</strong>
+                            <span>Vérifier rapidement que l'application répond.</span>
                         </a>
                         {% endif %}
                     </div>
                 </div>
                 {% if user.is_superuser %}
                 <div class="card">
-                    <h3>Etat actuel du socle</h3>
-                    <p class="sub">Le backend est deja pose avec les briques essentielles de la V1.</p>
+                    <h3>État du système</h3>
+                    <p class="sub">Les briques essentielles de la plateforme sont en place.</p>
                     <div class="check-list">
-                        <div class="check-item">Base PostgreSQL creee et migrations appliquees.</div>
-                        <div class="check-item">Structure Django modulaire par domaines metier.</div>
-                        <div class="check-item">Administration fonctionnelle pour les donnees EVE Pilot.</div>
-                        <div class="check-item">API DRF disponible pour la couche applicative future.</div>
+                        <div class="check-item">Base de données créée et à jour.</div>
+                        <div class="check-item">Application organisée par domaines (RH, projets, finances…).</div>
+                        <div class="check-item">Administration opérationnelle pour les données EVE Pilot.</div>
+                        <div class="check-item">API disponible pour les évolutions futures.</div>
                     </div>
                 </div>
                 {% endif %}
@@ -731,58 +731,58 @@
         <div class="wrap">
             <div class="section-header">
                 <div>
-                    <h2>Architecture en place</h2>
+                    <h2>Informations techniques</h2>
                     <p>
-                        La structure technique a ete preparee pour soutenir une evolution propre
-                        vers un produit de gestion complet, admin, API et futur frontend compris.
+                        Quelques repères sur la plateforme, pour l'administrateur.
+                        Cette section n'est visible que par vous.
                     </p>
                 </div>
             </div>
             <div class="system-grid">
                 <div class="system-box">
-                    <strong>Backend</strong>
-                    <span>Django 5.2 avec organisation par apps metier.</span>
+                    <strong>Application</strong>
+                    <span>Organisée par domaines : RH, projets, activités, finances.</span>
                 </div>
                 <div class="system-box">
-                    <strong>Base</strong>
-                    <span>PostgreSQL avec schema V1 aligne sur les besoins EVE.</span>
+                    <strong>Base de données</strong>
+                    <span>PostgreSQL, structurée selon les besoins d'EVE.</span>
                 </div>
                 <div class="system-box">
-                    <strong>API</strong>
-                    <span>Django REST Framework pour exposer les ressources principales.</span>
+                    <strong>Accès aux données</strong>
+                    <span>Une API permet des échanges avec d'autres outils.</span>
                 </div>
                 <div class="system-box">
-                    <strong>Extensibilite</strong>
-                    <span>Socle pret pour un frontend sur mesure et des workflows plus riches.</span>
+                    <strong>Évolutivité</strong>
+                    <span>Conçue pour accueillir de nouvelles fonctionnalités.</span>
                 </div>
             </div>
             <div class="grid-2" style="margin-top: 18px;">
                 <div class="card">
-                    <h3>Top lignes budgetaires</h3>
-                    <p class="sub">Les rubriques les plus structurantes dans la base actuelle.</p>
+                    <h3>Principales lignes budgétaires</h3>
+                    <p class="sub">Les rubriques les plus importantes enregistrées à ce jour.</p>
                     <div class="data-list">
                         {% for line in top_budget_lines %}
                         <div class="data-item">
                             <strong>{{ line.code }} — {{ line.description }}</strong>
                             <span>
                                 Projet : {{ line.project.code }}<br>
-                                Categorie : {{ line.category.name }}<br>
-                                Planifie : {{ line.planned_amount|floatformat:0 }} XOF
+                                Catégorie : {{ line.category.name }}<br>
+                                Prévu : {{ line.planned_amount|floatformat:0 }} XOF
                             </span>
                         </div>
                         {% empty %}
-                        <div class="data-item"><strong>Aucune ligne budgetaire</strong><span>Le pilotage budgetaire apparaitra ici.</span></div>
+                        <div class="data-item"><strong>Aucune ligne budgétaire</strong><span>Le suivi budgétaire apparaîtra ici.</span></div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="card">
-                    <h3>Prochaine evolution conseillee</h3>
-                    <p class="sub">Le socle backend est deja assez solide pour passer a une couche applicative visible.</p>
+                    <h3>Prochaines étapes</h3>
+                    <p class="sub">Ce qui est prévu pour enrichir la plateforme au fil du test.</p>
                     <div class="check-list">
-                        <div class="check-item">Ajouter l'authentification utilisateur visible cote frontend.</div>
-                        <div class="check-item">Construire un vrai dashboard applicatif par role.</div>
-                        <div class="check-item">Brancher les listes RH, projets et finances sur l'API DRF.</div>
-                        <div class="check-item">Introduire des graphiques et des alertes plus fines.</div>
+                        <div class="check-item">Importer les projets, le personnel et le budget réels.</div>
+                        <div class="check-item">Affiner les tableaux de bord par rôle et par projet.</div>
+                        <div class="check-item">Ajouter des graphiques et des alertes plus précises.</div>
+                        <div class="check-item">Recueillir les retours des équipes de Pikine, Saint-Louis et Kédougou.</div>
                     </div>
                 </div>
             </div>
@@ -791,7 +791,7 @@
     {% endif %}
 
     <footer class="footer">
-        EVE Pilot • Plateforme integree de gestion RH, projets, terrain, finances et reporting.
+        EVE Pilot • Plateforme intégrée de gestion : RH, projets, terrain, finances et rapports.
     </footer>
 </body>
 </html>
