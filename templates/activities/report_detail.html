@@ -38,7 +38,7 @@
     <div class="wrap">
         {% if report.validation_comment %}
         <div class="placeholder-note" style="margin-bottom:18px; {% if report.validation_status == 'REJETE' %}color:#8a2b2b;{% endif %}">
-            <strong>Commentaire du valideur (Secretaire Executif) :</strong> {{ report.validation_comment }}
+            <strong>Commentaire du valideur (Secrétaire Exécutif) :</strong> {{ report.validation_comment }}
         </div>
         {% endif %}
 
@@ -58,7 +58,7 @@
                 </div>
                 {% if decision_form %}
                 <div class="card soft-amber">
-                    <div class="section-header"><h2 style="font-size:1.3rem;">Decision Secretaire Executif</h2></div>
+                    <div class="section-header"><h2 style="font-size:1.3rem;">Decision Secrétaire Exécutif</h2></div>
                     <form method="post" class="form-grid">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="decide">
@@ -75,7 +75,7 @@
                 </div>
                 {% elif is_pending and not can_validate %}
                 <div class="placeholder-note">
-                    Ce rapport attend la validation du Secretaire Executif (SE).
+                    Ce rapport attend la validation du Secrétaire Exécutif (SE).
                 </div>
                 {% endif %}
             </div>
@@ -97,7 +97,7 @@
 
         <div class="grid-2" style="margin-top:18px;">
             <div class="card">
-                <div class="section-header"><h2 style="font-size:1.4rem;">Beneficiaires ({{ beneficiaries|length }})</h2></div>
+                <div class="section-header"><h2 style="font-size:1.4rem;">Bénéficiaires ({{ beneficiaries|length }})</h2></div>
                 <table class="data-table">
                     <thead>
                         <tr><th>Nom</th><th>Genre</th><th class="right">Age</th><th>Commune</th></tr>
@@ -111,12 +111,12 @@
                             <td>{{ b.commune.name|default:"&mdash;" }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4"><span class="muted">Aucun beneficiaire enregistre.</span></td></tr>
+                        <tr><td colspan="4"><span class="muted">Aucun bénéficiaire enregistre.</span></td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
                 <details style="margin-top:14px;">
-                    <summary class="button small" style="display:inline-flex;">+ Ajouter un beneficiaire</summary>
+                    <summary class="button small" style="display:inline-flex;">+ Ajouter un bénéficiaire</summary>
                     <form method="post" class="form-grid" style="margin-top:12px;">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="add_beneficiary">

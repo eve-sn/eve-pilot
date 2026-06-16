@@ -11,7 +11,7 @@
             <p class="lead">
                 Compte : <strong>{{ draft.account.name }}</strong> &middot;
                 {{ draft.nb_lines_parsed }} ligne(s) extraite(s) du PDF.
-                Verifier chaque ligne, ajuster l'imputation si necessaire, decocher celles a ignorer,
+                Vérifier chaque ligne, ajuster l'imputation si nécessaire, decocher celles a ignorer,
                 puis valider en bas pour creer les mouvements bancaires en lot.
             </p>
             {% if draft.status != 'DRAFT' %}
@@ -47,7 +47,7 @@
                             </th>
                             <th style="width:95px;">Date</th>
                             <th style="width:85px;">Ref</th>
-                            <th>Libelle</th>
+                            <th>Libellé</th>
                             <th style="width:95px;" class="right">Debit</th>
                             <th style="width:95px;" class="right">Credit</th>
                             <th style="width:280px;">Compte SYCEBNL contrepartie</th>

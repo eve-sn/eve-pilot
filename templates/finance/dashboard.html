@@ -204,7 +204,7 @@
             <h2>Portefeuille projets</h2>
             <p>
                 Total des budgets bailleurs et avancement par projet. Les budgets viennent du
-                document <em>Budget Previsionnel EVE 2026</em> (onglet portefeuille). Cliquer
+                document <em>Budget Prévisionnel EVE 2026</em> (onglet portefeuille). Cliquer
                 sur un projet ouvre sa fiche détaillée.
             </p>
         </div>
@@ -287,7 +287,7 @@
             <div>
                 <h2>Petite caisse</h2>
                 <p>
-                    Etat de la caisse de fonctionnement (transport, carburant, restauration,
+                    État de la caisse de fonctionnement (transport, carburant, restauration,
                     produits d'entretien, mat&eacute;riel cuisine, hospitalit&eacute;s). Plafonds SYCEBNL :
                     <strong>40 000 XOF</strong> par op&eacute;ration, <strong>200 000 XOF</strong> par semaine ISO.
                 </p>
@@ -441,7 +441,7 @@
                 <div class="muted">Engagements emis (bons, contrats fournisseurs).</div>
             </div>
             <div class="stat-card soft-amber">
-                <div class="muted">Decaisse</div>
+                <div class="muted">Décaissé</div>
                 <div class="metric-money">{{ operating_disbursed|floatformat:0 }} XOF</div>
                 <div class="muted">Paiements effectivement sortis de la trésorerie.</div>
             </div>
@@ -466,7 +466,7 @@
                         <th class="right">Lignes</th>
                         <th class="right">Prévu</th>
                         <th class="right">Engage</th>
-                        <th class="right">Decaisse</th>
+                        <th class="right">Décaissé</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -510,7 +510,7 @@
                         &middot; Exercice : {{ line.fiscal_year|default:"&mdash;" }}
                         &middot; Prévu : {{ line.planned_amount|floatformat:0 }} {{ line.currency }}
                         {% if line.committed_amount %}&middot; Engage : {{ line.committed_amount|floatformat:0 }}{% endif %}
-                        {% if line.disbursed_amount %}&middot; Decaisse : {{ line.disbursed_amount|floatformat:0 }}{% endif %}
+                        {% if line.disbursed_amount %}&middot; Décaissé : {{ line.disbursed_amount|floatformat:0 }}{% endif %}
                     </div>
                     {% if line.notes %}
                     <div class="muted" style="font-size: 0.86rem;">{{ line.notes }}</div>
@@ -679,7 +679,7 @@
                 <div class="muted">Banques distinctes pour gerer les flux par projet.</div>
             </div>
             <div class="stat-card soft-blue">
-                <div class="muted">Solde d'ouverture cumule</div>
+                <div class="muted">Solde d'ouverture cumulé</div>
                 <div class="metric-money">{{ bank_total_opening|floatformat:0 }} XOF</div>
                 <div class="muted">
                     Cumul des soldes renseignes ({{ bank_accounts_with_balance_count }} sur {{ bank_accounts|length }}).
@@ -744,27 +744,27 @@
         <div class="grid-3">
             <div class="card">
                 <h3>Transactions actuelles</h3>
-                <p class="muted">Engagements et decaissements déjà saisis en base, tous projets confondus.</p>
+                <p class="muted">Engagements et décaissements déjà saisis en base, tous projets confondus.</p>
                 <div class="list" style="margin-top: 14px;">
                     <div class="item">
                         <strong>Engagements (Commitments)</strong>
                         <div class="muted">{{ transaction_counts.commitments }} enregistrement(s).</div>
                     </div>
                     <div class="item">
-                        <strong>Decaissements (Disbursements)</strong>
+                        <strong>Décaissements (Disbursements)</strong>
                         <div class="muted">{{ transaction_counts.disbursements }} enregistrement(s).</div>
                     </div>
                 </div>
             </div>
             <div class="card">
                 <h3>Plan de trésorerie {{ year|default:2026 }}</h3>
-                <p class="sub muted">Encaissements et decaissements mensuels alignes sur l'onglet 7 du document budget {{ year|default:2026 }}.</p>
+                <p class="sub muted">Encaissements et décaissements mensuels alignes sur l'onglet 7 du document budget {{ year|default:2026 }}.</p>
                 <div style="margin-top: 12px;">
                     <a class="badge" href="/finance/tresorerie/">Ouvrir le plan de trésorerie &rarr;</a>
                 </div>
                 <p class="muted" style="margin-top: 12px; font-size: 0.9rem;">
                     Vue tableau 12 colonnes (Jan &rarr; Dec) avec encaissements par projet,
-                    decaissements par catégorie, solde net mensuel et trésorerie cumulee
+                    décaissements par catégorie, solde net mensuel et trésorerie cumulée
                     integrant le solde bancaire d'ouverture.
                 </p>
             </div>

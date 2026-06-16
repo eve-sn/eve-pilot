@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Piece comptable {{ piece_ref }}</title>
+<title>Pièce comptable {{ piece_ref }}</title>
 <style>
     :root { --green:#1c6b48; --line:#d9d4c7; --bg:#f4f2ea; }
     * { box-sizing: border-box; }
@@ -54,13 +54,13 @@
             <td><strong>{{ amount|floatformat:0 }} {{ account.currency }}</strong></td>
         </tr>
         <tr>
-            <td class="label-cell">Libelle</td>
+            <td class="label-cell">Libellé</td>
             <td>{{ movement.label }}</td>
             <td class="label-cell">Référence relevé</td>
             <td>{{ movement.reference|default:"&mdash;" }}</td>
         </tr>
         <tr>
-            <td class="label-cell">Beneficiaire / source</td>
+            <td class="label-cell">Bénéficiaire / source</td>
             <td>{{ movement.recipient|default:"&mdash;" }}</td>
             <td class="label-cell">Projet</td>
             <td>{% if movement.project %}<strong>{{ movement.project.code }}</strong> &mdash; {{ movement.project.title }}{% else %}Budget Général{% endif %}</td>
@@ -72,7 +72,7 @@
 
     <h2>Imputation comptable (partie double SYCEBNL)</h2>
     <table class="je">
-        <thead><tr><th>Compte</th><th>Libelle</th><th class="right">Debit</th><th class="right">Credit</th></tr></thead>
+        <thead><tr><th>Compte</th><th>Libellé</th><th class="right">Debit</th><th class="right">Credit</th></tr></thead>
         <tbody>
             {% for l in journal_lines %}
             <tr>
@@ -107,10 +107,10 @@
     </table>
     {% endif %}
 
-    <h2>Pieces justificatives (annexes)</h2>
+    <h2>Pièces justificatives (annexes)</h2>
     {% if documents %}
     <table>
-        <thead><tr><th>#</th><th>Type</th><th>Libelle / fichier</th><th>Lien</th></tr></thead>
+        <thead><tr><th>#</th><th>Type</th><th>Libellé / fichier</th><th>Lien</th></tr></thead>
         <tbody>
             {% for doc in documents %}
             <tr>
@@ -127,11 +127,11 @@
         utilisez le bouton « PDF + annexes fusionnees ».
     </div>
     {% else %}
-    <p>Aucune piece justificative attachee a ce mouvement.</p>
+    <p>Aucune pièce justificative attachee a ce mouvement.</p>
     {% endif %}
 
     <div class="note" style="margin-top:20px;">
-        Piece editee le {% now "d/m/Y H:i" %} &middot; EVE Pilot Finance &middot;
+        Pièce editee le {% now "d/m/Y H:i" %} &middot; EVE Pilot Finance &middot;
         {% if movement.created_by %}Saisie par {{ movement.created_by }}{% endif %}
     </div>
 </div>

@@ -1,6 +1,6 @@
 {% extends "finance/base.html" %}
 
-{% block title %}EVE Pilot Finance &mdash; Piece {{ piece_ref }}{% endblock %}
+{% block title %}EVE Pilot Finance &mdash; Pièce {{ piece_ref }}{% endblock %}
 
 {% block content %}
 {% if messages %}
@@ -15,7 +15,7 @@
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Piece comptable {{ piece_ref }}</div>
+                <div class="eyebrow">Pièce comptable {{ piece_ref }}</div>
                 <h1>{{ movement.label }}</h1>
                 <p class="lead">
                     {{ account.name }} &middot; {{ movement.date_operation|date:"d/m/Y" }}
@@ -23,7 +23,7 @@
                 </p>
                 <div style="margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                     <a class="button" href="{% url 'finance:bank_account' account.public_uuid %}">&larr; Compte</a>
-                    <a class="button" href="{% url 'finance:bank_movement_voucher' movement.id %}" target="_blank">Imprimer la piece</a>
+                    <a class="button" href="{% url 'finance:bank_movement_voucher' movement.id %}" target="_blank">Imprimer la pièce</a>
                     <a class="button primary" href="{% url 'finance:bank_movement_voucher_pdf' movement.id %}" target="_blank">PDF + annexes</a>
                     {% if can_edit %}
                     <form method="post" action="{% url 'finance:bank_movement_delete' movement.id %}" style="display:inline;"
@@ -72,7 +72,7 @@
                 </div>
                 <table class="finance-table" style="width:100%;">
                     <thead>
-                        <tr><th>Compte</th><th>Libelle</th><th class="right">Debit</th><th class="right">Credit</th></tr>
+                        <tr><th>Compte</th><th>Libellé</th><th class="right">Debit</th><th class="right">Credit</th></tr>
                     </thead>
                     <tbody>
                         {% for l in journal_lines %}
@@ -115,14 +115,14 @@
                 {% endif %}
             </div>
 
-            {# --- Edition controlee + infos --- #}
+            {# --- Edition contrôlée + infos --- #}
             <div class="card">
                 <div class="section-header">
                     <h2>Informations &amp; correction</h2>
-                    <p class="muted">Beneficiaire, libelle, référence et commentaire modifiables. Montant / date / sens / imputation : passer par l'annulation (extourne).</p>
+                    <p class="muted">Bénéficiaire, libellé, référence et commentaire modifiables. Montant / date / sens / imputation : passer par l'annulation (extourne).</p>
                 </div>
                 <div class="stack" style="margin-bottom: 14px;">
-                    <div class="item"><span class="muted">Beneficiaire / source</span><br><strong>{{ movement.recipient|default:"&mdash;" }}</strong></div>
+                    <div class="item"><span class="muted">Bénéficiaire / source</span><br><strong>{{ movement.recipient|default:"&mdash;" }}</strong></div>
                     <div class="item"><span class="muted">Référence relevé</span><br><strong>{{ movement.reference|default:"&mdash;" }}</strong></div>
                     {% if movement.commentary %}<div class="item"><span class="muted">Commentaire</span><br>{{ movement.commentary|linebreaksbr }}</div>{% endif %}
                     <div class="item muted" style="font-size:0.8rem;">
@@ -136,8 +136,8 @@
                     {% csrf_token %}
                     <input type="hidden" name="action" value="edit_meta">
                     <div class="stack" style="gap: 10px;">
-                        <div><label style="font-weight:700;">Libelle</label>{{ edit_form.label }}</div>
-                        <div><label style="font-weight:700;">Beneficiaire / source</label>{{ edit_form.recipient }}</div>
+                        <div><label style="font-weight:700;">Libellé</label>{{ edit_form.label }}</div>
+                        <div><label style="font-weight:700;">Bénéficiaire / source</label>{{ edit_form.recipient }}</div>
                         <div><label style="font-weight:700;">Référence relevé</label>{{ edit_form.reference }}</div>
                         <div><label style="font-weight:700;">Commentaire</label>{{ edit_form.commentary }}</div>
                     </div>
@@ -150,12 +150,12 @@
     </div>
 </section>
 
-{# --- Pieces justificatives --- #}
+{# --- Pièces justificatives --- #}
 <section class="section">
     <div class="wrap">
         <div class="card">
             <div class="section-header">
-                <h2>Pieces justificatives ({{ documents|length }})</h2>
+                <h2>Pièces justificatives ({{ documents|length }})</h2>
                 <p class="muted">Facture, ordre de virement, TDR, rapport, etc. Incluses dans le PDF (PDF et images).</p>
             </div>
             <div class="stack">
@@ -171,7 +171,7 @@
                     </div>
                 </div>
                 {% empty %}
-                <div class="placeholder-note">Aucune piece justificative. Ajoutez-en une ci-dessous.</div>
+                <div class="placeholder-note">Aucune pièce justificative. Ajoutez-en une ci-dessous.</div>
                 {% endfor %}
             </div>
 
@@ -182,10 +182,10 @@
                 <div class="grid-2" style="gap: 12px; align-items: end;">
                     <div><label style="font-weight:700;">Type</label>{{ doc_form.document_type }}</div>
                     <div><label style="font-weight:700;">Fichier</label>{{ doc_form.file }}</div>
-                    <div><label style="font-weight:700;">Libelle</label>{{ doc_form.label }}</div>
+                    <div><label style="font-weight:700;">Libellé</label>{{ doc_form.label }}</div>
                 </div>
                 {% if doc_form.errors %}<div class="placeholder-note" style="margin-top:8px;">{{ doc_form.errors }}</div>{% endif %}
-                <button type="submit" class="button primary" style="margin-top: 10px;">+ Ajouter une piece</button>
+                <button type="submit" class="button primary" style="margin-top: 10px;">+ Ajouter une pièce</button>
             </form>
             {% endif %}
         </div>

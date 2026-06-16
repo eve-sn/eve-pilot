@@ -23,7 +23,7 @@
         <div class="placeholder-note">
             <strong>&#9656; Etape actuelle :</strong> demande en <strong>Brouillon</strong>. Seul le demandeur
             (<em>{{ expense.requester }}</em>) peut la soumettre. Les valideurs ne peuvent agir
-            qu'apres la soumission.
+            qu'après la soumission.
         </div>
         {% endif %}
     {% elif expense.status == 'SUBMITTED' %}
@@ -78,7 +78,7 @@
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Demande de depense DD-{{ expense.id }}</div>
+                <div class="eyebrow">Demande de dépense DD-{{ expense.id }}</div>
                 <h1>{{ expense.title }}</h1>
                 <p class="lead">
                     {{ expense.motif|linebreaksbr }}
@@ -97,7 +97,7 @@
                     {% endif %}
                     {% if is_requester and expense.status == 'SUBMITTED' or expense.status == 'DRAFT' %}
                     <form method="post" style="display: inline;"
-                          data-confirm="L'annulation est irreversible. La demande passera au statut Annulee et ne pourra plus etre validee."
+                          data-confirm="L'annulation est irréversible. La demande passera au statut Annulée et ne pourra plus être validée."
                           data-confirm-title="Annuler la demande ?"
                           data-confirm-kind="warn"
                           data-confirm-ok="Annuler la demande">
@@ -190,7 +190,7 @@
 
             <div class="card">
                 <div class="section-header">
-                    <h2>Pieces justificatives</h2>
+                    <h2>Pièces justificatives</h2>
                     <p class="muted">Proforma, BC, PV selection, facture, rapport.</p>
                 </div>
                 <div class="stack">
@@ -206,7 +206,7 @@
                         </div>
                     </div>
                     {% empty %}
-                    <div class="placeholder-note">Aucune piece justificative pour l'instant.</div>
+                    <div class="placeholder-note">Aucune pièce justificative pour l'instant.</div>
                     {% endfor %}
                 </div>
 
@@ -223,11 +223,11 @@
                             {{ document_form.file }}
                         </div>
                         <div>
-                            <label style="font-weight: 700;">Libelle :</label>
+                            <label style="font-weight: 700;">Libellé :</label>
                             {{ document_form.label }}
                         </div>
                     </div>
-                    <button type="submit" class="button primary" style="margin-top: 10px;">+ Ajouter une piece</button>
+                    <button type="submit" class="button primary" style="margin-top: 10px;">+ Ajouter une pièce</button>
                 </form>
             </div>
         </div>
@@ -242,7 +242,7 @@
                 <h2>Marquer la demande comme executee</h2>
                 <p class="muted">
                     Lier la demande approuvee au mouvement bancaire ou caisse correspondant.
-                    Une fois execute, le statut passe a EXECUTED et la trace devient definitive.
+                    Une fois execute, le statut passe a EXECUTED et la trace devient définitive.
                 </p>
             </div>
             <form method="post">
