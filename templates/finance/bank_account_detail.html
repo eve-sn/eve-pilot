@@ -42,7 +42,7 @@
     <div class="wrap">
         <div class="grid-2">
             <div class="card">
-                <div class="section-header"><h2>Projets rattaches</h2></div>
+                <div class="section-header"><h2>Projets rattachés</h2></div>
                 <div class="stack">
                     {% for project in projects %}
                     <a class="item" href="/projets/{{ project.public_uuid }}/">
@@ -55,7 +55,7 @@
                     </a>
                     {% empty %}
                     <div class="placeholder-note">
-                        Aucun projet rattache. Compte central (Budget General) ou compte en
+                        Aucun projet rattaché. Compte central (Budget Général) ou compte en
                         attente d'affectation.
                     </div>
                     {% endfor %}
@@ -76,7 +76,7 @@
                     {% empty %}
                     <div class="placeholder-note">
                         Aucun snapshot enregistre. Le solde d'ouverture du hero est la seule
-                        donnee de solde a date. Ajouter via /admin/ pour suivre l'evolution.
+                        donnée de solde a date. Ajouter via /admin/ pour suivre l'évolution.
                     </div>
                     {% endfor %}
                 </div>
@@ -90,9 +90,9 @@
         <div class="section-header">
             <h2>Mouvements bancaires</h2>
             <p>
-                Lignes de releve saisies en base. Lien optionnel vers le projet et vers
-                l'entree CashflowEntry correspondante. Saisie via /admin/ ou
-                commande dediee a venir.
+                Lignes de relevé saisies en base. Lien optionnel vers le projet et vers
+                l'entrée CashflowEntry correspondante. Saisie via /admin/ ou
+                commande dédiée a venir.
             </p>
         </div>
         <div class="card" style="overflow-x: auto;">

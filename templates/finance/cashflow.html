@@ -1,19 +1,19 @@
 {% extends "finance/base.html" %}
 {% load l10n %}
 
-{% block title %}EVE Pilot Finance &mdash; Plan de tresorerie {{ year }}{% endblock %}
+{% block title %}EVE Pilot Finance &mdash; Plan de trésorerie {{ year }}{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Plan de tresorerie {{ year }}</div>
+                <div class="eyebrow">Plan de trésorerie {{ year }}</div>
                 <h1>Encaissements, decaissements et solde cumule mois par mois.</h1>
                 <p class="lead">
-                    Plan previsionnel issu de l'onglet "Plan tresorerie" du budget EVE {{ year }}.
+                    Plan previsionnel issu de l'onglet "Plan trésorerie" du budget EVE {{ year }}.
                     Combine au solde bancaire d'ouverture au 01/01/2026, il donne la trajectoire
-                    de tresorerie attendue sur l'annee.
+                    de trésorerie attendue sur l'annee.
                 </p>
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour tableau Finance</a>
@@ -45,11 +45,11 @@
 <section class="section">
     <div class="wrap">
         <div class="section-header">
-            <h2>Plan mensuel detaille</h2>
+            <h2>Plan mensuel détaillé</h2>
             <p>
                 Tableau horizontal Jan &rarr; Dec + Total. Les zeros sont affiches en gris pour
                 ne pas surcharger la lecture. Les libelles d'encaissement renvoient au projet
-                quand il existe ; les decaissements sont rattaches a une categorie BudgetCategory.
+                quand il existe ; les decaissements sont rattachés a une catégorie BudgetCategory.
             </p>
         </div>
         <div class="card" style="overflow-x: auto;">
@@ -74,7 +74,7 @@
                                 <a href="/projets/{{ row.project.public_uuid }}/"><strong>{{ row.label }}</strong></a>
                             {% else %}
                                 <strong>{{ row.label }}</strong>
-                                <div class="muted" style="font-size:0.78rem;">non rattache</div>
+                                <div class="muted" style="font-size:0.78rem;">non rattaché</div>
                             {% endif %}
                         </td>
                         {% for amount in row.monthly %}
@@ -143,7 +143,7 @@
                         <td class="right">{{ cumul|last|floatformat:0 }}</td>
                     </tr>
                     <tr style="font-weight: 700; background: rgba(28, 75, 61, 0.06);">
-                        <td>Tresorerie cumulee (avec solde 01/01 = {{ bank_total_opening|floatformat:0 }})</td>
+                        <td>Trésorerie cumulee (avec solde 01/01 = {{ bank_total_opening|floatformat:0 }})</td>
                         {% for amount in cumul_with_opening %}
                         <td class="right" style="{% if amount < 0 %}color: #8a2b2b;{% endif %}">{{ amount|floatformat:0 }}</td>
                         {% endfor %}
@@ -153,9 +153,9 @@
             </table>
         </div>
         <p class="muted" style="margin-top: 12px; font-size: 0.9rem;">
-            Source : onglet "Plan tresorerie" du document Budget Previsionnel EVE 2026. Les
-            montants reels (column `actual_amount` sur CashflowEntry) ne sont pas encore
-            saisis : confronter prevu / reel quand les rapprochements bancaires arriveront.
+            Source : onglet "Plan trésorerie" du document Budget Previsionnel EVE 2026. Les
+            montants réels (column `actual_amount` sur CashflowEntry) ne sont pas encore
+            saisis : confronter prévu / réel quand les rapprochements bancaires arriveront.
         </p>
     </div>
 </section>

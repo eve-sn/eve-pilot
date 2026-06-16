@@ -1,6 +1,6 @@
 {% extends "activities/base.html" %}
 
-{% block title %}EVE Pilot &mdash; {% if mode == 'edit' %}Modifier l'activite{% else %}Nouvelle activite{% endif %}{% endblock %}
+{% block title %}EVE Pilot &mdash; {% if mode == 'edit' %}Modifier l'activité{% else %}Nouvelle activité{% endif %}{% endblock %}
 
 {% block content %}
 <section class="hero">
@@ -8,9 +8,9 @@
         <div class="card">
             <div class="eyebrow">{% if mode == 'edit' %}Edition{% else %}Planification{% endif %}</div>
             <h1 style="font-size:2rem;">
-                {% if mode == 'edit' %}Modifier &laquo; {{ activity.title }} &raquo;{% else %}Nouvelle activite{% endif %}
+                {% if mode == 'edit' %}Modifier &laquo; {{ activity.title }} &raquo;{% else %}Nouvelle activité{% endif %}
             </h1>
-            <p class="lead">Renseigner l'activite et la rattacher a un projet du portefeuille.</p>
+            <p class="lead">Renseigner l'activité et la rattacher a un projet du portefeuille.</p>
         </div>
     </div>
 </section>
@@ -32,7 +32,7 @@
                 </div>
                 {% endfor %}
                 <div style="display:flex; gap:10px; margin-top:8px;">
-                    <button class="button primary" type="submit">{% if mode == 'edit' %}Enregistrer{% else %}Creer l'activite{% endif %}</button>
+                    <button class="button primary" type="submit">{% if mode == 'edit' %}Enregistrer{% else %}Creer l'activité{% endif %}</button>
                     {% if mode == 'edit' %}
                     <a class="button" href="{% url 'activities:detail' activity.public_uuid %}">Annuler</a>
                     {% else %}

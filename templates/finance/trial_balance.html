@@ -1,16 +1,16 @@
 {% extends "finance/base.html" %}
 
-{% block title %}EVE Pilot Finance &mdash; Balance generale{% endblock %}
+{% block title %}EVE Pilot Finance &mdash; Balance générale{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Balance generale SYCEBNL</div>
+                <div class="eyebrow">Balance générale SYCEBNL</div>
                 <h1>Soldes debiteurs et crediteurs par compte.</h1>
                 <p class="lead">
-                    Balance issue des ecritures comptables en partie double. Chaque compte
+                    Balance issue des écritures comptables en partie double. Chaque compte
                     affiche son cumul debit, son cumul credit et son solde. Le grand total
                     debit doit egaler le grand total credit (principe de la partie double).
                 </p>
@@ -87,7 +87,7 @@
     <div class="wrap">
         <div class="card">
             <div class="placeholder-note">
-                Aucune ecriture comptable en base. Imputer des BankMovement / CashMovement
+                Aucune écriture comptable en base. Imputer des BankMovement / CashMovement
                 a un compte SYCEBNL contrepartie via /admin/, puis lancer
                 <code>manage.py generate_journal_entries</code> (ou laisser le signal
                 auto-generer a la sauvegarde).

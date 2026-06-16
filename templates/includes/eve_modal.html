@@ -78,7 +78,7 @@ Le JS intercepte la soumission et affiche ce modal a la place du confirm() natif
     document.addEventListener("submit", function (e) {
         var form = e.target;
         if (!form || !form.matches || !form.matches("form[data-confirm]")) return;
-        if (form.dataset.eveConfirmed === "1") return;  // deja confirme
+        if (form.dataset.eveConfirmed === "1") return;  // déjà confirme
         e.preventDefault();
         pendingAction = function () {
             form.dataset.eveConfirmed = "1";

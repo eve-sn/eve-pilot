@@ -11,14 +11,14 @@
                 <h1>Revenus, charges et solde de l'exercice.</h1>
                 <p class="lead">
                     Reproduit la structure officielle du XLSX EVE
-                    (codes REF RA -> XE) : revenus des activites ordinaires,
-                    charges des activites ordinaires, resultat HAO, solde de
+                    (codes REF RA -> XE) : revenus des activités ordinaires,
+                    charges des activités ordinaires, resultat HAO, solde de
                     l'exercice.
                 </p>
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour Finance</a>
                     <a class="button" href="/finance/bilan/">Bilan</a>
-                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Tresorerie</a>
+                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Trésorerie</a>
                 </div>
             </div>
             <div class="stack">
@@ -45,7 +45,7 @@
         {% if not has_data %}
         <div class="card">
             <div class="placeholder-note">
-                Aucune ecriture de charge ou de produit en base.
+                Aucune écriture de charge ou de produit en base.
             </div>
         </div>
         {% else %}
@@ -54,7 +54,7 @@
                 <h2>Compte d'exploitation au format SYCEBNL officiel</h2>
                 <p class="muted">
                     Lignes en <strong>gras</strong> = sous-totaux et totaux officiels.
-                    Resultat activites ordinaires (XC) = {{ result_activities|floatformat:0 }} XOF.
+                    Resultat activités ordinaires (XC) = {{ result_activities|floatformat:0 }} XOF.
                     Resultat HAO (XD) = {{ result_hao|floatformat:0 }} XOF.
                 </p>
             </div>

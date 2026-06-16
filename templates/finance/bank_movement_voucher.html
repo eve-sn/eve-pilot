@@ -41,29 +41,29 @@
 <div class="sheet">
     <h1>PIECE COMPTABLE</h1>
     <div class="sub">
-        Reference : <strong>{{ piece_ref }}</strong> &middot;
+        Référence : <strong>{{ piece_ref }}</strong> &middot;
         Compte : {{ account.name }} &middot;
-        Date d'operation : {{ movement.date_operation|date:"d/m/Y" }}
+        Date d'opération : {{ movement.date_operation|date:"d/m/Y" }}
     </div>
 
     <table>
         <tr>
             <td class="label-cell">Sens</td>
-            <td>{% if is_credit %}Entree (credit bancaire){% else %}Sortie (debit bancaire){% endif %}</td>
+            <td>{% if is_credit %}Entrée (credit bancaire){% else %}Sortie (debit bancaire){% endif %}</td>
             <td class="label-cell">Montant</td>
             <td><strong>{{ amount|floatformat:0 }} {{ account.currency }}</strong></td>
         </tr>
         <tr>
             <td class="label-cell">Libelle</td>
             <td>{{ movement.label }}</td>
-            <td class="label-cell">Reference releve</td>
+            <td class="label-cell">Référence relevé</td>
             <td>{{ movement.reference|default:"&mdash;" }}</td>
         </tr>
         <tr>
             <td class="label-cell">Beneficiaire / source</td>
             <td>{{ movement.recipient|default:"&mdash;" }}</td>
             <td class="label-cell">Projet</td>
-            <td>{% if movement.project %}<strong>{{ movement.project.code }}</strong> &mdash; {{ movement.project.title }}{% else %}Budget General{% endif %}</td>
+            <td>{% if movement.project %}<strong>{{ movement.project.code }}</strong> &mdash; {{ movement.project.title }}{% else %}Budget Général{% endif %}</td>
         </tr>
         {% if movement.commentary %}
         <tr><td class="label-cell">Commentaire</td><td colspan="3">{{ movement.commentary|linebreaksbr }}</td></tr>
@@ -82,7 +82,7 @@
                 <td class="right">{% if l.credit %}{{ l.credit|floatformat:0 }}{% endif %}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="4">Aucune ecriture comptable rattachee.</td></tr>
+            <tr><td colspan="4">Aucune écriture comptable rattachée.</td></tr>
             {% endfor %}
         </tbody>
         {% if journal_lines %}
@@ -93,7 +93,7 @@
     {% if allocations %}
     <h2>Ventilation analytique</h2>
     <table>
-        <thead><tr><th>Projet</th><th>Ligne budgetaire</th><th>Compte</th><th class="right">Montant</th></tr></thead>
+        <thead><tr><th>Projet</th><th>Ligne budgétaire</th><th>Compte</th><th class="right">Montant</th></tr></thead>
         <tbody>
             {% for a in allocations %}
             <tr>

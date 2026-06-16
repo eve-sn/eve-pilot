@@ -124,7 +124,7 @@
                         {% if expense.project %}
                             <a href="/projets/{{ expense.project.public_uuid }}/"><strong>{{ expense.project.code }}</strong></a>
                         {% else %}
-                            <strong>Budget General</strong>
+                            <strong>Budget Général</strong>
                         {% endif %}
                         <div class="muted" style="font-size: 0.86rem;">
                             <code>{{ expense.budget_line.code }}</code> {{ expense.budget_line.description|truncatechars:80 }}

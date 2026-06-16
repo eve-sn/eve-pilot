@@ -11,9 +11,9 @@
                 <div class="eyebrow">Portefeuille projets EVE</div>
                 <h1>Le portefeuille EVE consultable, filtrable et navigable.</h1>
                 <p class="lead">
-                    Une vue d'ensemble des projets actifs, en preparation ou suspendus,
+                    Une vue d'ensemble des projets actifs, en préparation ou suspendus,
                     avec leurs bailleurs principaux, leurs responsables et leur avancement.
-                    Chaque fiche ouvre un detail complet equipe, indicateurs et localisations.
+                    Chaque fiche ouvre un détail complet equipe, indicateurs et localisations.
                 </p>
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
@@ -28,7 +28,7 @@
                     <div class="muted">Projets en cours d'execution.</div>
                 </div>
                 <div class="stat-card soft-amber">
-                    <div class="muted">En preparation</div>
+                    <div class="muted">En préparation</div>
                     <div class="metric">{{ preparation_count }}</div>
                     <div class="muted">Projets en phase de cadrage ou de demarrage.</div>
                 </div>
@@ -79,7 +79,7 @@
     <div class="wrap">
         <div class="section-header">
             <h2>Projets du portefeuille</h2>
-            <p>Chaque carte renvoie vers la fiche detaillee du projet.</p>
+            <p>Chaque carte renvoie vers la fiche détaillée du projet.</p>
         </div>
         <div class="grid-3">
             {% for project in projects %}
@@ -88,7 +88,7 @@
                 <div class="muted">
                     Bailleur : {{ project.primary_donor.name|default:"Non defini" }}<br>
                     Responsable : {{ project.project_manager|default:"Non defini" }}<br>
-                    Periode : {{ project.start_date|date:"d/m/Y" }} &rarr; {{ project.end_date|date:"d/m/Y" }}<br>
+                    Période : {{ project.start_date|date:"d/m/Y" }} &rarr; {{ project.end_date|date:"d/m/Y" }}<br>
                     Secteur : {{ project.sector|default:"Non renseigne" }}
                 </div>
                 <div class="progress" title="Avancement : {{ project.progress_percentage }}%">

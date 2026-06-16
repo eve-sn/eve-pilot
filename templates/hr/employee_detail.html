@@ -14,7 +14,7 @@
                     {% if employee.assignment_label %}<br>{{ employee.assignment_label }}{% endif %}
                 </p>
                 <div class="nav" style="margin-top: 18px;">
-                    <a href="/rh/">Retour au repertoire RH</a>
+                    <a href="/rh/">Retour au répertoire RH</a>
                     {% if employee.reference_source %}<a class="primary" href="/admin/hr/employee/{{ employee.id }}/change/">Ouvrir dans l'admin</a>{% endif %}
                 </div>
             </div>
@@ -46,7 +46,7 @@
                 <div class="card">
                     <h3>Informations de base</h3>
                     <dl class="meta" style="margin-top: 14px;">
-                        <dt>Categorie</dt><dd>{{ employee.get_workforce_category_display }}</dd>
+                        <dt>Catégorie</dt><dd>{{ employee.get_workforce_category_display }}</dd>
                         <dt>Fonction</dt><dd>{{ employee.position }}</dd>
                         <dt>Departement</dt><dd>{{ employee.department|default:"Non renseigne" }}</dd>
                         <dt>Unite</dt><dd>{{ employee.organizational_unit|default:"Non renseignee" }}</dd>
@@ -82,15 +82,15 @@
                         <div class="item">
                             <strong>{{ contract.contract_type.name }}</strong>
                             <div class="muted">
-                                Numero : {{ contract.contract_number|default:"Non renseigne" }}<br>
-                                Periode : {{ contract.start_date }} au {{ contract.end_date|default:"En cours" }}<br>
+                                Numéro : {{ contract.contract_number|default:"Non renseigne" }}<br>
+                                Période : {{ contract.start_date }} au {{ contract.end_date|default:"En cours" }}<br>
                                 Projet : {{ contract.project|default:"Aucun projet rattache" }}
                             </div>
                         </div>
                         {% empty %}
                         <div class="item">
                             <strong>Aucun contrat</strong>
-                            <div class="muted">Cette fiche n'a pas encore de contrat rattache en base.</div>
+                            <div class="muted">Cette fiche n'a pas encore de contrat rattaché en base.</div>
                         </div>
                         {% endfor %}
                     </div>
@@ -123,14 +123,14 @@
                         </div>
                         {% empty %}
                         <div class="item">
-                            <strong>Aucune absence enregistree</strong>
-                            <div class="muted">Le suivi des conges et absences n'a pas encore ete renseigne pour cette fiche.</div>
+                            <strong>Aucune absence enregistrée</strong>
+                            <div class="muted">Le suivi des congés et absences n'a pas encore été renseigne pour cette fiche.</div>
                         </div>
                         {% endfor %}
 
                         {% for evaluation in evaluations %}
                         <div class="item">
-                            <strong>Evaluation {{ evaluation.evaluation_year }}</strong>
+                            <strong>Évaluation {{ evaluation.evaluation_year }}</strong>
                             <div class="muted">Note : {{ evaluation.overall_score|default:"N/A" }} • {{ evaluation.get_status_display }}</div>
                         </div>
                         {% endfor %}

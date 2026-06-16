@@ -17,7 +17,7 @@
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour Finance</a>
                     <a class="button" href="/finance/compte-resultat/">Compte d'exploitation</a>
-                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Tresorerie</a>
+                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Trésorerie</a>
                 </div>
             </div>
             <div class="stack">
@@ -52,12 +52,12 @@
             Le solde de l'exercice (ligne <code>CH</code>) =
             <strong>{{ result_exercise|floatformat:0 }} XOF</strong>
             ({% if is_profit %}excedent{% else %}deficit{% endif %}).
-            Tant que les ecritures d'a-nouveau au 01/01 ne sont pas saisies,
-            le bilan reflete principalement les flux de la periode.
+            Tant que les écritures d'a-nouveau au 01/01 ne sont pas saisies,
+            le bilan reflete principalement les flux de la période.
         </div>
         {% if not has_data %}
         <div class="card">
-            <div class="placeholder-note">Aucune ecriture en base.</div>
+            <div class="placeholder-note">Aucune écriture en base.</div>
         </div>
         {% else %}
         <div class="grid-2">

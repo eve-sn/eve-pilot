@@ -10,12 +10,12 @@
                 <div class="eyebrow">Grand livre &mdash; compte {{ account.code }}</div>
                 <h1>{{ account.name }}</h1>
                 <p class="lead">
-                    Detail chronologique de toutes les ecritures passees sur ce compte
+                    Détail chronologique de toutes les écritures passees sur ce compte
                     SYCEBNL, avec le solde progressif. Classe {{ account.class_number }}.
                     {% if account.is_liaison %}Compte de liaison interne projet &harr; BG.{% endif %}
                 </p>
                 <div style="margin-top:18px;">
-                    <a class="button" href="/finance/balance/">&larr; Balance generale</a>
+                    <a class="button" href="/finance/balance/">&larr; Balance générale</a>
                     {% if account.linked_project %}
                     <a class="button" href="/projets/{{ account.linked_project.public_uuid }}/">Projet {{ account.linked_project.code }}</a>
                     {% endif %}
@@ -36,7 +36,7 @@
                 <div class="stat-card {% if final_balance >= 0 %}soft-blue{% else %}soft-rose{% endif %}">
                     <div class="muted">Solde final</div>
                     <div class="metric-money">{{ final_balance|floatformat:0 }} XOF</div>
-                    <div class="muted">{{ movement_count }} ecriture(s).</div>
+                    <div class="muted">{{ movement_count }} écriture(s).</div>
                 </div>
             </div>
         </div>
@@ -50,7 +50,7 @@
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Reference</th>
+                        <th>Référence</th>
                         <th>Libelle</th>
                         <th class="right">Debit</th>
                         <th class="right">Credit</th>
@@ -75,7 +75,7 @@
                         <td class="right" style="{% if row.running_balance < 0 %}color:#8a2b2b;{% endif %}">{{ row.running_balance|floatformat:0 }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="6"><span class="muted">Aucune ecriture sur ce compte.</span></td></tr>
+                    <tr><td colspan="6"><span class="muted">Aucune écriture sur ce compte.</span></td></tr>
                     {% endfor %}
                 </tbody>
                 {% if rows %}

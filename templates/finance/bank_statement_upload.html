@@ -1,6 +1,6 @@
 {% extends "finance/base.html" %}
 
-{% block title %}EVE Pilot &mdash; Import releve bancaire{% endblock %}
+{% block title %}EVE Pilot &mdash; Import relevé bancaire{% endblock %}
 
 {% block content %}
 {% if messages %}
@@ -14,9 +14,9 @@
     <div class="wrap">
         <div class="card">
             <div class="eyebrow">Assistant d'import</div>
-            <h1 style="font-size:1.4rem; margin-bottom:8px;">Importer un releve bancaire PDF</h1>
+            <h1 style="font-size:1.4rem; margin-bottom:8px;">Importer un relevé bancaire PDF</h1>
             <p class="lead">
-                Televerser le PDF du releve bancaire d'un compte. L'assistant extrait les lignes,
+                Televerser le PDF du relevé bancaire d'un compte. L'assistant extrait les lignes,
                 propose une imputation SYCEBNL automatique, et vous laissez la main pour
                 valider/corriger avant l'import en lot definitif.
             </p>
@@ -44,7 +44,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Fichier PDF du releve *</label>
+                        <label>Fichier PDF du relevé *</label>
                         <input type="file" name="pdf_file" accept="application/pdf" required>
                         <div class="help">Le PDF doit etre texte (pas une image scannee). Si scanne, faites un OCR avant.</div>
                     </div>

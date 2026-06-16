@@ -14,7 +14,7 @@
                     {% if report.reported_by %}&bull; soumis par {{ report.reported_by }}{% endif %}
                 </p>
                 <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <a class="button" href="{% url 'activities:detail' report.activity.public_uuid %}">&larr; Retour activite</a>
+                    <a class="button" href="{% url 'activities:detail' report.activity.public_uuid %}">&larr; Retour activité</a>
                 </div>
             </div>
             <div class="stack">
@@ -47,7 +47,7 @@
                 <div class="card">
                     <div class="section-header"><h2 style="font-size:1.4rem;">Participation</h2></div>
                     <dl class="meta">
-                        <dt>Lieu reel</dt><dd>{{ report.actual_location|default:"&mdash;" }}</dd>
+                        <dt>Lieu réel</dt><dd>{{ report.actual_location|default:"&mdash;" }}</dd>
                         <dt>Commune</dt><dd>{{ report.commune.name|default:"&mdash;" }}</dd>
                         <dt>GPS</dt>
                         <dd>{% if report.gps_latitude %}{{ report.gps_latitude }}, {{ report.gps_longitude }}{% else %}&mdash;{% endif %}</dd>

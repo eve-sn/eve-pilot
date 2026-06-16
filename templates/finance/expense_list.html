@@ -10,7 +10,7 @@
                 <div class="eyebrow">Demandes de depense</div>
                 <h1>Workflow d'engagement : initiation, validation RAF/DP/SE, justifications.</h1>
                 <p class="lead">
-                    Toute depense doit etre initiee par un responsable de projet et validee
+                    Toute depense doit etre initiee par un responsable de projet et validée
                     par les trois roles RAF, DP, SE avant execution. Les pieces justificatives
                     (proforma, BC, PV de selection, facture, rapport) sont attachees au fil
                     du workflow.
@@ -57,7 +57,7 @@
                         <th>#</th>
                         <th>Titre</th>
                         <th>Projet / BG</th>
-                        <th>Ligne budgetaire</th>
+                        <th>Ligne budgétaire</th>
                         <th>Demandeur</th>
                         <th class="right">Montant</th>
                         <th>Statut</th>
@@ -68,7 +68,7 @@
                     <tr>
                         <td><a href="/finance/demandes/{{ er.id }}/"><strong>DD-{{ er.id }}</strong></a></td>
                         <td>{{ er.title }}</td>
-                        <td>{% if er.project %}<a href="/projets/{{ er.project.public_uuid }}/">{{ er.project.code }}</a>{% else %}<span class="muted">Budget General</span>{% endif %}</td>
+                        <td>{% if er.project %}<a href="/projets/{{ er.project.public_uuid }}/">{{ er.project.code }}</a>{% else %}<span class="muted">Budget Général</span>{% endif %}</td>
                         <td><code style="font-size: 0.82rem;">{{ er.budget_line.code }}</code></td>
                         <td>{{ er.requester }}</td>
                         <td class="right">{{ er.requested_amount|floatformat:0 }} {{ er.currency }}</td>

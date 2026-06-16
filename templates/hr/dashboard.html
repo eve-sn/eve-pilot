@@ -11,7 +11,7 @@
                 <h1>Le personnel EVE visible dans une vraie base RH consultable.</h1>
                 <p class="lead">
                     Cette page consolide les personnes du referentiel RH 2025-2026 et les rend
-                    navigables par categorie, unite et affectation, avec acces direct aux fiches detaillees.
+                    navigables par catégorie, unite et affectation, avec acces direct aux fiches détaillées.
                 </p>
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
@@ -21,7 +21,7 @@
                     <div class="muted">Lignes nominatives actuellement exploitables.</div>
                 </div>
                 <div class="stat-card">
-                    <div class="muted">Conges en attente</div>
+                    <div class="muted">Congés en attente</div>
                     <div class="metric">{{ pending_leave_count }}</div>
                     <div class="muted">Demandes RH a traiter cote validation.</div>
                 </div>
@@ -43,14 +43,14 @@
 <section class="section">
     <div class="wrap">
         <div class="section-header">
-            <h2>Filtrer le repertoire RH</h2>
+            <h2>Filtrer le répertoire RH</h2>
             <p>La vue est centree sur le referentiel RH importe. Tu peux aussi basculer sur l'ensemble de la base si besoin.</p>
         </div>
         <div class="card">
             <form method="get" class="filters">
                 <input type="text" name="q" value="{{ filters.q }}" placeholder="Nom, fonction, matricule, affectation">
                 <select name="category">
-                    <option value="">Toutes categories</option>
+                    <option value="">Toutes catégories</option>
                     {% for value, label in category_choices %}
                     <option value="{{ value }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -77,7 +77,7 @@
             <div class="card">
                 <div class="section-header">
                     <h2>Personnel importe</h2>
-                    <p>Chaque fiche renvoie vers un detail individuel utilisable comme base de dossier RH.</p>
+                    <p>Chaque fiche renvoie vers un détail individuel utilisable comme base de dossier RH.</p>
                 </div>
                 <div class="stack">
                     {% for employee in employees %}
@@ -103,7 +103,7 @@
             </div>
             <div class="stack">
                 <div class="card soft-green">
-                    <h3>Structure RH de reference</h3>
+                    <h3>Structure RH de référence</h3>
                     <div class="list">
                         <div class="item">
                             <strong>Salaries / contractuels</strong>
@@ -115,7 +115,7 @@
                         </div>
                         <div class="item">
                             <strong>Consultants / experts</strong>
-                            <span class="muted">{{ consultant_count }} personnes rattachees au portefeuille multi-projets.</span>
+                            <span class="muted">{{ consultant_count }} personnes rattachées au portefeuille multi-projets.</span>
                         </div>
                     </div>
                 </div>
@@ -130,7 +130,7 @@
                             <span class="muted">{{ latest_snapshot.reported_total_staff }} personnes</span>
                         </div>
                         <div class="item">
-                            <strong>Total detaille consolide</strong>
+                            <strong>Total détaillé consolide</strong>
                             <span class="muted">{{ latest_snapshot.detailed_total_staff }} personnes</span>
                         </div>
                         <div class="item">

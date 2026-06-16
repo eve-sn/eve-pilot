@@ -72,36 +72,36 @@
         <div class="hero-card">
             <div>
                 <div class="eyebrow">Module Finance EVE</div>
-                <h1>Pilotage financier : projets, Budget General et bailleurs.</h1>
+                <h1>Suivi financier : projets, Budget Général et bailleurs.</h1>
                 <p class="lead">
-                    Le portefeuille projets reunit les budgets bailleurs. Le Budget General EVE
-                    centralise les charges fixes et la masse salariale, alimentees par les
-                    contributions de fonctionnement de chaque projet. Aucun salaire n'est impute
-                    directement sur un compte projet.
+                    Le portefeuille de projets réunit les budgets des bailleurs. Le Budget Général
+                    d'EVE regroupe les charges fixes et la masse salariale, financées par la
+                    contribution de chaque projet au fonctionnement. Aucun salaire n'est imputé
+                    directement sur un projet.
                 </p>
             </div>
             <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
                 <div class="stat-card soft-green">
-                    <div class="muted">Portefeuille projets</div>
+                    <div class="muted">Portefeuille de projets</div>
                     <div class="metric-money">{{ portfolio_total_budget|floatformat:0 }} XOF</div>
-                    <div class="muted">Cumul des budgets totaux des projets actifs et en preparation.</div>
+                    <div class="muted">Total des budgets des projets actifs et en préparation.</div>
                 </div>
                 <div class="stat-card soft-blue">
                     <div class="muted">Projets actifs</div>
                     <div class="metric">{{ active_project_count }}</div>
-                    <div class="muted">{{ preparation_project_count }} en preparation, {{ suspended_project_count }} suspendus.</div>
+                    <div class="muted">{{ preparation_project_count }} en préparation, {{ suspended_project_count }} suspendu(s).</div>
                 </div>
                 {% if show_bg %}
                 <div class="stat-card soft-amber">
-                    <div class="muted">Budget General 2026</div>
+                    <div class="muted">Budget Général 2026</div>
                     <div class="metric-money">{{ operating_planned|floatformat:0 }} XOF</div>
-                    <div class="muted">Charges fixes + masse salariale prevues.</div>
+                    <div class="muted">Charges fixes + masse salariale prévues.</div>
                 </div>
                 {% endif %}
                 <div class="stat-card soft-rose">
                     <div class="muted">Bailleurs actifs</div>
                     <div class="metric">{{ active_donor_count }}</div>
-                    <div class="muted">Bailleurs avec au moins un projet en cours.</div>
+                    <div class="muted">Bailleurs ayant au moins un projet en cours.</div>
                 </div>
             </div>
         </div>
@@ -190,7 +190,7 @@
                 {% endfor %}
             </div>
             <div style="margin-top:10px; font-size:0.78rem; color:var(--muted);">
-                Survoler une barre pour voir le montant. Donn&eacute;es&nbsp;: <code>/finance/tresorerie/</code>.
+                Survoler une barre pour voir le montant. Donn&eacute;es&nbsp;: <code>/finance/trésorerie/</code>.
             </div>
         </div>
         {% endif %}
@@ -205,7 +205,7 @@
             <p>
                 Total des budgets bailleurs et avancement par projet. Les budgets viennent du
                 document <em>Budget Previsionnel EVE 2026</em> (onglet portefeuille). Cliquer
-                sur un projet ouvre sa fiche detaillee.
+                sur un projet ouvre sa fiche détaillée.
             </p>
         </div>
         <div class="card">
@@ -421,7 +421,7 @@
 <section class="section">
     <div class="wrap">
         <div class="section-header">
-            <h2>Budget General EVE</h2>
+            <h2>Budget Général EVE</h2>
             <p>
                 Charges fixes (loyers, fournitures, services, etc.) et masse salariale du
                 personnel. Alimente par les contributions de fonctionnement preleves sur
@@ -431,9 +431,9 @@
         </div>
         <div class="grid-3" style="margin-bottom: 18px;">
             <div class="stat-card soft-green">
-                <div class="muted">Prevu</div>
+                <div class="muted">Prévu</div>
                 <div class="metric-money">{{ operating_planned|floatformat:0 }} XOF</div>
-                <div class="muted">Somme des lignes du Budget General planifiees.</div>
+                <div class="muted">Somme des lignes du Budget Général planifiées.</div>
             </div>
             <div class="stat-card soft-blue">
                 <div class="muted">Engage</div>
@@ -443,28 +443,28 @@
             <div class="stat-card soft-amber">
                 <div class="muted">Decaisse</div>
                 <div class="metric-money">{{ operating_disbursed|floatformat:0 }} XOF</div>
-                <div class="muted">Paiements effectivement sortis de la tresorerie.</div>
+                <div class="muted">Paiements effectivement sortis de la trésorerie.</div>
             </div>
         </div>
         <div class="card">
             {% if operating_lines_empty %}
             <div class="placeholder-note">
-                <strong>Aucune ligne du Budget General en base.</strong><br>
+                <strong>Aucune ligne du Budget Général en base.</strong><br>
                 Les charges fixes et la masse salariale sont actuellement absentes. Pour les
-                renseigner, une commande d'import dediee (onglet 2 du xlsx + IPRES-CSS + VRS-BRS)
+                renseigner, une commande d'import dédiée (onglet 2 du xlsx + IPRES-CSS + VRS-BRS)
                 est a venir. Les valeurs ci-dessus restent a zero tant que l'import n'a pas tourne.
                 <br><br>
-                Rappel metier : le personnel EVE n'est jamais paye sur un compte projet. Il est
-                paye exclusivement depuis la tresorerie centrale, alimentee par les contributions
+                Rappel métier : le personnel EVE n'est jamais paye sur un compte projet. Il est
+                paye exclusivement depuis la trésorerie centrale, alimentee par les contributions
                 de fonctionnement de chaque projet.
             </div>
             {% else %}
             <table class="finance-table">
                 <thead>
                     <tr>
-                        <th>Categorie</th>
+                        <th>Catégorie</th>
                         <th class="right">Lignes</th>
-                        <th class="right">Prevu</th>
+                        <th class="right">Prévu</th>
                         <th class="right">Engage</th>
                         <th class="right">Decaisse</th>
                     </tr>
@@ -482,7 +482,7 @@
                 </tbody>
                 <tfoot>
                     <tr style="font-weight: 700;">
-                        <td>Total Budget General (somme documentaire)</td>
+                        <td>Total Budget Général (somme documentaire)</td>
                         <td class="right"></td>
                         <td class="right">{{ operating_planned|floatformat:0 }}</td>
                         <td class="right">{{ operating_committed|floatformat:0 }}</td>
@@ -496,19 +496,19 @@
                 Le total ci-dessus est une somme documentaire brute. Certaines lignes peuvent
                 se chevaucher : par exemple PAYROLL-SYNTH-2026 (enveloppe globale onglet 1)
                 couvre vraisemblablement les cotisations IPRES-CSS et les retenues VRS-BRS
-                detaillees separement. Lire les notes de chaque ligne ci-dessous avant
+                détaillées separement. Lire les notes de chaque ligne ci-dessous avant
                 d'interpreter le cumul comme un montant net.
             </div>
 
-            <h3 style="margin-top: 22px; font-size: 1.15rem;">Detail des lignes</h3>
+            <h3 style="margin-top: 22px; font-size: 1.15rem;">Détail des lignes</h3>
             <div class="stack" style="margin-top: 12px;">
                 {% for line in operating_lines_detail %}
                 <div class="item">
                     <strong>{{ line.code|default:"(sans code)" }} &mdash; {{ line.description }}</strong>
                     <div class="muted" style="margin-bottom: 6px;">
-                        Categorie : {{ line.category.code }}
+                        Catégorie : {{ line.category.code }}
                         &middot; Exercice : {{ line.fiscal_year|default:"&mdash;" }}
-                        &middot; Prevu : {{ line.planned_amount|floatformat:0 }} {{ line.currency }}
+                        &middot; Prévu : {{ line.planned_amount|floatformat:0 }} {{ line.currency }}
                         {% if line.committed_amount %}&middot; Engage : {{ line.committed_amount|floatformat:0 }}{% endif %}
                         {% if line.disbursed_amount %}&middot; Decaisse : {{ line.disbursed_amount|floatformat:0 }}{% endif %}
                     </div>
@@ -528,20 +528,20 @@
 <section class="section">
     <div class="wrap">
         <div class="section-header">
-            <h2>Recettes du Budget General (contributions projets)</h2>
+            <h2>Recettes du Budget Général (contributions projets)</h2>
             <p>
-                Chaque projet reverse au Budget General une part de son budget pour financer
-                les charges fixes et le personnel. Mecanisme variable selon la convention :
-                pourcentage frais indirect ou de gestion (Nous-Cims, AXA), ligne dediee
+                Chaque projet reverse au Budget Général une part de son budget pour financer
+                les charges fixes et le personnel. Mécanisme variable selon la convention :
+                pourcentage frais indirect ou de gestion (Nous-Cims, AXA), ligne dédiée
                 coordination (Oghogho), ou contributions dispersees (ONAS, ChildFund).
             </p>
         </div>
         <div class="grid-3" style="margin-bottom: 18px;">
             <div class="stat-card soft-green">
-                <div class="muted">Recettes documentees</div>
+                <div class="muted">Recettes documentées</div>
                 <div class="metric-money">{{ operating_revenue_total|floatformat:0 }} XOF</div>
                 <div class="muted">
-                    Cumul des contributions identifiees dans les conventions
+                    Cumul des contributions identifiées dans les conventions
                     ({{ documented_contributions|length }} projet{{ documented_contributions|length|pluralize:"s" }}).
                 </div>
             </div>
@@ -549,15 +549,15 @@
                 <div class="muted">A documenter</div>
                 <div class="metric">{{ pending_contributions|length }}</div>
                 <div class="muted">
-                    Projet{{ pending_contributions|length|pluralize:"s" }} sans contribution renseignee
+                    Projet{{ pending_contributions|length|pluralize:"s" }} sans contribution renseignée
                     (lecture PDF a faire).
                 </div>
             </div>
             <div class="stat-card {% if operating_balance >= 0 %}soft-blue{% else %}soft-rose{% endif %}">
-                <div class="muted">Solde indicatif (recettes - charges Budget General)</div>
+                <div class="muted">Solde indicatif (recettes - charges Budget Général)</div>
                 <div class="metric-money">{{ operating_balance|floatformat:0 }} XOF</div>
                 <div class="muted">
-                    Recettes documentees moins charges du Budget General (avec double comptage
+                    Recettes documentées moins charges du Budget Général (avec double comptage
                     sur les charges, voir avertissement ci-dessus). Indicatif, pas un solde net.
                 </div>
             </div>
@@ -593,7 +593,7 @@
                 </tbody>
                 <tfoot>
                     <tr style="font-weight: 700;">
-                        <td colspan="3">Total recettes documentees</td>
+                        <td colspan="3">Total recettes documentées</td>
                         <td class="right">{{ operating_revenue_total|floatformat:0 }}</td>
                         <td></td>
                     </tr>
@@ -626,7 +626,7 @@
     <div class="wrap">
         <div class="section-header">
             <h2>Bailleurs</h2>
-            <p>Volume finance par bailleur sur les projets actifs et en preparation.</p>
+            <p>Volume finance par bailleur sur les projets actifs et en préparation.</p>
         </div>
         <div class="card">
             <table class="finance-table">
@@ -698,7 +698,7 @@
                         <th>Compte EVE</th>
                         <th>Banque</th>
                         <th class="right">Solde 01/01/2026</th>
-                        <th>Projets rattaches</th>
+                        <th>Projets rattachés</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -744,7 +744,7 @@
         <div class="grid-3">
             <div class="card">
                 <h3>Transactions actuelles</h3>
-                <p class="muted">Engagements et decaissements deja saisis en base, tous projets confondus.</p>
+                <p class="muted">Engagements et decaissements déjà saisis en base, tous projets confondus.</p>
                 <div class="list" style="margin-top: 14px;">
                     <div class="item">
                         <strong>Engagements (Commitments)</strong>
@@ -757,14 +757,14 @@
                 </div>
             </div>
             <div class="card">
-                <h3>Plan de tresorerie {{ year|default:2026 }}</h3>
+                <h3>Plan de trésorerie {{ year|default:2026 }}</h3>
                 <p class="sub muted">Encaissements et decaissements mensuels alignes sur l'onglet 7 du document budget {{ year|default:2026 }}.</p>
                 <div style="margin-top: 12px;">
-                    <a class="badge" href="/finance/tresorerie/">Ouvrir le plan de tresorerie &rarr;</a>
+                    <a class="badge" href="/finance/tresorerie/">Ouvrir le plan de trésorerie &rarr;</a>
                 </div>
                 <p class="muted" style="margin-top: 12px; font-size: 0.9rem;">
                     Vue tableau 12 colonnes (Jan &rarr; Dec) avec encaissements par projet,
-                    decaissements par categorie, solde net mensuel et tresorerie cumulee
+                    decaissements par catégorie, solde net mensuel et trésorerie cumulee
                     integrant le solde bancaire d'ouverture.
                 </p>
             </div>
@@ -773,7 +773,7 @@
                 <p class="sub muted">Section a venir : IPRES-CSS, VRS-BRS, apurement 2022-2024.</p>
                 <div class="placeholder-note" style="margin-top: 14px;">
                     Ces postes sont presents dans le document budget (onglets 3, 4 et 5) et seront
-                    integres en commandes d'import dediees.
+                    integres en commandes d'import dédiées.
                 </div>
             </div>
         </div>
