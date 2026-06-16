@@ -1,0 +1,383 @@
+{% extends "finance/base.html" %}
+{% load static %}
+
+{% block title %}EVE Pilot &mdash; Aide{% endblock %}
+
+{% block content %}
+<style>
+    .aide-hero {
+        background: linear-gradient(180deg, rgba(212,234,217,0.6), rgba(255,255,255,0.86));
+        border: 1px solid rgba(28,107,72,0.25);
+        border-radius: var(--radius-xl); padding: 24px;
+        box-shadow: var(--shadow); margin-bottom: 20px;
+    }
+    .aide-grid { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+    .aide-toc {
+        position: sticky; top: 16px;
+        background: rgba(255,255,255,0.92);
+        border: 1px solid rgba(217, 210, 196, 0.7); border-radius: 18px;
+        padding: 14px 12px;
+    }
+    .aide-toc h3 { font-size: 0.95rem; margin-bottom: 8px; color: var(--eve-green-900); }
+    .aide-toc a {
+        display: block; padding: 7px 10px; border-radius: 10px;
+        font-size: 0.88rem; color: var(--text); margin-bottom: 2px;
+    }
+    .aide-toc a:hover { background: rgba(28,107,72,0.08); }
+    .aide-toc a.primary {
+        background: var(--eve-green-900); color: white; font-weight: 700;
+    }
+    .role-section {
+        background: rgba(255,255,255,0.9);
+        border: 1px solid rgba(217,210,196,0.8); border-radius: 22px;
+        padding: 22px 24px; margin-bottom: 18px;
+    }
+    .role-section.you {
+        border-color: rgba(28,107,72,0.4);
+        background: linear-gradient(180deg, rgba(232,242,237,0.65), rgba(255,255,255,0.96));
+        box-shadow: 0 8px 18px rgba(28,107,72,0.08);
+    }
+    .role-section h2 {
+        font-size: 1.25rem; margin-bottom: 8px; color: var(--eve-green-900);
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .role-section .you-tag {
+        background: var(--eve-green-900); color: white;
+        padding: 4px 10px; border-radius: 999px;
+        font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em;
+    }
+    .role-section h3 { font-size: 0.95rem; margin: 14px 0 6px; color: var(--eve-green-900); }
+    .role-section ol, .role-section ul { margin: 6px 0 10px 22px; font-size: 0.92rem; line-height: 1.55; }
+    .role-section li { margin-bottom: 4px; }
+    .role-section .pill {
+        display: inline-block; padding: 3px 9px; border-radius: 999px;
+        font-size: 0.75rem; font-weight: 700; margin-right: 4px;
+        background: var(--eve-green-100); color: var(--eve-green-900);
+    }
+    .role-section .pill.warn { background: var(--amber-100); color: #8a5b1b; }
+    .role-section .pill.danger { background: var(--rose-100); color: var(--eve-red-700); }
+    .role-section code {
+        background: rgba(28,107,72,0.08); padding: 1px 5px; border-radius: 4px;
+        font-size: 0.85rem;
+    }
+    .who-am-i {
+        background: rgba(255,255,255,0.85);
+        border-radius: 14px; padding: 12px 14px; margin-bottom: 14px;
+        border: 1px solid rgba(217,210,196,0.6);
+        font-size: 0.88rem;
+    }
+    @media (max-width: 900px) {
+        .aide-grid { grid-template-columns: 1fr; }
+        .aide-toc { position: static; }
+    }
+</style>
+
+<section class="section" style="padding-top:16px;">
+    <div class="wrap">
+        <div class="aide-hero">
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+                <img src="{% static 'img/eve-logo.png' %}" alt="EVE" style="width:44px; height:44px; object-fit:contain;">
+                <div>
+                    <div class="eyebrow" style="margin-bottom:6px;">Aide &amp; Mode d'emploi</div>
+                    <h1 style="font-size:1.4rem; margin:0;">Comment utiliser EVE Pilot selon votre r&ocirc;le</h1>
+                </div>
+            </div>
+            <p class="lead" style="margin-top:10px;">
+                Chacun trouve ici ce qu'il doit faire au quotidien. Votre section est mise en
+                avant. Vous pouvez aussi lire les sections de vos coll&egrave;gues pour comprendre
+                le workflow complet.
+            </p>
+            <div class="who-am-i" style="margin-top:14px; margin-bottom:0;">
+                <strong>Vous &ecirc;tes connect&eacute; en tant que :</strong>
+                <code>{{ user.username }}</code> &middot; {{ user.first_name }} {{ user.last_name }}
+                {% if user.is_superuser %}<span class="pill danger">superuser</span>{% endif %}
+                {% for code in user_role_codes %}<span class="pill">{{ code }}</span>{% endfor %}
+                {% if project_assignments %}
+                <div style="margin-top:6px;">
+                    <strong>Affectations projet :</strong>
+                    {% for code, role in project_assignments %}
+                        <span class="pill warn">{{ code }} ({{ role }})</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="aide-grid">
+            <aside class="aide-toc">
+                <h3>Sommaire</h3>
+                <a href="#chargee_suivi" {% if "chargee_suivi" in primary_sections %}class="primary"{% endif %}>Charg&eacute;e de suivi</a>
+                <a href="#comptable" {% if "comptable" in primary_sections %}class="primary"{% endif %}>Comptable projets</a>
+                <a href="#araf" {% if "araf" in primary_sections %}class="primary"{% endif %}>Assistante RAF (BG)</a>
+                <a href="#raf" {% if "raf" in primary_sections %}class="primary"{% endif %}>RAF</a>
+                <a href="#dp" {% if "dp" in primary_sections %}class="primary"{% endif %}>Directrice des Programmes</a>
+                <a href="#se" {% if "se" in primary_sections %}class="primary"{% endif %}>Secr&eacute;taire Ex&eacute;cutif</a>
+                <a href="#admin" {% if "admin" in primary_sections %}class="primary"{% endif %}>Administrateur</a>
+                <a href="#workflow">Workflow complet d&eacute;pense</a>
+                <a href="#regles">R&egrave;gles d'usage</a>
+            </aside>
+
+            <main>
+
+                <article class="role-section {% if 'chargee_suivi' in primary_sections %}you{% endif %}" id="chargee_suivi">
+                    <h2>
+                        Charg&eacute;e de suivi de projet
+                        {% if 'chargee_suivi' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Pilote l'avancement du projet, cr&eacute;e les demandes de d&eacute;pense, soumet les
+                        rapports terrain. Voit uniquement son ou ses projet(s).
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li>Vous connecter &agrave; <code>{{ site_base_url }}/connexion/</code></li>
+                        <li><strong>Cr&eacute;er une demande de d&eacute;pense</strong> : Finance &rarr; Demandes &rarr; "Nouvelle demande"
+                            <ul>
+                                <li>S&eacute;lectionner votre projet</li>
+                                <li>Choisir la ligne budg&eacute;taire</li>
+                                <li>Saisir titre, motif, montant</li>
+                                <li><strong>Joindre la proforma</strong> ou le contrat (section "Pi&egrave;ces justificatives")</li>
+                                <li>Cliquer "Soumettre pour validation"</li>
+                            </ul>
+                        </li>
+                        <li><strong>Soumettre un rapport terrain</strong> : Activit&eacute;s &rarr; ouvrir l'activit&eacute; &rarr; "+ Rapport terrain"
+                            <ul>
+                                <li>Date, lieu, participants (H/F/enfants), narratif, r&eacute;sultats, difficult&eacute;s, recommandations</li>
+                                <li>Ajouter les b&eacute;n&eacute;ficiaires nominatifs (nom, genre, commune)</li>
+                                <li>T&eacute;l&eacute;verser les preuves (photos, liste de pr&eacute;sence sign&eacute;e)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Surveiller le bandeau "Notifications"</strong> sur Finance : "brouillon &agrave; soumettre", "rejet&eacute; &agrave; retravailler"</li>
+                    </ol>
+
+                    <h3>Ce que vous ne pouvez pas faire</h3>
+                    <ul>
+                        <li>Voir les autres projets que les v&ocirc;tres</li>
+                        <li>Voir le Budget G&eacute;n&eacute;ral, le plan comptable, le bilan</li>
+                        <li>Valider une demande de d&eacute;pense</li>
+                        <li>Saisir un paiement (sauf si vous &ecirc;tes la demandeuse de cette d&eacute;pense pr&eacute;cise)</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'comptable' in primary_sections %}you{% endif %}" id="comptable">
+                    <h2>
+                        Comptable
+                        {% if 'comptable' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Pr&eacute;pare, ex&eacute;cute et enregistre les paiements. Tient la comptabilit&eacute; au jour
+                        le jour pour les projets de son p&eacute;rim&egrave;tre.
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li>Vous connecter &agrave; <code>{{ site_base_url }}/connexion/</code></li>
+                        <li><strong>Bandeau "Notifications"</strong> sur le Tableau Finance : il indique combien de demandes attendent l'ex&eacute;cution</li>
+                        <li><strong>Saisir un paiement</strong> :
+                            <ul>
+                                <li>Ouvrir la demande approuv&eacute;e</li>
+                                <li>V&eacute;rifier qu'une <strong>facture d&eacute;finitive</strong> est jointe &mdash; sinon le bouton est bloqu&eacute;</li>
+                                <li>Cliquer "Saisir la d&eacute;pense"</li>
+                                <li>Renseigner : mode (banque/caisse), compte, date d'op&eacute;ration, r&eacute;f&eacute;rence relev&eacute;, montant r&eacute;el, compte de charge SYCEBNL, commentaire</li>
+                                <li>Submit &rarr; le BankMovement et l'&eacute;criture comptable sont cr&eacute;&eacute;s automatiquement</li>
+                            </ul>
+                        </li>
+                        <li><strong>Consulter la tr&eacute;sorerie</strong> : Finance &rarr; Tr&eacute;sorerie (plan mensuel des projets accessibles)</li>
+                        <li>Ouvrir les fiches de chaque <strong>compte bancaire</strong> rattach&eacute; &agrave; ses projets</li>
+                    </ol>
+
+                    <h3>Ce que vous voyez</h3>
+                    <ul>
+                        <li>Les projets de votre p&eacute;rim&egrave;tre (5 projets pour SAKHO : Nous-Cims SL, ECP, PIK-MBAO, GT-WALLU, ONAS-PDBH)</li>
+                        <li>Toutes leurs demandes de d&eacute;pense, mouvements bancaires, lignes budg&eacute;taires</li>
+                    </ul>
+
+                    <h3>Ce que vous ne pouvez pas faire</h3>
+                    <ul>
+                        <li>Valider une demande (vous n'avez pas le r&ocirc;le validateur)</li>
+                        <li>Voir le plan comptable, la balance, le bilan (r&eacute;serv&eacute; RAF/DP)</li>
+                        <li>Voir le Budget G&eacute;n&eacute;ral</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'araf' in primary_sections %}you{% endif %}" id="araf">
+                    <h2>
+                        Assistante RAF &mdash; Budget G&eacute;n&eacute;ral et petite caisse
+                        {% if 'araf' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        G&egrave;re la comptabilit&eacute; du Budget G&eacute;n&eacute;ral et la petite caisse de
+                        fonctionnement (femmes de charge, stagiaires, restauration personnel,
+                        r&eacute;ception et hospitalit&eacute;s des h&ocirc;tes et invit&eacute;s).
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li>Vous connecter &agrave; <code>{{ site_base_url }}/connexion/</code></li>
+                        <li><strong>Cr&eacute;er une demande de d&eacute;pense BG</strong> : Finance &rarr; Demandes &rarr; "Nouvelle demande"
+                            <ul>
+                                <li>S&eacute;lectionner "<strong>Budget G&eacute;n&eacute;ral (aucun projet)</strong>"</li>
+                                <li>Choisir la ligne BG correspondante (charges fixes, salaires personnel d'appui, etc.)</li>
+                                <li>Joindre la pi&egrave;ce justificative</li>
+                                <li>Soumettre pour validation aux 3 valideurs (RAF, DP, SE)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Saisir un paiement BG approuv&eacute;</strong> :
+                            <ul>
+                                <li>Ouvrir la demande approuv&eacute;e</li>
+                                <li>V&eacute;rifier la facture jointe</li>
+                                <li>Cliquer "Saisir la d&eacute;pense"</li>
+                                <li>Choisir le mode : <strong>Caisse</strong> pour les petites d&eacute;penses, <strong>Banque</strong> pour les virements (salaires personnel d'appui, factures fournisseurs)</li>
+                                <li>Renseigner date, r&eacute;f&eacute;rence, montant r&eacute;el, compte de charge SYCEBNL</li>
+                            </ul>
+                        </li>
+                        <li>Surveiller le bandeau "Notifications" sur le tableau de bord Finance</li>
+                    </ol>
+
+                    <h3>Ce que vous voyez</h3>
+                    <ul>
+                        <li><strong>Budget G&eacute;n&eacute;ral</strong> : toutes les lignes BG, demandes BG, comptes bancaires BG (BG SUNU notamment), petite caisse</li>
+                        <li>Tableau de bord finance avec section BG mise en avant</li>
+                    </ul>
+
+                    <h3>Ce que vous ne pouvez pas faire</h3>
+                    <ul>
+                        <li>Voir les projets bailleurs et leurs comptes (ce n'est pas votre p&eacute;rim&egrave;tre)</li>
+                        <li>Valider une demande de d&eacute;pense (vous n'avez pas le r&ocirc;le validateur)</li>
+                        <li>Voir le plan comptable, la balance, le bilan (r&eacute;serv&eacute; RAF/DP)</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'raf' in primary_sections %}you{% endif %}" id="raf">
+                    <h2>
+                        RAF &mdash; Responsable Administratif et Financier
+                        {% if 'raf' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Premi&egrave;re signature du workflow d&eacute;pense. Vue globale finance,
+                        acc&egrave;s comptable technique complet.
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li><strong>Signer les demandes</strong> : bandeau dashboard "X demande(s) &agrave; signer (RAF)" &rarr; ouvrir, v&eacute;rifier projet/ligne/montant/justificatifs, signer Approuver ou Rejeter (avec commentaire si rejet)</li>
+                        <li><strong>V&eacute;rifier la balance comptable</strong> mensuellement : Finance &rarr; Balance</li>
+                        <li><strong>Suivre le bilan</strong> : Finance &rarr; Bilan</li>
+                        <li><strong>Compte de r&eacute;sultat</strong> : suivi charges/produits par classe SYCEBNL</li>
+                        <li><strong>Vous pouvez ex&eacute;cuter</strong> n'importe quelle demande approuv&eacute;e (back-up si le comptable est indisponible)</li>
+                    </ol>
+
+                    <h3>Ce que vous voyez</h3>
+                    <ul>
+                        <li><strong>Tout</strong> : 10 projets, Budget G&eacute;n&eacute;ral, comptes bancaires, plan comptable, balance, compte de r&eacute;sultat, bilan, grand livre par compte</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'dp' in primary_sections %}you{% endif %}" id="dp">
+                    <h2>
+                        DP &mdash; Directrice des Programmes
+                        {% if 'dp' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Deuxi&egrave;me signature du workflow. Valide la pertinence m&eacute;tier des d&eacute;penses
+                        et supervise les activit&eacute;s terrain.
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li><strong>Signer les demandes en DP</strong> : bandeau dashboard ou Finance &rarr; Demandes &rarr; <code>?to_sign=1</code></li>
+                        <li>V&eacute;rifier la coh&eacute;rence avec l'activit&eacute; pr&eacute;vue (description du motif vs cadre logique)</li>
+                        <li><strong>Suivre les activit&eacute;s terrain</strong> : Activit&eacute;s &rarr; liste filtrable par projet, statut, type</li>
+                        <li>Consulter les rapports terrain valid&eacute;s pour pr&eacute;parer les rapports bailleurs</li>
+                    </ol>
+
+                    <h3>Ce que vous voyez</h3>
+                    <ul>
+                        <li>Vue globale comme le RAF, sauf que vous ne saisissez pas les paiements (ce n'est pas votre r&ocirc;le m&eacute;tier)</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'se' in primary_sections %}you{% endif %}" id="se">
+                    <h2>
+                        SE &mdash; Secr&eacute;taire Ex&eacute;cutif
+                        {% if 'se' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Troisi&egrave;me signature du workflow d&eacute;pense. Validation finale des rapports
+                        d'activit&eacute; terrain. Pilotage organisationnel (sans plong&eacute;e dans les &eacute;tats comptables).
+                    </p>
+
+                    <h3>Au quotidien</h3>
+                    <ol>
+                        <li><strong>Signer la ligne SE</strong> des demandes soumises (bandeau "&agrave; signer (SE)")</li>
+                        <li><strong>Valider les rapports terrain</strong> : Activit&eacute;s &rarr; ouvrir un rapport soumis &rarr; d&eacute;cider VALIDE ou REJET&Eacute; (commentaire obligatoire pour rejeter)</li>
+                        <li>Surveiller le tableau de bord finance pour la vue d'ensemble organisationnelle</li>
+                    </ol>
+
+                    <h3>Ce que vous voyez</h3>
+                    <ul>
+                        <li>Vue globale projets, demandes, activit&eacute;s, tr&eacute;sorerie</li>
+                    </ul>
+
+                    <h3>Ce que vous ne voyez pas</h3>
+                    <ul>
+                        <li>Plan comptable, balance, compte de r&eacute;sultat, bilan, grand livre &mdash; ces &eacute;crans techniques sont r&eacute;serv&eacute;s RAF/DP</li>
+                    </ul>
+                </article>
+
+                <article class="role-section {% if 'admin' in primary_sections %}you{% endif %}" id="admin">
+                    <h2>
+                        Administrateur technique
+                        {% if 'admin' in primary_sections %}<span class="you-tag">VOUS</span>{% endif %}
+                    </h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Maintenance, cr&eacute;ation de comptes, d&eacute;bogage, sauvegardes.
+                    </p>
+
+                    <h3>Actions exclusives</h3>
+                    <ol>
+                        <li><strong>Console Django Admin</strong> : <code>/admin/</code> pour cr&eacute;er des Users, attribuer des r&ocirc;les UserRole, g&eacute;rer les r&eacute;f&eacute;rentiels</li>
+                        <li>Surveiller le serveur Waitress (console PowerShell active)</li>
+                        <li>Lancer une sauvegarde manuelle : <code>.\scripts\backup_uat.ps1</code></li>
+                        <li>Consulter les logs d'erreur</li>
+                    </ol>
+
+                    <h3>R&egrave;gle d'or</h3>
+                    <ul>
+                        <li><strong>Ne pas valider de demandes avec ce compte</strong>. Les rapports d'audit doivent tracer les vraies personnes m&eacute;tier, pas un super-user technique. Utilisez votre compte applicatif personnel pour valider.</li>
+                    </ul>
+                </article>
+
+                <article class="role-section" id="workflow">
+                    <h2>Workflow complet d'une demande de d&eacute;pense</h2>
+                    <p class="muted" style="font-size:0.9rem;">
+                        Cycle DRAFT &rarr; SUBMITTED &rarr; APPROVED &rarr; EXECUTED.
+                    </p>
+                    <ol>
+                        <li><strong>Cr&eacute;ation</strong> : la charg&eacute;e de suivi cr&eacute;e la demande, joint la proforma. Statut = <code>Brouillon</code>.</li>
+                        <li><strong>Soumission</strong> : elle clique "Soumettre pour validation". 3 lignes de validation (RAF, DP, SE) sont cr&eacute;&eacute;es. Statut = <code>Soumise</code>. Les 3 valideurs re&ccedil;oivent une notification.</li>
+                        <li><strong>Validations</strong> : chaque valideur signe sa ligne. Ordre indiff&eacute;rent.</li>
+                        <li><strong>Approbation</strong> : &agrave; la 3&egrave;me signature Approuv&eacute;e, statut &rarr; <code>Approuv&eacute;e</code>. La demandeuse et le comptable sont notifi&eacute;s.</li>
+                        <li><strong>Rejet</strong> : un seul Rejet (avec commentaire) &rarr; statut <code>Rejet&eacute;e</code>. La demandeuse peut retravailler.</li>
+                        <li><strong>Pi&egrave;ces de paiement</strong> : la facture d&eacute;finitive est jointe avant ex&eacute;cution.</li>
+                        <li><strong>Ex&eacute;cution</strong> : le comptable clique "Saisir la d&eacute;pense", renseigne le BankMovement, valide. Statut &rarr; <code>Ex&eacute;cut&eacute;e</code>. L'&eacute;criture SYCEBNL est g&eacute;n&eacute;r&eacute;e automatiquement (d&eacute;bit charge, cr&eacute;dit banque).</li>
+                    </ol>
+                </article>
+
+                <article class="role-section" id="regles">
+                    <h2>R&egrave;gles d'usage &mdash; rappel rapide</h2>
+                    <ul>
+                        <li>Ne JAMAIS partager votre mot de passe</li>
+                        <li>Vous d&eacute;connecter en quittant le poste : <code>/deconnexion/</code></li>
+                        <li>Toute donn&eacute;e b&eacute;n&eacute;ficiaire est confidentielle &mdash; ne pas exporter, ne pas photographier l'&eacute;cran</li>
+                        <li>Signaler imm&eacute;diatement &agrave; l'administrateur tout comportement &eacute;trange de l'application</li>
+                        <li>En cas de doute sur une demande, demander &agrave; voir la pi&egrave;ce physique avant de signer</li>
+                    </ul>
+                </article>
+
+            </main>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -62,22 +62,23 @@ VI_MAPPING = {
 # --- Niveau 2 : regles generiques par motif (ordre = priorite) ----------
 # (pattern en MAJUSCULES cherche dans le libelle, code compte SYCEBNL)
 GENERIC_RULES = [
-    ("SONATEL", "61"),                         # facture telecom Sonatel -> services exterieurs
+    # Codes conformes SYCEBNL/SYSCOHADA Revise (cf. migration 0015).
+    ("SONATEL", "6053"),                       # facture telecom Sonatel -> mobile (605x)
     ("ST LOUIS", "181.060"),                   # virement recu Saint-Louis
     ("EAU VIE-ENVIRONNEMENT SOD", "181.080"),  # virement recu du compte ONAS/SODIS
-    ("ENVIRONNEMENT SE", "181.060"),           # Vir.recu '...ENVIRONNEMENT SE...SALAIRE' = EVE SErvice (CBAO) = Saint-Louis
-    ("TRESOR PUBLIC", "63"),                   # reversement impots/taxes a l'Etat
-    ("FR CPT INSTIT", "66"),                   # frais de compte institutionnel
-    ("COMMISSION", "66"),                      # commissions bancaires
-    ("FRAIS COMPENSE", "66"),                  # frais de compensation
-    ("COTISATION", "66"),                      # cotisation service bancaire (My SUNU)
-    ("INTERET", "66"),                         # agios / interets debiteurs
-    ("TAXE", "66"),                            # taxes bancaires
-    ("TIMBRE", "66"),                          # timbres sur versements
-    ("RETROCESSION", "77"),                    # retrocession en faveur d'EVE
-    ("PAIEMENT DE CHEQUE AU PORTEUR", "64"),   # paie / cheques personnel
-    ("VIREMENT MULTIPLE", "64"),               # virement de paie groupee
-    ("RETRAIT PAR CHEQUE", "64"),              # retrait cheque personnel
+    ("ENVIRONNEMENT SE", "181.060"),           # Vir.recu '...ENVIRONNEMENT SE...SALAIRE' = EVE Service (CBAO) = Saint-Louis
+    ("TRESOR PUBLIC", "4421"),                 # reversement impots/taxes a l'Etat -> dette Etat
+    ("FR CPT INSTIT", "6311"),                 # frais de compte institutionnel -> commission bancaire
+    ("COMMISSION", "6311"),                    # commissions bancaires
+    ("FRAIS COMPENSE", "6311"),                # frais de compensation
+    ("COTISATION", "6311"),                    # cotisation service bancaire (My SUNU)
+    ("INTERET", "672"),                        # agios / interets debiteurs -> frais financiers
+    ("TAXE", "6311"),                          # taxes bancaires -> commissions
+    ("TIMBRE", "6311"),                        # timbres sur versements
+    ("RETROCESSION", "77"),                    # retrocession en faveur d'EVE -> produits financiers
+    ("PAIEMENT DE CHEQUE AU PORTEUR", "6611"), # paie / cheques personnel -> salaires
+    ("VIREMENT MULTIPLE", "6611"),             # virement de paie groupee -> salaires
+    ("RETRAIT PAR CHEQUE", "6611"),            # retrait cheque personnel -> salaires
 ]
 
 

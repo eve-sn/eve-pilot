@@ -84,6 +84,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.accounts.context_processors.user_access",
             ],
         },
     },
@@ -117,6 +118,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Assets propres au projet (logo EVE, CSS partage). Les apps continuent
+# d'apporter leurs propres static/.
+STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -162,6 +166,46 @@ SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
 # URL de base utilisee dans les emails pour construire des liens absolus.
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://127.0.0.1:8000")
+
+# --- Securite production --------------------------------------------------
+# Activee par DJANGO_PROD_SECURITY=True dans le .env de production (derriere
+# nginx + TLS). En dev, laisser False : sinon SECURE_SSL_REDIRECT boucle sur
+# du HTTP local. Ne jamais mettre DEBUG=True en ligne.
+_PROD_SECURITY = os.getenv("DJANGO_PROD_SECURITY", "False").lower() in {"1", "true", "yes", "on"}
+if _PROD_SECURITY:
+    # nginx termine le TLS et transmet X-Forwarded-Proto : Django sait alors
+    # que la requete d'origine est en HTTPS.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    # HSTS : 30 jours pour le test (passer a 31536000 = 1 an une fois stable).
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "2592000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    X_FRAME_OPTIONS = "DENY"
+
+# Medias proteges : si True, protected_media delegue le streaming a nginx via
+# X-Accel-Redirect (location `internal`). True en production, False en dev.
+USE_X_ACCEL_REDIRECT = os.getenv("DJANGO_X_ACCEL_REDIRECT", "False").lower() in {"1", "true", "yes", "on"}
+
+# Limite la taille des uploads en memoire (les gros fichiers vont sur disque).
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DJANGO_DATA_UPLOAD_MAX", str(10 * 1024 * 1024)))
+
+# Journalisation : tout vers la console (capturee par systemd/journald en prod).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "root": {"handlers": ["console"], "level": os.getenv("DJANGO_LOG_LEVEL", "INFO")},
+    "loggers": {
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

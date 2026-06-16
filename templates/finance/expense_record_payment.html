@@ -1,0 +1,143 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Saisir le paiement DD-{{ expense.id }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">Saisie comptable</div>
+            <h1 style="font-size:1.6rem; margin-bottom:8px;">
+                Paiement de la demande DD-{{ expense.id }}
+            </h1>
+            <p class="lead">
+                {{ expense.title }} &middot;
+                {% if expense.project %}{{ expense.project.code }}{% else %}Budget G&eacute;n&eacute;ral{% endif %}
+                &middot; Demandeur : {{ expense.requester }}
+            </p>
+            <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="button" href="{% url 'finance:expense_detail' expense.id %}">&larr; Retour fiche demande</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="detail-grid">
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.2rem;">R&eacute;capitulatif</h2></div>
+                <dl class="meta">
+                    <dt>Montant demand&eacute;</dt>
+                    <dd>{{ expense.requested_amount|floatformat:0 }} {{ expense.currency }}</dd>
+                    <dt>Imputation</dt>
+                    <dd>
+                        {% if expense.project %}{{ expense.project.code }} &mdash; {{ expense.project.title }}{% else %}Budget G&eacute;n&eacute;ral{% endif %}
+                    </dd>
+                    <dt>Ligne budg&eacute;taire</dt>
+                    <dd>
+                        <code>{{ expense.budget_line.code }}</code><br>
+                        <span class="muted" style="font-size:0.86rem;">{{ expense.budget_line.description }}</span>
+                    </dd>
+                    <dt>Motif</dt>
+                    <dd style="font-weight:400;">{{ expense.motif|linebreaksbr }}</dd>
+                    <dt>Date d'approbation</dt>
+                    <dd>{{ expense.decided_at|date:"d/m/Y H:i" }}</dd>
+                </dl>
+                <div class="placeholder-note" style="margin-top:10px; background: rgba(212,234,217,0.5); border-color: rgba(28,107,72,0.3); color: var(--eve-green-900);">
+                    <strong>&#10003; Facture v&eacute;rifi&eacute;e.</strong> Au moins une pi&egrave;ce de type FACTURE est attach&eacute;e &mdash; la saisie du paiement est autoris&eacute;e.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.2rem;">Saisie du paiement</h2></div>
+                <form method="post" class="form-grid">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="placeholder-note" style="color: var(--eve-red-700);">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div>
+                        <label>{{ form.method.label }}</label>
+                        {% for radio in form.method %}
+                            <label style="display:inline-flex; gap:6px; margin-right:18px; font-weight:600;">
+                                {{ radio.tag }} {{ radio.choice_label }}
+                            </label>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                        <div>
+                            <label>{{ form.bank_account.label }}</label>
+                            {{ form.bank_account }}
+                            {% if form.bank_account.errors %}<div class="errorlist">{{ form.bank_account.errors|join:" " }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label>{{ form.cash_register.label }}</label>
+                            {{ form.cash_register }}
+                            {% if form.cash_register.errors %}<div class="errorlist">{{ form.cash_register.errors|join:" " }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                        <div>
+                            <label>{{ form.date_operation.label }} *</label>
+                            {{ form.date_operation }}
+                            {% if form.date_operation.errors %}<div class="errorlist">{{ form.date_operation.errors|join:" " }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label>{{ form.reference.label }} *</label>
+                            {{ form.reference }}
+                            <div class="help">{{ form.reference.help_text }}</div>
+                            {% if form.reference.errors %}<div class="errorlist">{{ form.reference.errors|join:" " }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:grid; grid-template-columns:1fr 2fr; gap:14px;">
+                        <div>
+                            <label>{{ form.actual_amount.label }} *</label>
+                            {{ form.actual_amount }}
+                            <div class="help">{{ form.actual_amount.help_text }}</div>
+                            {% if form.actual_amount.errors %}<div class="errorlist">{{ form.actual_amount.errors|join:" " }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label>{{ form.contra_account.label }} *</label>
+                            {{ form.contra_account }}
+                            <div class="help">{{ form.contra_account.help_text }}</div>
+                            {% if form.contra_account.errors %}<div class="errorlist">{{ form.contra_account.errors|join:" " }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label>{{ form.commentary.label }}</label>
+                        {{ form.commentary }}
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top:8px;">
+                        <button class="button primary" type="submit">Enregistrer le paiement</button>
+                        <a class="button" href="{% url 'finance:expense_detail' expense.id %}">Annuler</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+<script>
+// Bascule bank_account / cash_register selon le mode choisi.
+document.addEventListener("DOMContentLoaded", function () {
+    function applyMode() {
+        var m = document.querySelector('input[name="method"]:checked');
+        if (!m) return;
+        var isBank = m.value === "BANK";
+        var bank = document.querySelector('select[name="bank_account"]');
+        var cash = document.querySelector('select[name="cash_register"]');
+        if (bank) bank.parentElement.style.opacity = isBank ? "1" : "0.45";
+        if (cash) cash.parentElement.style.opacity = isBank ? "0.45" : "1";
+    }
+    document.querySelectorAll('input[name="method"]').forEach(function (r) {
+        r.addEventListener("change", applyMode);
+    });
+    applyMode();
+});
+</script>
+{% endblock %}

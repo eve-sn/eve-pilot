@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Piece comptable {{ piece_ref }}</title>
+<style>
+    :root { --green:#1c6b48; --line:#d9d4c7; --bg:#f4f2ea; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:#1c1c1c; margin:0; padding:24px; font-size:13px; }
+    .sheet { max-width: 800px; margin: 0 auto; }
+    .toolbar { max-width:800px; margin:0 auto 16px; display:flex; gap:10px; }
+    .btn { padding:8px 16px; border-radius:8px; border:1px solid var(--green); background:var(--green); color:#fff; cursor:pointer; font:inherit; text-decoration:none; }
+    .btn.alt { background:#fff; color:var(--green); }
+    h1 { color:var(--green); font-size:22px; margin:0 0 2px; }
+    .sub { color:#666; font-size:12px; margin-bottom:16px; }
+    h2 { color:var(--green); font-size:14px; margin:18px 0 6px; border-bottom:2px solid var(--green); padding-bottom:3px; }
+    table { width:100%; border-collapse:collapse; margin-bottom:8px; }
+    th, td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+    th { background:var(--bg); }
+    .je th { background:var(--green); color:#fff; }
+    .right { text-align:right; }
+    .label-cell { background:var(--bg); font-weight:700; width:26%; }
+    tfoot td { font-weight:700; border-top:2px solid var(--green); }
+    code { font-family:"SFMono-Regular",Consolas,monospace; }
+    .note { color:#666; font-size:11px; margin-top:6px; }
+    @media print {
+        .toolbar { display:none; }
+        body { padding:0; }
+        h2 { page-break-after: avoid; }
+        tr { page-break-inside: avoid; }
+    }
+</style>
+</head>
+<body>
+<div class="toolbar">
+    <button class="btn" onclick="window.print()">Imprimer / PDF</button>
+    <a class="btn alt" href="{% url 'finance:bank_movement_voucher_pdf' movement.id %}" target="_blank">PDF + annexes fusionnees</a>
+    <a class="btn alt" href="{% url 'finance:bank_movement_detail' movement.id %}">&larr; Retour fiche</a>
+</div>
+
+<div class="sheet">
+    <h1>PIECE COMPTABLE</h1>
+    <div class="sub">
+        Reference : <strong>{{ piece_ref }}</strong> &middot;
+        Compte : {{ account.name }} &middot;
+        Date d'operation : {{ movement.date_operation|date:"d/m/Y" }}
+    </div>
+
+    <table>
+        <tr>
+            <td class="label-cell">Sens</td>
+            <td>{% if is_credit %}Entree (credit bancaire){% else %}Sortie (debit bancaire){% endif %}</td>
+            <td class="label-cell">Montant</td>
+            <td><strong>{{ amount|floatformat:0 }} {{ account.currency }}</strong></td>
+        </tr>
+        <tr>
+            <td class="label-cell">Libelle</td>
+            <td>{{ movement.label }}</td>
+            <td class="label-cell">Reference releve</td>
+            <td>{{ movement.reference|default:"&mdash;" }}</td>
+        </tr>
+        <tr>
+            <td class="label-cell">Beneficiaire / source</td>
+            <td>{{ movement.recipient|default:"&mdash;" }}</td>
+            <td class="label-cell">Projet</td>
+            <td>{% if movement.project %}<strong>{{ movement.project.code }}</strong> &mdash; {{ movement.project.title }}{% else %}Budget General{% endif %}</td>
+        </tr>
+        {% if movement.commentary %}
+        <tr><td class="label-cell">Commentaire</td><td colspan="3">{{ movement.commentary|linebreaksbr }}</td></tr>
+        {% endif %}
+    </table>
+
+    <h2>Imputation comptable (partie double SYCEBNL)</h2>
+    <table class="je">
+        <thead><tr><th>Compte</th><th>Libelle</th><th class="right">Debit</th><th class="right">Credit</th></tr></thead>
+        <tbody>
+            {% for l in journal_lines %}
+            <tr>
+                <td><code>{{ l.account.code }}</code> {{ l.account.name }}</td>
+                <td>{{ l.label }}</td>
+                <td class="right">{% if l.debit %}{{ l.debit|floatformat:0 }}{% endif %}</td>
+                <td class="right">{% if l.credit %}{{ l.credit|floatformat:0 }}{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">Aucune ecriture comptable rattachee.</td></tr>
+            {% endfor %}
+        </tbody>
+        {% if journal_lines %}
+        <tfoot><tr><td colspan="2">TOTAL</td><td class="right">{{ total_debit|floatformat:0 }}</td><td class="right">{{ total_credit|floatformat:0 }}</td></tr></tfoot>
+        {% endif %}
+    </table>
+
+    {% if allocations %}
+    <h2>Ventilation analytique</h2>
+    <table>
+        <thead><tr><th>Projet</th><th>Ligne budgetaire</th><th>Compte</th><th class="right">Montant</th></tr></thead>
+        <tbody>
+            {% for a in allocations %}
+            <tr>
+                <td>{% if a.project %}{{ a.project.code }}{% else %}&mdash;{% endif %}</td>
+                <td>{% if a.budget_line %}<code>{{ a.budget_line.code }}</code> {{ a.budget_line.description|truncatechars:40 }}{% else %}&mdash;{% endif %}</td>
+                <td><code>{{ a.contra_account.code }}</code></td>
+                <td class="right">{{ a.amount|floatformat:0 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <h2>Pieces justificatives (annexes)</h2>
+    {% if documents %}
+    <table>
+        <thead><tr><th>#</th><th>Type</th><th>Libelle / fichier</th><th>Lien</th></tr></thead>
+        <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ doc.get_document_type_display }}</td>
+                <td>{{ doc.label|default:doc.file.name }}</td>
+                <td><a href="{{ doc.file.url }}" target="_blank">ouvrir</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="note">
+        Pour obtenir un document unique avec les justificatifs (PDF et images) integres,
+        utilisez le bouton « PDF + annexes fusionnees ».
+    </div>
+    {% else %}
+    <p>Aucune piece justificative attachee a ce mouvement.</p>
+    {% endif %}
+
+    <div class="note" style="margin-top:20px;">
+        Piece editee le {% now "d/m/Y H:i" %} &middot; EVE Pilot Finance &middot;
+        {% if movement.created_by %}Saisie par {{ movement.created_by }}{% endif %}
+    </div>
+</div>
+</body>
+</html>

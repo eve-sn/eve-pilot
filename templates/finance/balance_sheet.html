@@ -1,36 +1,43 @@
 {% extends "finance/base.html" %}
 
-{% block title %}EVE Pilot Finance &mdash; Bilan{% endblock %}
+{% block title %}EVE Pilot Finance &mdash; Bilan SYCEBNL{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Bilan SYCEBNL (simplifie)</div>
-                <h1>Actif et passif issus des ecritures comptables.</h1>
+                <div class="eyebrow">Bilan SYCEBNL (modele officiel EVE)</div>
+                <h1>Bilan Actif / Passif au format SYCEBNL.</h1>
                 <p class="lead">
-                    Actif = soldes debiteurs des comptes de classes 1 a 5. Passif = soldes
-                    crediteurs des memes classes. Le resultat de l'exercice equilibre les
-                    deux colonnes.
+                    Reproduit la structure officielle livree par EVE
+                    (ETAT FIN SYCBNL EVE 2024.xlsx) : codes REF AA -> BZ pour
+                    l'Actif et CA -> DZ pour le Passif.
                 </p>
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour Finance</a>
-                    <a class="button" href="/finance/compte-resultat/">Compte de resultat</a>
+                    <a class="button" href="/finance/compte-resultat/">Compte d'exploitation</a>
+                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Tresorerie</a>
                 </div>
             </div>
             <div class="stack">
                 <div class="stat-card soft-blue">
-                    <div class="muted">Total actif</div>
-                    <div class="metric-money">{{ total_actif_with_result|floatformat:0 }} XOF</div>
+                    <div class="muted">Total ACTIF (BZ)</div>
+                    <div class="metric-money">{{ total_actif|floatformat:0 }} XOF</div>
                 </div>
                 <div class="stat-card soft-amber">
-                    <div class="muted">Total passif</div>
-                    <div class="metric-money">{{ total_passif_with_result|floatformat:0 }} XOF</div>
+                    <div class="muted">Total PASSIF (DZ)</div>
+                    <div class="metric-money">{{ total_passif|floatformat:0 }} XOF</div>
                 </div>
                 <div class="stat-card {% if is_balanced %}soft-green{% else %}soft-rose{% endif %}">
-                    <div class="muted">Equilibre</div>
-                    <div class="metric">{% if is_balanced %}OK{% else %}DESEQUILIBRE{% endif %}</div>
+                    <div class="muted">Equilibre Actif = Passif</div>
+                    <div class="metric">
+                        {% if is_balanced %}
+                            OK
+                        {% else %}
+                            ECART {{ imbalance|floatformat:0 }} XOF
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -39,12 +46,14 @@
 
 <section class="section">
     <div class="wrap">
-        <div class="placeholder-note" style="margin-bottom: 18px;">
-            <strong>&#9888; Bilan partiel.</strong>
-            Tant que les ecritures d'a-nouveau (report des soldes d'ouverture des comptes
-            bancaires et caisse au 01/01/2026) ne sont pas saisies, ce bilan reflete les
-            flux comptabilises de la periode, pas le patrimoine complet d'EVE. Les comptes
-            de tresorerie 512.x apparaitront a leur vrai niveau une fois les a-nouveaux passes.
+        <div class="placeholder-note" style="margin-bottom:14px; background:rgba(232,240,245,0.6); color:#1f5972;">
+            <strong>&#9656; Lecture du bilan SYCEBNL.</strong>
+            Les lignes en <strong>gras</strong> sont des sous-totaux / totaux officiels.
+            Le solde de l'exercice (ligne <code>CH</code>) =
+            <strong>{{ result_exercise|floatformat:0 }} XOF</strong>
+            ({% if is_profit %}excedent{% else %}deficit{% endif %}).
+            Tant que les ecritures d'a-nouveau au 01/01 ne sont pas saisies,
+            le bilan reflete principalement les flux de la periode.
         </div>
         {% if not has_data %}
         <div class="card">
@@ -53,65 +62,48 @@
         {% else %}
         <div class="grid-2">
             <div class="card">
-                <div class="section-header"><h2>ACTIF</h2></div>
-                <table class="finance-table">
+                <div class="section-header"><h2>ACTIF (REF AA -> BZ)</h2></div>
+                <table class="finance-table" style="font-size:0.88rem;">
                     <thead>
-                        <tr><th>Code</th><th>Compte</th><th class="right">Montant</th></tr>
+                        <tr>
+                            <th style="width:50px;">REF</th>
+                            <th>Libelle</th>
+                            <th class="right" style="width:130px;">Montant XOF</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        {% for row in actif %}
-                        <tr>
-                            <td><a href="/finance/grand-livre/{{ row.account.code }}/"><code>{{ row.account.code }}</code></a></td>
-                            <td>{{ row.account.name }}</td>
-                            <td class="right">{{ row.amount|floatformat:0 }}</td>
+                        {% for line in actif_lines %}
+                        <tr {% if line.kind == 'total' %}style="font-weight:700; background: rgba(47,111,137,0.10); border-top:2px solid var(--line);"{% elif line.kind == 'subtotal' %}style="font-weight:600; background: rgba(47,111,137,0.04);"{% endif %}>
+                            <td><code>{{ line.ref }}</code></td>
+                            <td>
+                                {{ line.label }}
+                                {% if line.note %}<span class="muted" style="font-size:0.75rem;">Note {{ line.note }}</span>{% endif %}
+                            </td>
+                            <td class="right">{{ line.amount|floatformat:0 }}</td>
                         </tr>
-                        {% empty %}
-                        <tr><td colspan="3"><span class="muted">Aucun poste d'actif.</span></td></tr>
                         {% endfor %}
-                        {% if not is_profit %}
-                        <tr style="background: rgba(138,43,43,0.06);">
-                            <td colspan="2"><strong>Resultat de l'exercice (deficit)</strong></td>
-                            <td class="right">{{ result|floatformat:0 }}</td>
-                        </tr>
-                        {% endif %}
                     </tbody>
-                    <tfoot>
-                        <tr style="font-weight:700; background: rgba(47,111,137,0.08);">
-                            <td colspan="2">Total actif</td>
-                            <td class="right">{{ total_actif_with_result|floatformat:0 }}</td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
             <div class="card">
-                <div class="section-header"><h2>PASSIF</h2></div>
-                <table class="finance-table">
+                <div class="section-header"><h2>PASSIF (REF CA -> DZ)</h2></div>
+                <table class="finance-table" style="font-size:0.88rem;">
                     <thead>
-                        <tr><th>Code</th><th>Compte</th><th class="right">Montant</th></tr>
+                        <tr>
+                            <th style="width:50px;">REF</th>
+                            <th>Libelle</th>
+                            <th class="right" style="width:130px;">Montant XOF</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        {% for row in passif %}
-                        <tr>
-                            <td><a href="/finance/grand-livre/{{ row.account.code }}/"><code>{{ row.account.code }}</code></a></td>
-                            <td>{{ row.account.name }}</td>
-                            <td class="right">{{ row.amount|floatformat:0 }}</td>
+                        {% for line in passif_lines %}
+                        <tr {% if line.kind == 'total' %}style="font-weight:700; background: rgba(140,91,27,0.10); border-top:2px solid var(--line);"{% elif line.kind == 'subtotal' %}style="font-weight:600; background: rgba(140,91,27,0.04);"{% elif line.ref == 'CH' %}style="font-weight:600; background: rgba(31,89,114,0.06); font-style:italic;"{% endif %}>
+                            <td><code>{{ line.ref }}</code></td>
+                            <td>{{ line.label }}</td>
+                            <td class="right">{{ line.amount|floatformat:0 }}</td>
                         </tr>
-                        {% empty %}
-                        <tr><td colspan="3"><span class="muted">Aucun poste de passif.</span></td></tr>
                         {% endfor %}
-                        {% if is_profit %}
-                        <tr style="background: rgba(28,75,61,0.06);">
-                            <td colspan="2"><strong>Resultat de l'exercice (excedent)</strong></td>
-                            <td class="right">{{ result|floatformat:0 }}</td>
-                        </tr>
-                        {% endif %}
                     </tbody>
-                    <tfoot>
-                        <tr style="font-weight:700; background: rgba(140,91,27,0.08);">
-                            <td colspan="2">Total passif</td>
-                            <td class="right">{{ total_passif_with_result|floatformat:0 }}</td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </div>

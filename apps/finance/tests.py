@@ -50,7 +50,17 @@ class FinanceDashboardTests(TestCase):
         )
 
     def setUp(self):
+        from apps.accounts.models import User
         self.client = Client()
+        admin = User(
+            username=f"admin_{id(self)}",
+            email=f"admin_{id(self)}@test.local",
+            first_name="T", last_name="Admin",
+            is_superuser=True, is_active=True,
+        )
+        admin.set_password("x")
+        admin.save()
+        self.client.force_login(admin)
 
     def test_dashboard_returns_200(self):
         response = self.client.get("/finance/")
@@ -106,7 +116,17 @@ class CashflowDashboardTests(TestCase):
         )
 
     def setUp(self):
+        from apps.accounts.models import User
         self.client = Client()
+        admin = User(
+            username=f"admin_{id(self)}",
+            email=f"admin_{id(self)}@test.local",
+            first_name="T", last_name="Admin",
+            is_superuser=True, is_active=True,
+        )
+        admin.set_password("x")
+        admin.save()
+        self.client.force_login(admin)
 
     def test_cashflow_returns_200(self):
         response = self.client.get("/finance/tresorerie/")
@@ -160,7 +180,7 @@ class BudgetLineNullableProjectTests(TestCase):
 
 
 class CashRegisterValidationTests(TestCase):
-    """Plafonds caisse : 40 000 par operation, 100 000 par semaine ISO."""
+    """Plafonds caisse : 40 000 par operation, 200 000 par semaine ISO."""
 
     @classmethod
     def setUpTestData(cls):
@@ -191,17 +211,19 @@ class CashRegisterValidationTests(TestCase):
         movement.save()
         self.assertIsNotNone(movement.pk)
 
-    def test_weekly_cap_rejects_cumulative_over_100000(self):
+    def test_weekly_cap_rejects_cumulative_over_200000(self):
         from django.core.exceptions import ValidationError
 
-        # All four days are within the same ISO week (W19 of 2026 :
+        # All five days are within the same ISO week (W19 of 2026 :
         # Monday 4 May -> Sunday 10 May).
         self._make_movement(40000, 4).save()
         self._make_movement(40000, 5).save()
-        self._make_movement(20000, 6).save()  # cumul = 100 000 pile, OK
+        self._make_movement(40000, 6).save()
+        self._make_movement(40000, 7).save()
+        self._make_movement(40000, 8).save()  # cumul = 200 000 pile, OK
         with self.assertRaises(ValidationError):
-            # 5e operation 1 FCFA -> cumul 100 001 -> rejet
-            self._make_movement(1, 7).save()
+            # operation suivante 1 FCFA -> cumul 200 001 -> rejet
+            self._make_movement(1, 9).save()
 
     def test_weekly_cap_resets_across_iso_weeks(self):
         # 5 mai (W19) cumul 40k, puis 12 mai (W20) doit recommencer a 0
@@ -221,11 +243,11 @@ class FinancialStatementsTests(TestCase):
 
         bank = BankAccount.objects.create(name="Banque stmt test", bank_name="X")
         cls.treasury = ChartOfAccount.objects.create(
-            code="512.STMT", name="Tresorerie test", class_number=5,
+            code="5211.STMT", name="Tresorerie test", class_number=5,
             linked_bank_account=bank,
         )
         cls.charge = ChartOfAccount.objects.create(
-            code="64.STMT", name="Charges personnel test", class_number=6,
+            code="66.STMT", name="Charges personnel test (SYCEBNL classe 66)", class_number=6,
         )
         cls.produit = ChartOfAccount.objects.create(
             code="75.STMT", name="Subventions test", class_number=7,
@@ -240,7 +262,17 @@ class FinancialStatementsTests(TestCase):
         JournalLine.objects.create(entry=e2, account=cls.produit, debit=Decimal("0"), credit=Decimal("500000"))
 
     def setUp(self):
+        from apps.accounts.models import User
         self.client = Client()
+        admin = User(
+            username=f"admin_{id(self)}",
+            email=f"admin_{id(self)}@test.local",
+            first_name="T", last_name="Admin",
+            is_superuser=True, is_active=True,
+        )
+        admin.set_password("x")
+        admin.save()
+        self.client.force_login(admin)
 
     def test_income_statement_returns_200_and_computes_result(self):
         response = self.client.get("/finance/compte-resultat/")
@@ -260,9 +292,10 @@ class FinancialStatementsTests(TestCase):
     def test_balance_sheet_balances_actif_equals_passif(self):
         response = self.client.get("/finance/bilan/")
         self.assertTrue(response.context["is_balanced"])
+        # Nouveau modele SYCEBNL : on compare total_actif (BZ) vs total_passif (DZ).
         self.assertEqual(
-            response.context["total_actif_with_result"],
-            response.context["total_passif_with_result"],
+            response.context["total_actif"],
+            response.context["total_passif"],
         )
 
 
@@ -292,7 +325,17 @@ class ChartOfAccountsViewTests(TestCase):
         )
 
     def setUp(self):
+        from apps.accounts.models import User
         self.client = Client()
+        admin = User(
+            username=f"admin_{id(self)}",
+            email=f"admin_{id(self)}@test.local",
+            first_name="T", last_name="Admin",
+            is_superuser=True, is_active=True,
+        )
+        admin.set_password("x")
+        admin.save()
+        self.client.force_login(admin)
 
     def test_chart_of_accounts_returns_200(self):
         response = self.client.get("/finance/plan-comptable/")
@@ -316,12 +359,12 @@ class JournalPostingTests(TestCase):
         cls.bank = BankAccount.objects.create(name="Banque test posting", bank_name="X")
         # Compte de tresorerie 512.x lie au compte bancaire
         cls.treasury = ChartOfAccount.objects.create(
-            code="512.99", name="Banque test - tresorerie", class_number=5,
+            code="5211.99", name="Banque test - tresorerie", class_number=5,
             linked_bank_account=cls.bank,
         )
-        # Compte de charge contrepartie
+        # Compte de charge contrepartie (SYCEBNL classe 66 = charges de personnel)
         cls.charge = ChartOfAccount.objects.create(
-            code="64.99", name="Charges de personnel test", class_number=6,
+            code="66.99", name="Charges de personnel test", class_number=6,
         )
         # Compte de produit contrepartie
         cls.produit = ChartOfAccount.objects.create(
@@ -395,6 +438,314 @@ class JournalPostingTests(TestCase):
         self.assertFalse(entry.lines.filter(account=self.charge).exists())
         self.assertTrue(entry.lines.filter(account=self.produit).exists())
         self.assertTrue(entry.is_balanced)
+
+
+class SycebnlProjectFundingTests(TestCase):
+    """Mecanique SYCEBNL projets de developpement (App.8 du guide) :
+    - decaissement bailleur sur compte projet -> split 162 / 462
+    - charge de fonctionnement sur projet     -> neutralisation 462 / 702.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import BankAccount, ChartOfAccount
+        from apps.projects.models import Project
+
+        # Comptes SYCEBNL critiques (162, 462, 702) - requis par posting.py
+        cls.fonds_invest = ChartOfAccount.objects.create(
+            code="162", name="Fonds affectes aux investissements", class_number=1,
+        )
+        cls.fonds_admin = ChartOfAccount.objects.create(
+            code="462", name="Fonds d'administration", class_number=4,
+        )
+        cls.quote_part = ChartOfAccount.objects.create(
+            code="702", name="Quote-part fonds admin transferes", class_number=7,
+        )
+
+        cls.bank = BankAccount.objects.create(
+            name="Banque test SYCEBNL projet", bank_name="X",
+        )
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.SYC", name="Tresorerie projet", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        # Compte 75x subvention bailleur (declenche le split decaissement)
+        cls.subv = ChartOfAccount.objects.create(
+            code="75.SYC", name="Subvention bailleur test", class_number=7,
+        )
+        # Compte de charge de fonctionnement (declenche la neutralisation 462/702)
+        cls.charge = ChartOfAccount.objects.create(
+            code="66.SYC", name="Charges de personnel projet", class_number=6,
+        )
+
+        # Projet 80/20 type Banque Mondiale (App.8 du guide)
+        cls.project = Project.objects.create(
+            code="WB-INFRA-N", title="Projet infra WB",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            investment_split_pct=Decimal("80.00"),
+            administration_split_pct=Decimal("20.00"),
+        )
+        # Projet 0/100 (EVE par defaut, tout fonctionnement)
+        cls.project_admin_only = Project.objects.create(
+            code="EVE-FONC-N", title="Projet 100% fonctionnement",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            investment_split_pct=Decimal("0.00"),
+            administration_split_pct=Decimal("100.00"),
+        )
+
+    def test_donor_disbursement_splits_into_162_and_462(self):
+        """App.8 SYCEBNL : decaissement 150M sur projet 80/20 ->
+        162 = 120M (invest), 462 = 30M (admin)."""
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 1, 5),
+            reference="WB-DISB-1", label="Decaissement Banque Mondiale",
+            debit=Decimal("0"), credit=Decimal("150000000"),
+            contra_account=self.subv, project=self.project,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertTrue(entry.is_balanced)
+
+        # 3 lignes : tresorerie debit 150M + 162 credit 120M + 462 credit 30M
+        self.assertEqual(entry.lines.count(), 3)
+        self.assertEqual(
+            entry.lines.get(account=self.treasury).debit, Decimal("150000000")
+        )
+        self.assertEqual(
+            entry.lines.get(account=self.fonds_invest).credit, Decimal("120000000")
+        )
+        self.assertEqual(
+            entry.lines.get(account=self.fonds_admin).credit, Decimal("30000000")
+        )
+        # Le compte 75x subvention n'apparait PAS (remplace par 162/462)
+        self.assertFalse(entry.lines.filter(account=self.subv).exists())
+
+    def test_donor_disbursement_100pct_admin_skips_162_line(self):
+        """Projet 0/100 : pas de ligne 162, tout passe en 462."""
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 1, 10),
+            reference="EVE-DISB-1", label="Decaissement fonctionnement",
+            debit=Decimal("0"), credit=Decimal("5000000"),
+            contra_account=self.subv, project=self.project_admin_only,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertTrue(entry.is_balanced)
+        self.assertEqual(entry.lines.count(), 2)  # treasury + 462 (pas de 162)
+        self.assertFalse(entry.lines.filter(account=self.fonds_invest).exists())
+        self.assertEqual(
+            entry.lines.get(account=self.fonds_admin).credit, Decimal("5000000")
+        )
+
+    def test_operating_charge_on_project_adds_462_702_neutralization(self):
+        """App.8 SYCEBNL : charge fonctionnement 28M sur projet ->
+        ecriture charge + ecriture neutralisation 462 / 702."""
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 3, 15),
+            reference="CHARGE-1", label="Salaires equipe projet",
+            debit=Decimal("28000000"), credit=Decimal("0"),
+            contra_account=self.charge, project=self.project,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertTrue(entry.is_balanced)
+
+        # 4 lignes : charge debit + treasury credit + 462 debit + 702 credit
+        self.assertEqual(entry.lines.count(), 4)
+        self.assertEqual(
+            entry.lines.get(account=self.charge).debit, Decimal("28000000")
+        )
+        self.assertEqual(
+            entry.lines.get(account=self.treasury).credit, Decimal("28000000")
+        )
+        self.assertEqual(
+            entry.lines.get(account=self.fonds_admin).debit, Decimal("28000000")
+        )
+        self.assertEqual(
+            entry.lines.get(account=self.quote_part).credit, Decimal("28000000")
+        )
+
+    def test_no_sycebnl_split_without_project(self):
+        """Mouvement sans projet rattache -> ecriture standard 2 lignes,
+        meme avec un compte 75x ou 6x."""
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 1),
+            reference="BG-1", label="Decaissement BG",
+            debit=Decimal("0"), credit=Decimal("2000000"),
+            contra_account=self.subv,
+            # project=None
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertEqual(entry.lines.count(), 2)
+        self.assertTrue(entry.lines.filter(account=self.subv).exists())
+        # Aucune ligne 162/462/702
+        self.assertFalse(entry.lines.filter(account=self.fonds_invest).exists())
+        self.assertFalse(entry.lines.filter(account=self.fonds_admin).exists())
+        self.assertFalse(entry.lines.filter(account=self.quote_part).exists())
+
+    def test_immobilisation_charge_on_project_no_neutralization(self):
+        """Acquisition d'immo (classe 2) sur projet : pas de 462/702.
+        L'extourne fonds invest se fait en cloture (App.8 page 20)."""
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalEntry, ChartOfAccount
+
+        immo = ChartOfAccount.objects.create(
+            code="2442.SYC", name="Materiel informatique test", class_number=2,
+        )
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 2, 10),
+            reference="ACHAT-PC", label="Achat ordinateurs projet",
+            debit=Decimal("5000000"), credit=Decimal("0"),
+            contra_account=immo, project=self.project,
+        )
+        entry = JournalEntry.objects.get(source_bank_movement=m)
+        self.assertEqual(entry.lines.count(), 2)  # pas de neutralisation
+        self.assertFalse(entry.lines.filter(account=self.fonds_admin).exists())
+        self.assertFalse(entry.lines.filter(account=self.quote_part).exists())
+
+
+class FinancialStatementsSycebnlTests(TestCase):
+    """Etats financiers au format officiel SYCEBNL (REF AA/CA/XA/FA).
+
+    Scenario minimal :
+      - 2 comptes bancaires (5211.x) avec ouvertures
+      - 1 charge salaires (6611)
+      - 1 produit subvention exploitation (71)
+      - 1 acquisition immobilisation (244)
+    Verifie que les lignes officielles sortent au bon endroit.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import (
+            BankAccount, ChartOfAccount, JournalEntry, JournalLine,
+        )
+
+        # Comptes SYCEBNL essentiels
+        cls.bank = BankAccount.objects.create(name="Banque FE test", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.FE", name="Tresorerie test", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.charge_salaires = ChartOfAccount.objects.create(
+            code="6611", name="Salaires", class_number=6,
+        )
+        cls.subv = ChartOfAccount.objects.create(
+            code="71", name="Subvention d'exploitation", class_number=7,
+        )
+        cls.immo = ChartOfAccount.objects.create(
+            code="244", name="Materiel mobilier", class_number=2,
+        )
+        cls.fournisseur = ChartOfAccount.objects.create(
+            code="481", name="Fournisseurs d'investissement", class_number=4,
+        )
+
+        # Ecriture 1 : subvention recue 5 000 000 (debit tresorerie / credit 71)
+        e1 = JournalEntry.objects.create(entry_date=date(2026, 1, 5), label="Subvention test")
+        JournalLine.objects.create(entry=e1, account=cls.treasury,
+                                   debit=Decimal("5000000"), credit=Decimal("0"))
+        JournalLine.objects.create(entry=e1, account=cls.subv,
+                                   debit=Decimal("0"), credit=Decimal("5000000"))
+
+        # Ecriture 2 : salaire paye 800 000 (debit charge / credit tresorerie)
+        e2 = JournalEntry.objects.create(entry_date=date(2026, 2, 15), label="Salaire")
+        JournalLine.objects.create(entry=e2, account=cls.charge_salaires,
+                                   debit=Decimal("800000"), credit=Decimal("0"))
+        JournalLine.objects.create(entry=e2, account=cls.treasury,
+                                   debit=Decimal("0"), credit=Decimal("800000"))
+
+        # Ecriture 3 : acquisition mobilier 1 500 000 (debit immo / credit fournisseur)
+        e3 = JournalEntry.objects.create(entry_date=date(2026, 3, 1), label="Mobilier")
+        JournalLine.objects.create(entry=e3, account=cls.immo,
+                                   debit=Decimal("1500000"), credit=Decimal("0"))
+        JournalLine.objects.create(entry=e3, account=cls.fournisseur,
+                                   debit=Decimal("0"), credit=Decimal("1500000"))
+
+    def test_balance_sheet_asset_lines(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_balance_sheet_asset,
+        )
+        lines = compute_balance_sheet_asset()
+        by_ref = {l["ref"]: l for l in lines}
+
+        # AL Materiel mobilier = 1 500 000 (debiteur)
+        self.assertEqual(by_ref["AL"]["amount"], Decimal("1500000"))
+        # AH Immobilisations corporelles (subtotal) = 1 500 000
+        self.assertEqual(by_ref["AH"]["amount"], Decimal("1500000"))
+        # BW Banques tresorerie = 5 000 000 - 800 000 = 4 200 000 (5211.FE debiteur)
+        self.assertEqual(by_ref["BW"]["amount"], Decimal("4200000"))
+        # BX TOTAL TRESORERIE ACTIF = 4 200 000
+        self.assertEqual(by_ref["BX"]["amount"], Decimal("4200000"))
+        # AZ TOTAL ACTIF IMMOBILISE = 1 500 000
+        self.assertEqual(by_ref["AZ"]["amount"], Decimal("1500000"))
+        # BZ TOTAL GENERAL = AZ + BF + BX = 1 500 000 + 0 + 4 200 000 = 5 700 000
+        self.assertEqual(by_ref["BZ"]["amount"], Decimal("5700000"))
+
+    def test_balance_sheet_liability_lines_and_balance(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_balance_sheet_asset, compute_balance_sheet_liability,
+        )
+        passif = compute_balance_sheet_liability()
+        by_ref = {l["ref"]: l for l in passif}
+
+        # DH Fournisseurs (40, 481, 488) = 1 500 000 (creditear sur 481)
+        self.assertEqual(by_ref["DH"]["amount"], Decimal("1500000"))
+        # CH Solde exercice = subv 5M - salaires 800K = 4 200 000 excedent
+        self.assertEqual(by_ref["CH"]["amount"], Decimal("4200000"))
+        # CK TOTAL FONDS PROPRES = CH = 4 200 000 (autres sont zero)
+        self.assertEqual(by_ref["CK"]["amount"], Decimal("4200000"))
+        # DZ TOTAL PASSIF = CK + DV (DH=1.5M) = 4 200 000 + 1 500 000 = 5 700 000
+        self.assertEqual(by_ref["DZ"]["amount"], Decimal("5700000"))
+
+        # Bilan equilibre : Actif BZ == Passif DZ
+        actif = compute_balance_sheet_asset()
+        by_ref_a = {l["ref"]: l for l in actif}
+        self.assertEqual(by_ref_a["BZ"]["amount"], by_ref["DZ"]["amount"])
+
+    def test_income_statement_lines(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_income_statement,
+        )
+        lines = compute_income_statement()
+        by_ref = {l["ref"]: l for l in lines}
+
+        # RF Subventions d'exploitations = 5 000 000
+        self.assertEqual(by_ref["RF"]["amount"], Decimal("5000000"))
+        # TJ Charges de personnel = 800 000
+        self.assertEqual(by_ref["TJ"]["amount"], Decimal("800000"))
+        # XA REVENUS ACTIVITES ORDINAIRES = 5 000 000
+        self.assertEqual(by_ref["XA"]["amount"], Decimal("5000000"))
+        # XB CHARGES ACTIVITES ORDINAIRES = 800 000
+        self.assertEqual(by_ref["XB"]["amount"], Decimal("800000"))
+        # XC RESULTAT ACTIVITES ORDINAIRES = XA - XB = 4 200 000
+        self.assertEqual(by_ref["XC"]["amount"], Decimal("4200000"))
+        # XE SOLDE EXERCICE = XC + XD = 4 200 000
+        self.assertEqual(by_ref["XE"]["amount"], Decimal("4200000"))
+
+    def test_cash_flow_statement_lines(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_cash_flow_statement,
+        )
+        tft = compute_cash_flow_statement(opening_treasury=Decimal("0"))
+        by_ref = {l["ref"]: l for l in tft["lines"]}
+
+        # FB Encaissement subventions exploitation = 5 000 000 (credit brut 71)
+        self.assertEqual(by_ref["FB"]["amount"], Decimal("5000000"))
+        # FG Decaissement personnel = 800 000 (debit brut 66)
+        self.assertEqual(by_ref["FG"]["amount"], Decimal("800000"))
+        # FJ Acquisitions corporelles = 1 500 000 (debit brut 22-24)
+        self.assertEqual(by_ref["FJ"]["amount"], Decimal("1500000"))
 
 
 class ExpensePublicUIPermissionsTests(TestCase):

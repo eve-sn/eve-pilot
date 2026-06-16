@@ -38,7 +38,7 @@
     <div class="wrap">
         {% if report.validation_comment %}
         <div class="placeholder-note" style="margin-bottom:18px; {% if report.validation_status == 'REJETE' %}color:#8a2b2b;{% endif %}">
-            <strong>Commentaire du valideur (Suivi &amp; Evaluation) :</strong> {{ report.validation_comment }}
+            <strong>Commentaire du valideur (Secretaire Executif) :</strong> {{ report.validation_comment }}
         </div>
         {% endif %}
 
@@ -58,7 +58,7 @@
                 </div>
                 {% if decision_form %}
                 <div class="card soft-amber">
-                    <div class="section-header"><h2 style="font-size:1.3rem;">Decision Suivi &amp; Evaluation</h2></div>
+                    <div class="section-header"><h2 style="font-size:1.3rem;">Decision Secretaire Executif</h2></div>
                     <form method="post" class="form-grid">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="decide">
@@ -75,7 +75,7 @@
                 </div>
                 {% elif is_pending and not can_validate %}
                 <div class="placeholder-note">
-                    Ce rapport attend la validation d'un utilisateur Suivi &amp; Evaluation (SE).
+                    Ce rapport attend la validation du Secretaire Executif (SE).
                 </div>
                 {% endif %}
             </div>

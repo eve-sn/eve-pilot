@@ -119,6 +119,100 @@ def notify_validators_on_submit(expense) -> bool:
     return _send(subject, body, recipients)
 
 
+def _other_validator_emails(expense, exclude_role_code: str) -> list[str]:
+    """Emails des autres valideurs (hors role exclu) qui doivent etre informes.
+
+    Utile pour signaler la progression aux autres signataires : si la DP signe
+    APPROVE, RAF et SE recoivent un avis indiquant qu'une etape est franchie.
+    """
+    other_codes = [c for c in VALIDATOR_ROLE_CODES if c != exclude_role_code]
+    if not other_codes:
+        return []
+    emails = (
+        User.objects.filter(
+            is_active=True,
+            deleted_at__isnull=True,
+            user_roles__role__code__in=other_codes,
+            user_roles__project__isnull=True,
+        )
+        .exclude(email="")
+        .values_list("email", flat=True)
+        .distinct()
+    )
+    return sorted(set(emails))
+
+
+def notify_after_signature(expense, validation) -> bool:
+    """Notification apres chaque signature individuelle (RAF/DP/SE).
+
+    Politique de notification (decidee par EVE) :
+      - Demandeur SEUL est notifie. Les valideurs gerent leur inbox
+        directement sur le dashboard Finance (bandeau notifications).
+
+    En cas de rejet d'une ligne, le contenu signale qu'il n'est pas necessaire
+    de signer les autres lignes (la demande est deja rejetee).
+    """
+    role_code = validation.role.code if validation.role_id else "?"
+    decision_label = validation.get_decision_display()
+    validator_name = (
+        f"{validation.validator.first_name} {validation.validator.last_name}".strip()
+        or (validation.validator.username if validation.validator_id else "Valideur")
+    )
+    project_label = expense.project.code if expense.project_id else "Budget General"
+    status_label = expense.get_status_display()
+
+    # Nombre de lignes restant a signer (PENDING).
+    pending = expense.validations.filter(
+        is_active=True, deleted_at__isnull=True, decision="PENDING",
+    ).values_list("role__code", flat=True)
+    pending_codes = sorted(set(pending))
+
+    if expense.status == expense.Status.APPROVED:
+        progress_line = "Toutes les signatures ont ete recueillies : la demande est APPROUVEE."
+    elif expense.status == expense.Status.REJECTED:
+        progress_line = "La demande est REJETEE : aucune autre signature n'est requise."
+    elif pending_codes:
+        progress_line = (
+            f"Etape franchie : la demande reste SOUMISE et attend encore "
+            f"{len(pending_codes)} signature(s) : {', '.join(pending_codes)}."
+        )
+    else:
+        progress_line = f"Etape franchie. Statut actuel : {status_label}."
+
+    base_body = (
+        f"  Reference   : DD-{expense.id}\n"
+        f"  Intitule    : {expense.title}\n"
+        f"  Montant     : {expense.requested_amount} {expense.currency}\n"
+        f"  Imputation  : {project_label}\n"
+        f"  Ligne budg. : {expense.budget_line}\n"
+        f"  Demandeur   : {expense.requester}\n\n"
+        f"Signature : {role_code} - {decision_label} par {validator_name}\n"
+        f"{progress_line}\n\n"
+        f"Ouvrir la demande : {_expense_url(expense)}\n\n"
+        f"-- EVE Pilot Finance"
+    )
+
+    subject = (
+        f"[EVE Pilot] DD-{expense.id} : signature {role_code} {decision_label}"
+    )
+
+    # Politique EVE : demandeur seul. Les valideurs voient leur inbox sur le
+    # dashboard Finance (compteur "X demandes a signer").
+    requester_mail = _requester_email(expense)
+    if not requester_mail:
+        logger.info(
+            "Signature DD-%s : pas d'email connu pour le demandeur %s.",
+            expense.id, expense.requester_id,
+        )
+        return False
+
+    intro_req = (
+        f"Bonjour,\n\nVotre demande de depense vient d'etre {decision_label.lower()} "
+        f"par le {role_code} ({validator_name}).\n\n"
+    )
+    return _send(subject, intro_req + base_body, [requester_mail])
+
+
 def notify_requester_on_decision(expense) -> bool:
     """Previent le demandeur du resultat de la validation (approuvee/rejetee)."""
     recipient = _requester_email(expense)

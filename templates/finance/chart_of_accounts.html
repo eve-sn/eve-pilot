@@ -7,12 +7,12 @@
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Plan comptable SYCEBNL</div>
-                <h1>Plan de comptes EVE selon le referentiel SYSCOHADA / SYCEBNL.</h1>
+                <div class="eyebrow">Plan comptable SYCEBNL officiel</div>
+                <h1>{{ displayed_accounts }} comptes affiches sur {{ total_accounts }} en base.</h1>
                 <p class="lead">
-                    Plan comptable adapte aux ONG OHADA. Les comptes de liaison 181.x
-                    tracent les flux internes entre projets et Budget General. Les comptes
-                    512.x correspondent aux 6 comptes bancaires EVE, 571.x a la caisse centrale.
+                    Plan comptable SYCEBNL officiel (modele OHADA EBNL). Les comptes de
+                    liaison 181.x tracent les flux internes entre projets et Budget General.
+                    5211.x = 6 comptes bancaires EVE, 571.x = caisse centrale.
                 </p>
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour Finance</a>
@@ -34,12 +34,62 @@
     </div>
 </section>
 
-{% for class_number, cls in classes.items %}
-{% if cls.accounts %}
 <section class="section">
     <div class="wrap">
+        <div class="card">
+            <form method="get" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+                <div style="flex:1; min-width:220px;">
+                    <label style="font-weight:600; display:block; margin-bottom:4px;">Recherche (code ou intitule)</label>
+                    <input type="text" name="q" value="{{ q }}" placeholder="ex: salaire, 6611, fonds..."
+                           style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+                </div>
+                <div style="min-width:180px;">
+                    <label style="font-weight:600; display:block; margin-bottom:4px;">Classe</label>
+                    <select name="cls" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line); width:100%;">
+                        <option value="">Toutes</option>
+                        {% for val, label in available_classes %}
+                        <option value="{{ val }}" {% if cls_filter == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" name="all" value="1" {% if show_all %}checked{% endif %}>
+                        <span>Afficher tous les comptes (m&ecirc;me sans mouvement)</span>
+                    </label>
+                </div>
+                <div>
+                    <button class="button primary" type="submit">Filtrer</button>
+                    {% if is_filtered %}<a class="button" href="?">R&eacute;initialiser</a>{% endif %}
+                </div>
+            </form>
+            {% if is_filtered and not show_all and not q and not cls_filter %}
+            <div class="muted" style="margin-top:10px; font-size:0.86rem;">
+                <strong>Mode par d&eacute;faut :</strong> seuls les comptes ayant des mouvements ou un objet m&eacute;tier li&eacute; (projet, banque, caisse) sont affich&eacute;s.
+                Cochez <em>Afficher tous</em> pour voir les {{ total_accounts }} comptes officiels SYCEBNL.
+            </div>
+            {% endif %}
+        </div>
+
+        {% if classes %}
+        <div class="card" style="margin-top:14px; padding:10px 14px;">
+            <strong style="margin-right:10px;">Sauter &agrave; la classe :</strong>
+            {% for class_number, cls in classes.items %}
+                {% if cls.accounts %}
+                <a href="#classe-{{ class_number }}" style="margin:0 6px; font-size:0.88rem;">{{ class_number }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% for class_number, cls in classes.items %}
+{% if cls.accounts %}
+<section class="section" id="classe-{{ class_number }}">
+    <div class="wrap">
         <div class="section-header">
-            <h2>{{ cls.label }}</h2>
+            <h2>{{ cls.label }} <span class="muted" style="font-weight:400; font-size:0.86rem;">({{ cls.accounts|length }} compte{{ cls.accounts|length|pluralize }})</span></h2>
         </div>
         <div class="card" style="overflow-x: auto;">
             <table class="finance-table" style="min-width: 900px;">

@@ -2,20 +2,42 @@
 Generation des ecritures comptables en partie double a partir des
 mouvements de tresorerie (BankMovement, CashMovement).
 
-Convention SYCEBNL :
-- Les comptes de classe 5 (tresorerie : 512.x banques, 571.x caisse) sont
-  des comptes d'actif : ils augmentent au debit, diminuent au credit.
+Convention SYCEBNL/SYSCOHADA Revise :
+- Les comptes de classe 5 (tresorerie : 5211.x banques en monnaies locales,
+  571.x caisse) sont des comptes d'actif : ils augmentent au debit,
+  diminuent au credit.
 - Pour un BankMovement :
     * credit bancaire (entree d'argent sur le compte EVE) :
-        Debit  512.x (le compte EVE s'enrichit)
-        Credit contra_account (origine des fonds : produit 7x, liaison 18x...)
+        Debit  5211.x (le compte EVE s'enrichit)
+        Credit contra_account (origine des fonds : produit 7x, fonds 162/462,
+                               liaison 181.x...)
     * debit bancaire (sortie d'argent du compte EVE) :
-        Debit  contra_account (charge 6x, liaison 18x, etc.)
-        Credit 512.x (le compte EVE se vide)
+        Debit  contra_account (charge 6x, liaison 181.x, etc.)
+        Credit 5211.x (le compte EVE se vide)
 
-Une ecriture n'est generee que si le mouvement porte un contra_account.
-La generation est idempotente : si une JournalEntry est deja liee au
-mouvement, on ne recree rien (on peut la regenerer via regenerate=True).
+MECANIQUE SYCEBNL PROJETS DE DEVELOPPEMENT (guide d'application chapitre 3) :
+- Au decaissement bailleur sur un compte projet, on credite :
+      Credit 162 (Fonds affectes aux investissements) - part invest
+      Credit 462 (Fonds d'administration)              - part fonctionnement
+  selon la cle Project.investment_split_pct / administration_split_pct.
+  Le compte 7511/7512/... (subvention par bailleur) est ignore dans
+  l'ecriture comptable (la classification analytique du bailleur reste
+  portee par BankMovement.contra_account pour les rapports, mais
+  l'ecriture en partie double utilise 162/462).
+- A chaque charge engagee sur un projet (debit bancaire, contra_account
+  de classe 6), on ajoute UNE ligne de neutralisation :
+      Debit  462 (Fonds d'administration)
+      Credit 702 (Quote-part de fonds d'administration transferes)
+  pour que l'engagement de la charge n'impacte pas le resultat du projet
+  (matching principle SYCEBNL App.8).
+- Pour les acquisitions d'immobilisations (contra_account de classe 2)
+  sur un projet, AUCUNE neutralisation immediate : le compte 162 reste
+  intact, l'extourne en cloture est manuelle (App.8 page 20 : 162/165).
+
+Une ecriture n'est generee que si le mouvement porte un contra_account
+(ou des allocations). La generation est idempotente : si une JournalEntry
+est deja liee au mouvement, on ne recree rien (on peut la regenerer via
+regenerate=True).
 """
 
 from decimal import Decimal
@@ -33,14 +55,16 @@ class PostingError(Exception):
     """Erreur fonctionnelle empechant la generation d'une ecriture."""
 
 
+# ---------- helpers tresorerie ----------
+
 def _treasury_account_for_bank(bank_account):
-    """Retourne le ChartOfAccount 512.x lie a ce BankAccount."""
+    """Retourne le ChartOfAccount 5211.x lie a ce BankAccount."""
     account = ChartOfAccount.objects.filter(
         linked_bank_account=bank_account, is_active=True, deleted_at__isnull=True
     ).first()
     if account is None:
         raise PostingError(
-            f"Aucun compte SYCEBNL 512.x lie au compte bancaire '{bank_account.name}'. "
+            f"Aucun compte SYCEBNL 5211.x lie au compte bancaire '{bank_account.name}'. "
             "Lancer seed_chart_of_accounts_sycebnl."
         )
     return account
@@ -59,13 +83,122 @@ def _treasury_account_for_register(register):
     return account
 
 
+# ---------- helpers SYCEBNL projets de developpement ----------
+
+def _get_sycebnl_account(code: str):
+    """Recupere un ChartOfAccount par code SYCEBNL. Erreur si absent."""
+    acc = ChartOfAccount.objects.filter(
+        code=code, is_active=True, deleted_at__isnull=True
+    ).first()
+    if acc is None:
+        raise PostingError(
+            f"Compte SYCEBNL {code} introuvable. "
+            "Lancer seed_chart_of_accounts_sycebnl."
+        )
+    return acc
+
+
+def _is_donor_subvention_account(account) -> bool:
+    """Vrai si le compte represente une subvention/don bailleur (classe 7).
+
+    Selon le plan officiel SYCEBNL :
+      - 71x = Subventions d'exploitation (bailleurs institutionnels)
+      - 7041, 7042 = Dons et legs en numeraire
+      - 7081 = Ventes de dons en nature
+    Le decaissement bailleur ('drawdown') sur un projet est splitte en
+    162/462 selon la cle du projet, peu importe le sous-compte 7x utilise
+    par SAKHO pour classifier le bailleur a la saisie.
+    """
+    if account is None:
+        return False
+    if account.class_number != 7:
+        return False
+    code = account.code or ""
+    return code.startswith(("71", "70", "75"))
+
+
+def _is_operating_charge_account(account) -> bool:
+    """Vrai si le compte est une charge de fonctionnement (classe 6).
+
+    Les acquisitions d'immobilisations (classe 2) ne declenchent pas de
+    neutralisation 462/702 - cf. App.8 du guide SYCEBNL.
+    """
+    if account is None:
+        return False
+    return account.class_number == 6
+
+
+def _split_donor_funding(amount: Decimal, project) -> tuple[Decimal, Decimal]:
+    """Decoupe un montant de decaissement bailleur en (part_invest_162, part_admin_462)
+    selon Project.investment_split_pct / administration_split_pct.
+
+    Tolere une somme != 100 : on normalise. Si les deux sont a 0, on met 100% en 462
+    (fonctionnement) pour eviter une perte de fonds.
+    """
+    inv_pct = project.investment_split_pct or Decimal("0")
+    adm_pct = project.administration_split_pct or Decimal("0")
+    total = inv_pct + adm_pct
+    if total == 0:
+        # Fallback : 100% admin (fonctionnement) - cas par defaut EVE.
+        return (Decimal("0"), amount)
+    inv_share = (amount * inv_pct / total).quantize(Decimal("0.01"))
+    adm_share = amount - inv_share  # complement pour eviter erreur d'arrondi
+    return (inv_share, adm_share)
+
+
+# ---------- helpers detection mouvement projet ----------
+
+def _project_of_movement(movement: BankMovement):
+    """Renvoie le Project rattache au mouvement, ou None.
+
+    Sources, par ordre de priorite :
+      1. movement.project (lien explicite)
+      2. Si le BankAccount est rattache a EXACTEMENT 1 projet, ce projet.
+    En cas d'ambiguite (compte multi-projets), renvoie None - le posting
+    se rabat sur le comportement standard sans mecanique SYCEBNL projet.
+    """
+    if movement.project_id is not None:
+        return movement.project
+    bank = movement.account
+    if bank is None:
+        return None
+    projects = list(bank.projects.filter(is_active=True, deleted_at__isnull=True))
+    if len(projects) == 1:
+        return projects[0]
+    return None
+
+
+# ---------- generation ecriture BankMovement ----------
+
 def post_bank_movement(movement: BankMovement, regenerate: bool = False):
     """Cree (ou regenere) la JournalEntry en partie double d'un BankMovement.
 
-    Retourne la JournalEntry, ou None si le mouvement n'a pas de
-    contra_account (rien a comptabiliser tant que l'imputation manque).
+    Comportement standard (cas simple, sans projet de developpement) :
+      - credit bancaire : Debit 5211.x / Credit contra_account
+      - debit bancaire  : Debit contra_account / Credit 5211.x
+
+    Mecanique SYCEBNL projet de developpement (si Project rattache) :
+      - decaissement bailleur (credit + contra_account 75x) :
+            Debit 5211.x / Credit 162 (part invest) / Credit 462 (part admin)
+      - charge de fonctionnement (debit + contra_account 6x) :
+            Debit contra_account / Credit 5211.x
+            + Debit 462 / Credit 702 (neutralisation du resultat projet)
+
+    Si le mouvement a des allocations (BankMovementAllocation), le journal
+    cree UNE ligne tresorerie + UNE ligne par allocation (ventilation
+    analytique : ex. cheque salaires equipe Saint-Louis decompose en 4
+    salaires distincts sur des comptes 6611 (salaires) et 6631 (primes)).
+    Pour chaque allocation rattachee a un projet, la neutralisation 462/702
+    est ajoutee par allocation.
+
+    Retourne la JournalEntry, ou None si le mouvement n'a aucune imputation
+    valide.
     """
-    if movement.contra_account_id is None:
+    allocations = list(movement.allocations.filter(is_active=True, deleted_at__isnull=True))
+    has_allocations = bool(allocations)
+
+    # Pas de contra_account ET pas d'allocations -> rien a comptabiliser
+    if movement.contra_account_id is None and not has_allocations:
         return None
 
     existing = JournalEntry.objects.filter(source_bank_movement=movement).first()
@@ -78,7 +211,7 @@ def post_bank_movement(movement: BankMovement, regenerate: bool = False):
         entry = JournalEntry(source_bank_movement=movement)
 
     treasury = _treasury_account_for_bank(movement.account)
-    contra = movement.contra_account
+    project = _project_of_movement(movement)
 
     entry.entry_date = movement.date_operation
     entry.reference = movement.reference or f"BM-{movement.id}"
@@ -89,24 +222,194 @@ def post_bank_movement(movement: BankMovement, regenerate: bool = False):
     debit = movement.debit or Decimal("0")
     credit = movement.credit or Decimal("0")
 
-    if credit > 0:
-        # Entree d'argent : Debit tresorerie / Credit contrepartie
-        JournalLine.objects.create(entry=entry, account=treasury, debit=credit, credit=Decimal("0"), label=movement.label[:300])
-        JournalLine.objects.create(entry=entry, account=contra, debit=Decimal("0"), credit=credit, label=movement.label[:300])
-    elif debit > 0:
-        # Sortie d'argent : Debit contrepartie / Credit tresorerie
-        JournalLine.objects.create(entry=entry, account=contra, debit=debit, credit=Decimal("0"), label=movement.label[:300])
-        JournalLine.objects.create(entry=entry, account=treasury, debit=Decimal("0"), credit=debit, label=movement.label[:300])
-    else:
-        # Mouvement a zero : on supprime l'ecriture vide
+    if credit == 0 and debit == 0:
         entry.delete()
         return None
+
+    if has_allocations:
+        _post_with_allocations(entry, movement, allocations, treasury, credit, debit, project)
+    else:
+        _post_simple(entry, movement, treasury, credit, debit, project)
 
     return entry
 
 
+def _post_simple(entry, movement, treasury, credit, debit, project):
+    """Ecriture simple a 2 lignes + mecaniques SYCEBNL projet le cas echeant."""
+    contra = movement.contra_account
+    label = movement.label[:300]
+
+    if credit > 0:
+        # Entree d'argent : Debit tresorerie / Credit contra
+        JournalLine.objects.create(
+            entry=entry, account=treasury, debit=credit, credit=Decimal("0"),
+            label=label,
+        )
+        # SYCEBNL projet : si decaissement bailleur (contra=75x) sur un projet,
+        # on remplace la ligne credit "75x" par 162 + 462 selon la cle projet.
+        if project is not None and _is_donor_subvention_account(contra):
+            fonds_invest = _get_sycebnl_account("162")
+            fonds_admin = _get_sycebnl_account("462")
+            inv_share, adm_share = _split_donor_funding(credit, project)
+            if inv_share > 0:
+                JournalLine.objects.create(
+                    entry=entry, account=fonds_invest,
+                    debit=Decimal("0"), credit=inv_share,
+                    label=f"[SYCEBNL invest {project.code}] {label}"[:300],
+                )
+            if adm_share > 0:
+                JournalLine.objects.create(
+                    entry=entry, account=fonds_admin,
+                    debit=Decimal("0"), credit=adm_share,
+                    label=f"[SYCEBNL admin {project.code}] {label}"[:300],
+                )
+        else:
+            JournalLine.objects.create(
+                entry=entry, account=contra, debit=Decimal("0"), credit=credit,
+                label=label,
+            )
+    else:
+        # Sortie d'argent : Debit contra / Credit tresorerie
+        JournalLine.objects.create(
+            entry=entry, account=contra, debit=debit, credit=Decimal("0"),
+            label=label,
+        )
+        JournalLine.objects.create(
+            entry=entry, account=treasury, debit=Decimal("0"), credit=debit,
+            label=label,
+        )
+        # SYCEBNL projet : si charge de fonctionnement (contra=6x) sur un
+        # projet, on ajoute la neutralisation 462 / 702.
+        if project is not None and _is_operating_charge_account(contra):
+            fonds_admin = _get_sycebnl_account("462")
+            quote_part = _get_sycebnl_account("702")
+            JournalLine.objects.create(
+                entry=entry, account=fonds_admin,
+                debit=debit, credit=Decimal("0"),
+                label=f"[SYCEBNL neutralisation {project.code}] {label}"[:300],
+            )
+            JournalLine.objects.create(
+                entry=entry, account=quote_part,
+                debit=Decimal("0"), credit=debit,
+                label=f"[SYCEBNL quote-part {project.code}] {label}"[:300],
+            )
+
+
+def _line_label(movement_label, detail=""):
+    """Garde-fou libelle d'ecriture comptable.
+
+    Chaque ligne d'une ventilation porte d'abord le libelle DESCRIPTIF du
+    mouvement (ex: 'Frais d'organisation de CDD a Bakel'), complete par le
+    detail de la ligne budgetaire quand celui-ci apporte une precision reelle.
+    Evite les libelles creux saisis a la ligne ('activite', 'frais', ...) qui
+    seuls n'ont aucune valeur probante pour un auditeur, et evite les doublons.
+    """
+    base = (movement_label or "").strip()
+    d = (detail or "").strip()
+    if not d or d.lower() == base.lower() or d.lower() in base.lower():
+        return base[:300]
+    return f"{base} - {d}"[:300]
+
+
+def _post_with_allocations(entry, movement, allocations, treasury, credit, debit, default_project):
+    """Ventilation analytique : 1 ligne tresorerie + N lignes allocations.
+
+    Pour chaque allocation rattachee a un projet (allocation.project ou,
+    a defaut, default_project), on ajoute la mecanique SYCEBNL projet
+    appropriee selon le type de compte.
+    """
+    label = movement.label[:300]
+
+    # Verifie que la somme des allocations matche le mouvement total
+    alloc_total = sum((a.amount for a in allocations), Decimal("0"))
+    movement_amount = credit if credit > 0 else debit
+    if alloc_total != movement_amount:
+        entry.label = f"[VENTILATION INCOMPLETE {alloc_total}/{movement_amount}] {entry.label}"[:300]
+        entry.save(update_fields=["label"])
+
+    fonds_invest = None
+    fonds_admin = None
+    quote_part = None  # paresseux : on ne lookup que si besoin
+
+    def _ensure_sycebnl_accounts():
+        nonlocal fonds_invest, fonds_admin, quote_part
+        if fonds_invest is None:
+            fonds_invest = _get_sycebnl_account("162")
+        if fonds_admin is None:
+            fonds_admin = _get_sycebnl_account("462")
+        if quote_part is None:
+            quote_part = _get_sycebnl_account("702")
+
+    if credit > 0:
+        # Entree : 1 ligne tresorerie debit + N lignes allocations credit
+        JournalLine.objects.create(
+            entry=entry, account=treasury, debit=credit, credit=Decimal("0"),
+            label=label,
+        )
+        for a in allocations:
+            a_project = a.project or default_project
+            alloc_label = _line_label(movement.label, a.description)
+            if a_project is not None and _is_donor_subvention_account(a.contra_account):
+                _ensure_sycebnl_accounts()
+                inv_share, adm_share = _split_donor_funding(a.amount, a_project)
+                if inv_share > 0:
+                    JournalLine.objects.create(
+                        entry=entry, account=fonds_invest,
+                        debit=Decimal("0"), credit=inv_share,
+                        label=f"[SYCEBNL invest {a_project.code}] {alloc_label}"[:300],
+                    )
+                if adm_share > 0:
+                    JournalLine.objects.create(
+                        entry=entry, account=fonds_admin,
+                        debit=Decimal("0"), credit=adm_share,
+                        label=f"[SYCEBNL admin {a_project.code}] {alloc_label}"[:300],
+                    )
+            else:
+                JournalLine.objects.create(
+                    entry=entry, account=a.contra_account,
+                    debit=Decimal("0"), credit=a.amount,
+                    label=alloc_label,
+                )
+    else:
+        # Sortie : N lignes allocations debit + 1 ligne tresorerie credit
+        # + neutralisations 462/702 pour les allocations de charge sur projet
+        for a in allocations:
+            alloc_label = _line_label(movement.label, a.description)
+            JournalLine.objects.create(
+                entry=entry, account=a.contra_account,
+                debit=a.amount, credit=Decimal("0"),
+                label=alloc_label,
+            )
+        JournalLine.objects.create(
+            entry=entry, account=treasury, debit=Decimal("0"), credit=debit,
+            label=label,
+        )
+        for a in allocations:
+            a_project = a.project or default_project
+            if a_project is not None and _is_operating_charge_account(a.contra_account):
+                _ensure_sycebnl_accounts()
+                alloc_label = _line_label(movement.label, a.description)
+                JournalLine.objects.create(
+                    entry=entry, account=fonds_admin,
+                    debit=a.amount, credit=Decimal("0"),
+                    label=f"[SYCEBNL neutralisation {a_project.code}] {alloc_label}"[:300],
+                )
+                JournalLine.objects.create(
+                    entry=entry, account=quote_part,
+                    debit=Decimal("0"), credit=a.amount,
+                    label=f"[SYCEBNL quote-part {a_project.code}] {alloc_label}"[:300],
+                )
+
+
+# ---------- generation ecriture CashMovement (mecanique simple, pas de SYCEBNL projet) ----------
+
 def post_cash_movement(movement: CashMovement, regenerate: bool = False):
-    """Cree (ou regenere) la JournalEntry en partie double d'un CashMovement."""
+    """Cree (ou regenere) la JournalEntry en partie double d'un CashMovement.
+
+    Pas de mecanique SYCEBNL projet : la caisse est traitee comme un compte
+    standard (les mouvements de caisse projet passent par recharge depuis
+    le compte bancaire, et c'est la qu'on applique 162/462/702).
+    """
     if movement.contra_account_id is None:
         return None
 

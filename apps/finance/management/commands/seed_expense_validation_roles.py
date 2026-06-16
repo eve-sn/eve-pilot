@@ -1,10 +1,11 @@
 """
 Seed des roles de validation des demandes de depense.
 
-Cree trois Role (apps.accounts.Role) attendus par le workflow ExpenseRequest :
-  - RAF : Responsable Administratif et Financier
-  - DP  : Directrice des Programmes
-  - SE  : Suivi & Evaluation
+Cree les Role (apps.accounts.Role) attendus par le workflow ExpenseRequest :
+  - RAF  : Responsable Administratif et Financier (1ere signature)
+  - DP   : Directrice des Programmes (2eme signature)
+  - SE   : Secretaire Executif (3eme signature + valide rapports terrain)
+  - ARAF : Assistante RAF (gere Budget General + petite caisse, ne valide pas)
 
 Idempotent : update_or_create par code.
 Les UserRole correspondants (attribuer un user au role) restent a faire
@@ -22,8 +23,10 @@ VALIDATION_ROLES = [
      "description": "Valideur financier des demandes de depense (apps.finance.ExpenseRequest)."},
     {"code": "DP", "name": "Directrice des Programmes",
      "description": "Valideur metier des demandes de depense (apps.finance.ExpenseRequest)."},
-    {"code": "SE", "name": "Suivi et Evaluation",
-     "description": "Valideur S&E des demandes de depense (apps.finance.ExpenseRequest)."},
+    {"code": "SE", "name": "Secretaire Executif",
+     "description": "Valideur Secretaire Executif des demandes de depense et des rapports d'activite."},
+    {"code": "ARAF", "name": "Assistante RAF",
+     "description": "Assistante RAF - gere le Budget General et la petite caisse, ne valide pas les demandes."},
 ]
 
 

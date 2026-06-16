@@ -1,118 +1,89 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>EVE Pilot &mdash; Connexion</title>
+    <link rel="icon" type="image/png" href="{% static 'img/eve-logo.png' %}">
+    <link rel="stylesheet" href="{% static 'css/eve.css' %}">
     <style>
-        :root {
-            --green-900: #1c4b3d;
-            --green-700: #2f745b;
-            --muted: #64716a;
-            --line: #d9d2c4;
-            --shadow: 0 24px 60px rgba(30, 40, 34, 0.12);
-        }
-        * { box-sizing: border-box; }
         body {
-            margin: 0;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "Aptos", "Segoe UI", sans-serif;
-            color: #1f2d28;
-            background:
-                radial-gradient(circle at top left, rgba(47, 116, 91, 0.20), transparent 30%),
-                radial-gradient(circle at bottom right, rgba(47, 111, 137, 0.16), transparent 28%),
-                linear-gradient(180deg, #f8f5ee 0%, #f3eee3 100%);
+            display: flex; align-items: center; justify-content: center;
         }
-        .card {
-            width: min(calc(100% - 36px), 420px);
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.85);
+        .login-card {
+            width: min(calc(100% - 36px), 440px);
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.92);
             border-radius: 28px;
-            box-shadow: var(--shadow);
-            padding: 38px 34px;
+            box-shadow: 0 28px 60px rgba(14, 77, 54, 0.15);
+            padding: 36px 34px 32px;
+            text-align: center;
         }
-        .eyebrow {
-            display: inline-flex;
-            padding: 8px 13px;
-            border-radius: 999px;
-            background: rgba(28, 75, 61, 0.08);
-            color: var(--green-900);
-            font-size: 0.74rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.09em;
-            margin-bottom: 16px;
+        .login-logo {
+            width: 92px; height: 92px;
+            display: block; margin: 0 auto 12px;
+            filter: drop-shadow(0 6px 14px rgba(14, 77, 54, 0.2));
         }
-        h1 {
-            margin: 0 0 6px;
+        .login-card h1 {
             font-family: "Georgia", "Cambria", serif;
-            font-size: 1.9rem;
-            letter-spacing: -0.02em;
+            font-size: 2rem; margin: 4px 0 4px;
+            color: var(--eve-green-900);
         }
-        p.sub { margin: 0 0 24px; color: var(--muted); font-size: 0.95rem; }
-        label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 0.9rem; }
-        input[type=text], input[type=password] {
-            width: 100%;
-            padding: 12px 14px;
-            border-radius: 14px;
-            border: 1px solid var(--line);
-            background: rgba(255, 255, 255, 0.9);
-            font: inherit;
-            margin-bottom: 16px;
+        .login-card .sub { color: var(--muted); font-size: 0.95rem; margin: 0 0 22px; }
+        .login-form { text-align: left; }
+        .login-form label {
+            display: block; font-weight: 700; margin-bottom: 6px; font-size: 0.9rem;
         }
-        button {
-            width: 100%;
-            padding: 13px 16px;
-            border-radius: 999px;
-            border: none;
-            background: var(--green-900);
-            color: white;
-            font-weight: 700;
-            font-size: 0.98rem;
-            cursor: pointer;
+        .login-form input {
+            width: 100%; margin-bottom: 16px;
         }
-        button:hover { background: var(--green-700); }
-        .errors {
-            background: #f5e3e3;
-            color: #8a2b2b;
-            border-radius: 12px;
-            padding: 10px 14px;
-            font-size: 0.88rem;
-            margin-bottom: 16px;
+        .login-form button {
+            width: 100%; padding: 13px 16px; border-radius: 999px;
+            border: none; background: var(--eve-green-700); color: white;
+            font-weight: 700; font-size: 1rem; cursor: pointer;
+            transition: background 0.15s;
         }
-        .foot { margin-top: 20px; text-align: center; font-size: 0.86rem; color: var(--muted); }
-        .foot a { color: var(--green-700); text-decoration: none; }
+        .login-form button:hover { background: var(--eve-green-900); }
+        .login-errors {
+            background: var(--eve-red-100); color: var(--eve-red-700);
+            border-radius: 12px; padding: 10px 14px;
+            font-size: 0.88rem; margin-bottom: 16px;
+            border: 1px solid rgba(185, 48, 42, 0.22);
+        }
+        .foot {
+            margin-top: 22px; font-size: 0.82rem; color: var(--muted);
+        }
+        .foot a { color: var(--eve-green-700); font-weight: 700; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="eyebrow">ONG Eau Vie Environnement</div>
+    <div class="login-card">
+        <img src="{% static 'img/eve-logo.png' %}" alt="EVE" class="login-logo">
         <h1>EVE Pilot</h1>
-        <p class="sub">Connexion a la plateforme de gestion.</p>
+        <p class="sub">ONG Eau Vie Environnement &middot; Plateforme de gestion</p>
 
         {% if form.errors %}
-        <div class="errors">
-            Identifiants invalides. Verifie ton nom d'utilisateur et ton mot de passe.
+        <div class="login-errors">
+            Identifiants invalides. V&eacute;rifiez le nom d'utilisateur et le mot de passe.
         </div>
         {% endif %}
 
-        <form method="post" action="{% url 'login' %}">
+        <form method="post" action="{% url 'login' %}" class="login-form">
             {% csrf_token %}
             <label for="id_username">Nom d'utilisateur</label>
-            <input type="text" name="username" id="id_username" autofocus required>
+            <input type="text" name="username" id="id_username" autofocus required autocomplete="username">
 
             <label for="id_password">Mot de passe</label>
-            <input type="password" name="password" id="id_password" required>
+            <input type="password" name="password" id="id_password" required autocomplete="current-password">
 
             <input type="hidden" name="next" value="{{ next }}">
             <button type="submit">Se connecter</button>
         </form>
 
         <div class="foot">
-            Acces administration : <a href="/admin/">/admin/</a>
+            Acc&egrave;s administration technique : <a href="/admin/">/admin/</a>
         </div>
     </div>
 </body>

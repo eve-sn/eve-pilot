@@ -1,37 +1,38 @@
 {% extends "finance/base.html" %}
 
-{% block title %}EVE Pilot Finance &mdash; Compte de resultat{% endblock %}
+{% block title %}EVE Pilot Finance &mdash; Compte d'exploitation SYCEBNL{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
             <div>
-                <div class="eyebrow">Compte de resultat SYCEBNL</div>
-                <h1>Charges, produits et resultat de l'exercice.</h1>
+                <div class="eyebrow">Compte d'exploitation SYCEBNL (modele officiel EVE)</div>
+                <h1>Revenus, charges et solde de l'exercice.</h1>
                 <p class="lead">
-                    Etat issu des ecritures comptables en partie double : il oppose les
-                    comptes de charges (classe 6) aux comptes de produits (classe 7).
-                    Le resultat est la difference produits &minus; charges.
+                    Reproduit la structure officielle du XLSX EVE
+                    (codes REF RA -> XE) : revenus des activites ordinaires,
+                    charges des activites ordinaires, resultat HAO, solde de
+                    l'exercice.
                 </p>
                 <div style="margin-top:18px;">
                     <a class="button" href="/finance/">&larr; Retour Finance</a>
                     <a class="button" href="/finance/bilan/">Bilan</a>
-                    <a class="button" href="/finance/balance/">Balance</a>
+                    <a class="button" href="/finance/tableau-flux-tresorerie/">Tableau Flux Tresorerie</a>
                 </div>
             </div>
             <div class="stack">
-                <div class="stat-card soft-amber">
-                    <div class="muted">Total charges (classe 6)</div>
-                    <div class="metric-money">{{ total_charges|floatformat:0 }} XOF</div>
-                </div>
                 <div class="stat-card soft-green">
-                    <div class="muted">Total produits (classe 7)</div>
+                    <div class="muted">REVENUS (XA)</div>
                     <div class="metric-money">{{ total_produits|floatformat:0 }} XOF</div>
                 </div>
+                <div class="stat-card soft-amber">
+                    <div class="muted">CHARGES (XB)</div>
+                    <div class="metric-money">{{ total_charges|floatformat:0 }} XOF</div>
+                </div>
                 <div class="stat-card {% if is_profit %}soft-blue{% else %}soft-rose{% endif %}">
-                    <div class="muted">Resultat de l'exercice</div>
-                    <div class="metric-money">{{ result|floatformat:0 }} XOF</div>
+                    <div class="muted">SOLDE DE L'EXERCICE (XE)</div>
+                    <div class="metric-money">{{ result_exercise|floatformat:0 }} XOF</div>
                     <div class="muted">{% if is_profit %}Excedent{% else %}Deficit{% endif %}</div>
                 </div>
             </div>
@@ -39,81 +40,44 @@
     </div>
 </section>
 
-{% if not has_data %}
 <section class="section">
     <div class="wrap">
+        {% if not has_data %}
         <div class="card">
             <div class="placeholder-note">
-                Aucune ecriture de charge ou de produit en base. Imputer des mouvements
-                a des comptes de classe 6 / 7 pour alimenter le compte de resultat.
+                Aucune ecriture de charge ou de produit en base.
             </div>
         </div>
+        {% else %}
+        <div class="card">
+            <div class="section-header">
+                <h2>Compte d'exploitation au format SYCEBNL officiel</h2>
+                <p class="muted">
+                    Lignes en <strong>gras</strong> = sous-totaux et totaux officiels.
+                    Resultat activites ordinaires (XC) = {{ result_activities|floatformat:0 }} XOF.
+                    Resultat HAO (XD) = {{ result_hao|floatformat:0 }} XOF.
+                </p>
+            </div>
+            <table class="finance-table" style="font-size:0.9rem;">
+                <thead>
+                    <tr>
+                        <th style="width:55px;">REF</th>
+                        <th>Libelle SYCEBNL</th>
+                        <th class="right" style="width:160px;">Montant XOF</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                    <tr {% if line.kind == 'total' %}style="font-weight:700; background: rgba(31,89,114,0.12); border-top:2px solid var(--line); border-bottom:2px solid var(--line);"{% elif line.kind == 'subtotal' %}style="font-weight:600; background: rgba(31,89,114,0.06);"{% endif %}>
+                        <td><code>{{ line.ref }}</code></td>
+                        <td>{{ line.label }}</td>
+                        <td class="right">{{ line.amount|floatformat:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
 </section>
-{% else %}
-<section class="section">
-    <div class="wrap">
-        <div class="grid-2">
-            <div class="card">
-                <div class="section-header"><h2>Charges (classe 6)</h2></div>
-                <table class="finance-table">
-                    <thead>
-                        <tr><th>Code</th><th>Compte</th><th class="right">Montant</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for row in charges %}
-                        <tr>
-                            <td><a href="/finance/grand-livre/{{ row.account.code }}/"><code>{{ row.account.code }}</code></a></td>
-                            <td>{{ row.account.name }}</td>
-                            <td class="right">{{ row.amount|floatformat:0 }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="3"><span class="muted">Aucune charge.</span></td></tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr style="font-weight:700; background: rgba(140,91,27,0.06);">
-                            <td colspan="2">Total charges</td>
-                            <td class="right">{{ total_charges|floatformat:0 }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            <div class="card">
-                <div class="section-header"><h2>Produits (classe 7)</h2></div>
-                <table class="finance-table">
-                    <thead>
-                        <tr><th>Code</th><th>Compte</th><th class="right">Montant</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for row in produits %}
-                        <tr>
-                            <td><a href="/finance/grand-livre/{{ row.account.code }}/"><code>{{ row.account.code }}</code></a></td>
-                            <td>{{ row.account.name }}</td>
-                            <td class="right">{{ row.amount|floatformat:0 }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="3"><span class="muted">Aucun produit.</span></td></tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr style="font-weight:700; background: rgba(28,75,61,0.06);">
-                            <td colspan="2">Total produits</td>
-                            <td class="right">{{ total_produits|floatformat:0 }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-        <div class="card" style="margin-top: 18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <h2 style="font-size:1.4rem;">Resultat de l'exercice</h2>
-                <div class="metric-money" style="{% if not is_profit %}color:#8a2b2b;{% endif %}">
-                    {{ result|floatformat:0 }} XOF &mdash; {% if is_profit %}Excedent{% else %}Deficit{% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-{% endif %}
 {% endblock %}

@@ -11,6 +11,69 @@
 </div>
 {% endif %}
 
+{# Guide contextuel : qui doit faire quoi a l'etape actuelle #}
+<div class="wrap" style="padding-top: 14px;">
+    {% if expense.status == 'DRAFT' %}
+        {% if is_requester %}
+        <div class="placeholder-note" style="background: rgba(232,240,245,0.6); border-color: rgba(31,89,114,0.4); color:#1f5972;">
+            <strong>&#9656; Etape actuelle :</strong> demande en <strong>Brouillon</strong>. Cliquez sur
+            <em>Soumettre pour validation</em> pour la transmettre aux 3 valideurs (RAF, DP, SE).
+        </div>
+        {% else %}
+        <div class="placeholder-note">
+            <strong>&#9656; Etape actuelle :</strong> demande en <strong>Brouillon</strong>. Seul le demandeur
+            (<em>{{ expense.requester }}</em>) peut la soumettre. Les valideurs ne peuvent agir
+            qu'apres la soumission.
+        </div>
+        {% endif %}
+    {% elif expense.status == 'SUBMITTED' %}
+        {% if decision_forms %}
+        <div class="placeholder-note" style="background: rgba(249,238,223,0.7); border-color: rgba(140,91,27,0.4); color:#8a5b1b;">
+            <strong>&#9656; Etape actuelle :</strong> demande <strong>Soumise</strong>. Votre signature
+            est attendue plus bas dans la section <em>Validations</em>.
+        </div>
+        {% else %}
+        <div class="placeholder-note">
+            <strong>&#9656; Etape actuelle :</strong> demande <strong>Soumise</strong>. En attente des
+            signatures RAF, DP, SE. Votre profil ne porte pas de role validateur.
+        </div>
+        {% endif %}
+    {% elif expense.status == 'APPROVED' %}
+        {% if can_execute %}
+            {% if has_facture %}
+            <div class="placeholder-note" style="background: rgba(212,234,217,0.7); border-color: rgba(28,107,72,0.4); color: var(--eve-green-900); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <span>
+                    <strong>&#9656; Etape actuelle :</strong> demande <strong>Approuvee</strong>.
+                    Facture jointe &mdash; vous pouvez saisir le paiement.
+                </span>
+                <a class="button primary" href="{% url 'finance:expense_record_payment' expense.id %}">
+                    Saisir la d&eacute;pense
+                </a>
+            </div>
+            {% else %}
+            <div class="placeholder-note" style="background: rgba(249,238,223,0.7); border-color: rgba(140,91,27,0.4); color:#8a5b1b;">
+                <strong>&#9656; Etape actuelle :</strong> demande <strong>Approuvee</strong>. Avant
+                de saisir le paiement, attachez la <strong>facture d&eacute;finitive</strong> &agrave; la demande
+                (section <em>Pi&egrave;ces justificatives</em> plus bas, type "Facture d&eacute;finitive").
+            </div>
+            {% endif %}
+        {% else %}
+        <div class="placeholder-note">
+            <strong>&#9656; Etape actuelle :</strong> demande <strong>Approuvee</strong>. En attente
+            d'execution (RAF, demandeur ou comptable de l'&eacute;quipe projet).
+        </div>
+        {% endif %}
+    {% elif expense.status == 'REJECTED' %}
+        <div class="placeholder-note" style="background: rgba(245,227,227,0.7); border-color: rgba(138,43,43,0.35); color:#8a2b2b;">
+            <strong>&#9656; Demande rejetee.</strong> Voir les commentaires dans la section <em>Validations</em>.
+        </div>
+    {% elif expense.status == 'EXECUTED' %}
+        <div class="placeholder-note" style="background: rgba(232,240,245,0.6); border-color: rgba(31,89,114,0.35); color:#1f5972;">
+            <strong>&#10003; Demande executee.</strong> Workflow termine.
+        </div>
+    {% endif %}
+</div>
+
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
@@ -33,7 +96,11 @@
                     </form>
                     {% endif %}
                     {% if is_requester and expense.status == 'SUBMITTED' or expense.status == 'DRAFT' %}
-                    <form method="post" style="display: inline;" onsubmit="return confirm('Annuler cette demande ?');">
+                    <form method="post" style="display: inline;"
+                          data-confirm="L'annulation est irreversible. La demande passera au statut Annulee et ne pourra plus etre validee."
+                          data-confirm-title="Annuler la demande ?"
+                          data-confirm-kind="warn"
+                          data-confirm-ok="Annuler la demande">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="cancel">
                         <button class="button" type="submit">Annuler la demande</button>

@@ -1,0 +1,16 @@
+{% extends "finance/base.html" %}
+{% block title %}EVE Pilot &mdash; Acces refuse{% endblock %}
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">Acces restreint</div>
+            <h1 style="font-size:2.2rem; margin-bottom:14px;">Vous n'avez pas acces a cet ecran.</h1>
+            <p class="lead">{{ message }}</p>
+            <div style="margin-top:20px;">
+                <a class="button primary" href="/">Retour a l'accueil</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

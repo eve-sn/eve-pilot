@@ -41,6 +41,7 @@ class ChartOfAccount(TrackedModel):
         EXPENSES = 6, "6 - Charges"
         REVENUE = 7, "7 - Produits"
         OFF_BALANCE = 8, "8 - Engagements hors bilan"
+        VOLUNTARY_CONTRIBUTIONS = 9, "9 - Contributions volontaires en nature"
 
     code = models.CharField(max_length=15, unique=True)
     name = models.CharField(max_length=200)
@@ -221,6 +222,17 @@ class BankMovement(TrackedModel):
         blank=True,
         help_text="Document source (ex: 'Releve Banque Atlantique decembre 2025').",
     )
+    recipient = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Beneficiaire de la sortie ou source du credit (nom employe, fournisseur, bailleur).",
+    )
+    justification = models.FileField(
+        upload_to="bank_justifications/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Piece justificative scannee (facture, ordre virement, avis credit).",
+    )
 
     class Meta:
         db_table = "bank_movements"
@@ -231,8 +243,14 @@ class BankMovement(TrackedModel):
             models.Index(fields=["budget_line"]),
         ]
         constraints = [
+            # Idempotence des IMPORTS de releve uniquement : on ne deduplique
+            # que les lignes qui portent une reference banque ET qui sont
+            # actives. La saisie manuelle (reference vide) n'est jamais bloquee,
+            # et une ligne annulee (soft-delete) ne bloque pas une re-saisie
+            # identique. Cf. update_or_create() de import_bank_statement_xls.
             models.UniqueConstraint(
                 fields=["account", "date_operation", "reference", "debit", "credit"],
+                condition=models.Q(deleted_at__isnull=True) & ~models.Q(reference=""),
                 name="uq_bank_movement_idempotent_key",
             )
         ]
@@ -242,17 +260,157 @@ class BankMovement(TrackedModel):
         return f"{self.account.name} {self.date_operation} {amount:+.2f}"
 
 
+class BankMovementAllocation(TrackedModel):
+    """Ventilation analytique d'un BankMovement sur plusieurs imputations.
+
+    Permet de decomposer un mouvement bancaire global (ex: cheque salaires
+    equipe Saint-Louis 4,2M FCFA, frais atelier composes de plusieurs postes,
+    factures fournisseurs multi-categories) en autant de lignes comptables
+    que necessaire.
+
+    Conventions :
+      - chaque allocation porte son propre couple (project, budget_line,
+        contra_account, amount, description) ;
+      - la somme des allocation.amount doit egaler le BankMovement.debit OU
+        BankMovement.credit selon le sens du mouvement ;
+      - si aucune allocation n'existe, le BankMovement est traite comme une
+        imputation simple via son contra_account principal.
+
+    Le signal de finance.posting genere une JournalLine par allocation.
+    """
+
+    movement = models.ForeignKey(
+        BankMovement, on_delete=models.CASCADE, related_name="allocations",
+    )
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="bank_allocations",
+    )
+    budget_line = models.ForeignKey(
+        "finance.BudgetLine", on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="bank_allocations",
+    )
+    contra_account = models.ForeignKey(
+        "finance.ChartOfAccount", on_delete=models.PROTECT,
+        related_name="bank_allocations",
+        help_text="Compte SYCEBNL de charge (6x) ou de produit (7x) pour cette ligne.",
+    )
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    description = models.CharField(
+        max_length=300, blank=True,
+        help_text="Detail de la ligne (ex: 'Salaire animateur 1 janvier 2026').",
+    )
+
+    class Meta:
+        db_table = "bank_movement_allocations"
+        ordering = ["movement_id", "id"]
+
+    def __str__(self):
+        return f"{self.movement_id} | {self.contra_account.code} | {self.amount}"
+
+
+class BankMovementDocument(TrackedModel):
+    """Piece justificative attachee a un mouvement bancaire.
+
+    Permet d'attacher plusieurs documents (TDR, facture proforma, bon de
+    commande, facture definitive, bordereau livraison, rapport activite,
+    feuille presence, contrat, PV de selection, etc.).
+    """
+
+    class DocumentType(models.TextChoices):
+        TDR = "TDR", "Termes de reference"
+        PROFORMA = "PROFORMA", "Facture proforma"
+        CONTRAT = "CONTRAT", "Contrat / convention"
+        AVENANT = "AVENANT", "Avenant au contrat"
+        PV_SELECTION = "PV_SELECTION", "PV de selection fournisseur"
+        BC = "BC", "Bon de commande"
+        FACTURE = "FACTURE", "Facture definitive"
+        BORDEREAU = "BORDEREAU", "Bordereau de livraison"
+        PRESENCE = "PRESENCE", "Feuille de presence"
+        RAPPORT = "RAPPORT", "Rapport activite / livrable"
+        ORDRE_VIREMENT = "ORDRE_VIREMENT", "Ordre de virement bancaire"
+        AVIS_CREDIT = "AVIS_CREDIT", "Avis de credit bancaire"
+        RELEVE = "RELEVE", "Extrait de releve bancaire"
+        AUTRE = "AUTRE", "Autre piece"
+
+    movement = models.ForeignKey(
+        BankMovement, on_delete=models.CASCADE, related_name="documents",
+    )
+    document_type = models.CharField(max_length=25, choices=DocumentType.choices)
+    file = models.FileField(upload_to="bank_documents/%Y/%m/")
+    label = models.CharField(max_length=200, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "bank_movement_documents"
+        ordering = ["movement_id", "document_type"]
+
+    def __str__(self):
+        return f"{self.movement_id} / {self.document_type} : {self.label or self.file.name}"
+
+
+class BankStatementImport(TrackedModel):
+    """Brouillon d'import en lot d'un releve bancaire PDF.
+
+    Workflow :
+      1. Le comptable uploade un PDF de releve via /finance/banque/import-releve/
+      2. Le parser extrait les lignes et auto-suggere les comptes contrepartie.
+      3. Le brouillon est stocke (parsed_lines JSON) pour permettre la revue.
+      4. Le comptable valide / corrige / supprime les lignes sur l'ecran.
+      5. La validation finale cree les BankMovement en lot.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Brouillon en revue"
+        IMPORTED = "IMPORTED", "Importe"
+        CANCELLED = "CANCELLED", "Annule"
+
+    account = models.ForeignKey(
+        BankAccount, on_delete=models.CASCADE, related_name="statement_imports",
+    )
+    source_file = models.FileField(
+        upload_to="bank_statements/%Y/%m/",
+        help_text="PDF du releve bancaire original.",
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT,
+    )
+    parsed_lines = models.JSONField(
+        default=list,
+        help_text=(
+            "Liste des lignes extraites du PDF avec auto-suggestion. "
+            "Chaque entree: {date_operation, label, debit, credit, "
+            "suggested_contra_code, suggested_contra_name, raw_text}."
+        ),
+    )
+    nb_lines_parsed = models.PositiveIntegerField(default=0)
+    nb_lines_imported = models.PositiveIntegerField(default=0)
+    submitted_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="bank_statement_imports",
+    )
+    imported_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "bank_statement_imports"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Import {self.account.name} {self.created_at:%Y-%m-%d} - {self.status}"
+
+
 class CashRegister(TrackedModel):
     """Caisse centrale EVE (menue depense). Une seule caisse a date.
 
     Regles metier :
     - Plafond unitaire : 40 000 FCFA par operation (rejet si depassement).
-    - Plafond hebdomadaire (semaine ISO) : 100 000 FCFA cumule sur les
+    - Plafond hebdomadaire (semaine ISO) : 200 000 FCFA cumule sur les
       sorties de caisse (rejet si depassement).
     """
 
     UNIT_LIMIT = Decimal("40000.00")
-    WEEKLY_LIMIT = Decimal("100000.00")
+    WEEKLY_LIMIT = Decimal("200000.00")
 
     name = models.CharField(max_length=80, unique=True, default="Caisse centrale BG")
     currency = models.CharField(max_length=3, default="XOF")
@@ -586,6 +744,17 @@ class CashMovement(TrackedModel):
         null=True,
         related_name="cash_movements_contra",
         help_text="Compte SYCEBNL contrepartie (charge 6x, produit 7x, liaison 18x).",
+    )
+    justification = models.FileField(
+        upload_to="cash_justifications/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Piece justificative (ticket, recu, facturette) - photo ou PDF.",
+    )
+    recipient = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Beneficiaire de la sortie de caisse (nom, prestataire, etc.).",
     )
     commentary = models.TextField(blank=True)
 

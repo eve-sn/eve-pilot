@@ -110,6 +110,31 @@ class Project(TrackedModel):
         help_text="Comptes bancaires EVE associes au projet.",
     )
 
+    # SYCEBNL App.8 - Cle de repartition du decaissement bailleur entre fonds
+    # d'investissement (162 - acquisitions d'immo) et fonds d'administration
+    # (462 - charges de fonctionnement). La somme des deux doit faire 100.
+    # Default 0/100 : tous les decaissements sont presumes destines au
+    # fonctionnement (cas EVE majoritaire). Pour un projet d'infra type
+    # Banque Mondiale (App.8 du guide), regler a 80/20.
+    investment_split_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0.00"),
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text=(
+            "SYCEBNL : pourcentage du decaissement bailleur affecte aux "
+            "Fonds d'investissement (compte 162) - destine aux acquisitions "
+            "d'immobilisations. Default 0 (EVE est majoritairement fonctionnement)."
+        ),
+    )
+    administration_split_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("100.00"),
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text=(
+            "SYCEBNL : pourcentage du decaissement bailleur affecte au "
+            "Fonds d'administration (compte 462) - destine aux charges de "
+            "fonctionnement. Somme avec investment_split_pct doit faire 100."
+        ),
+    )
+
     class Meta:
         db_table = "projects"
         ordering = ["code"]

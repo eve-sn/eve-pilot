@@ -4,6 +4,69 @@
 {% block title %}EVE Pilot Finance &mdash; Tableau de bord{% endblock %}
 
 {% block content %}
+
+{% if alerts %}
+<section class="section" style="padding-top: 14px; padding-bottom: 0;">
+    <div class="wrap">
+        <div class="section-header" style="margin-bottom: 10px;">
+            <h2 style="font-size:1.2rem;">Alertes m&eacute;tier</h2>
+        </div>
+        <div class="grid-3" style="gap:10px;">
+            {% for a in alerts %}
+            <div class="card" style="padding:14px; border-left:4px solid {% if a.level == 'alert' %}var(--eve-red-500){% elif a.level == 'warn' %}#c98a2b{% else %}var(--eve-green-500){% endif %};">
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <span style="font-size:1.1rem;">{% if a.level == 'alert' %}&#9888;{% elif a.level == 'warn' %}&#9888;{% else %}&#9432;{% endif %}</span>
+                    <div style="flex:1; font-size:0.88rem; line-height:1.4;">
+                        <div style="font-weight:600; margin-bottom:4px;">{{ a.title }}</div>
+                        <a href="{{ a.cta_href }}" style="font-weight:700; color:var(--eve-green-700); text-decoration:underline; font-size:0.82rem;">{{ a.cta_label }} &rarr;</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if notifications.total %}
+<section class="section" style="padding-top: 18px; padding-bottom: 0;">
+    <div class="wrap">
+        <div class="card" style="background: linear-gradient(180deg, rgba(249,238,223,0.95), rgba(255,255,255,0.86)); border-color: rgba(140,91,27,0.35);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="display:inline-flex; width:36px; height:36px; align-items:center; justify-content:center; border-radius:50%; background:#8a5b1b; color:white; font-weight:800; font-size:1.05rem;">{{ notifications.total }}</span>
+                        <h2 style="font-size:1.4rem; margin:0;">Vous avez des actions en attente</h2>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    {% if notifications.pending_signatures %}
+                    <a class="button primary" href="/finance/demandes/?to_sign=1">
+                        {{ notifications.pending_signatures }} demande{{ notifications.pending_signatures|pluralize }} a signer ({{ notifications.validator_codes|join:", " }})
+                    </a>
+                    {% endif %}
+                    {% if notifications.awaiting_execution %}
+                    <a class="button" href="/finance/demandes/?status=APPROVED">
+                        {{ notifications.awaiting_execution }} a executer
+                    </a>
+                    {% endif %}
+                    {% if notifications.my_drafts %}
+                    <a class="button" href="/finance/demandes/?mine=1&status=DRAFT">
+                        {{ notifications.my_drafts }} brouillon{{ notifications.my_drafts|pluralize }} a soumettre
+                    </a>
+                    {% endif %}
+                    {% if notifications.my_rejected %}
+                    <a class="button" href="/finance/demandes/?mine=1&status=REJECTED" style="border-color:#8a2b2b; color:#8a2b2b;">
+                        {{ notifications.my_rejected }} rejet{{ notifications.my_rejected|pluralize:"ee,ees" }} a retravailler
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <section class="hero">
     <div class="wrap">
         <div class="hero-card">
@@ -28,11 +91,13 @@
                     <div class="metric">{{ active_project_count }}</div>
                     <div class="muted">{{ preparation_project_count }} en preparation, {{ suspended_project_count }} suspendus.</div>
                 </div>
+                {% if show_bg %}
                 <div class="stat-card soft-amber">
                     <div class="muted">Budget General 2026</div>
                     <div class="metric-money">{{ operating_planned|floatformat:0 }} XOF</div>
                     <div class="muted">Charges fixes + masse salariale prevues.</div>
                 </div>
+                {% endif %}
                 <div class="stat-card soft-rose">
                     <div class="muted">Bailleurs actifs</div>
                     <div class="metric">{{ active_donor_count }}</div>
@@ -42,6 +107,96 @@
         </div>
     </div>
 </section>
+
+{% if budget_per_project or monthly_cashflow or donut_segments %}
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Graphiques de pilotage</h2>
+            <p>Lectures visuelles de votre p&eacute;rim&egrave;tre&nbsp;: consommation budg&eacute;taire, tr&eacute;sorerie pr&eacute;visionnelle et r&eacute;partition des activit&eacute;s.</p>
+        </div>
+        <div class="grid-2">
+            {% if budget_per_project %}
+            <div class="card">
+                <div class="section-header" style="margin-bottom:8px;"><h2 style="font-size:1.05rem;">Consommation budg&eacute;taire par projet</h2></div>
+                <p class="muted" style="font-size:0.78rem; margin-bottom:10px;">
+                    Planifi&eacute; (clair) &middot; <span style="color:var(--eve-green-700);">Engag&eacute;</span> &middot; <span style="color:var(--eve-red-700);">D&eacute;caiss&eacute;</span>
+                </p>
+                <div style="display:flex; flex-direction:column; gap:9px;">
+                    {% for row in budget_per_project %}
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:0.78rem; margin-bottom:3px;">
+                            <strong><code>{{ row.project__code }}</code></strong>
+                            <span class="muted">{{ row.planned|floatformat:0 }} XOF &middot; engagement {{ row.taux_engagement|floatformat:0 }}%</span>
+                        </div>
+                        <div style="position:relative; height:14px; background:rgba(28,75,61,0.08); border-radius:7px; overflow:hidden;">
+                            <div style="position:absolute; left:0; top:0; bottom:0; background:rgba(28,107,72,0.55); width:{{ row.bar_planned_pct|floatformat:1 }}%;"></div>
+                            <div style="position:absolute; left:0; top:0; bottom:0; background:var(--eve-green-700); width:{{ row.bar_committed_pct|floatformat:1 }}%;"></div>
+                            <div style="position:absolute; left:0; top:0; bottom:0; background:var(--eve-red-700); width:{{ row.bar_disbursed_pct|floatformat:1 }}%; opacity:0.85;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if donut_segments %}
+            <div class="card">
+                <div class="section-header" style="margin-bottom:8px;"><h2 style="font-size:1.05rem;">R&eacute;partition des activit&eacute;s par statut</h2></div>
+                <div style="display:flex; align-items:center; gap:18px;">
+                    <svg width="170" height="170" viewBox="0 0 170 170" style="flex-shrink:0;">
+                        <circle cx="85" cy="85" r="60" fill="none" stroke="rgba(28,75,61,0.08)" stroke-width="22"/>
+                        {% for s in donut_segments %}
+                        <circle cx="85" cy="85" r="60" fill="none"
+                            stroke="{{ s.color }}" stroke-width="22"
+                            stroke-dasharray="{{ s.dash }}"
+                            stroke-dashoffset="{{ s.offset|floatformat:1 }}"
+                            transform="rotate(-90 85 85)"/>
+                        {% endfor %}
+                        <text x="85" y="80" text-anchor="middle" font-size="28" font-weight="800" fill="var(--eve-green-900)">{{ donut_total }}</text>
+                        <text x="85" y="100" text-anchor="middle" font-size="11" fill="var(--muted)">activit&eacute;s</text>
+                    </svg>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                        {% for s in donut_segments %}
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.88rem;">
+                            <span style="width:12px; height:12px; border-radius:3px; background:{{ s.color }};"></span>
+                            <span style="flex:1;">{{ s.label }}</span>
+                            <strong>{{ s.value }}</strong>
+                            <span class="muted" style="font-size:0.78rem; min-width:34px; text-align:right;">{{ s.pct }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if monthly_cashflow %}
+        <div class="card" style="margin-top:14px;">
+            <div class="section-header" style="margin-bottom:8px;"><h2 style="font-size:1.05rem;">Tr&eacute;sorerie pr&eacute;visionnelle 2026</h2></div>
+            <p class="muted" style="font-size:0.78rem; margin-bottom:10px;">
+                <span style="color:var(--eve-green-700); font-weight:700;">Entr&eacute;es</span> et
+                <span style="color:var(--eve-red-700); font-weight:700;">sorties</span> mensuelles pr&eacute;vues sur votre p&eacute;rim&egrave;tre.
+            </p>
+            <div style="display:flex; align-items:flex-end; gap:6px; height:160px; padding-bottom:24px; border-bottom:1px solid rgba(217,210,196,0.6);">
+                {% for row in monthly_cashflow %}
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                    <div style="display:flex; gap:2px; align-items:flex-end; flex:1; width:100%;">
+                        <div style="flex:1; background:var(--eve-green-700); height:{{ row.entrees_h|floatformat:1 }}%; border-radius:3px 3px 0 0;" title="{{ row.month_label }} entrees : {{ row.entrees|floatformat:0 }}"></div>
+                        <div style="flex:1; background:var(--eve-red-700); opacity:0.85; height:{{ row.sorties_h|floatformat:1 }}%; border-radius:3px 3px 0 0;" title="{{ row.month_label }} sorties : {{ row.sorties|floatformat:0 }}"></div>
+                    </div>
+                    <div class="muted" style="font-size:0.7rem; margin-top:3px;">{{ row.month_label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="margin-top:10px; font-size:0.78rem; color:var(--muted);">
+                Survoler une barre pour voir le montant. Donn&eacute;es&nbsp;: <code>/finance/tresorerie/</code>.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
 
 <section class="section">
     <div class="wrap">
@@ -106,6 +261,163 @@
     </div>
 </section>
 
+{% if can_record_bank %}
+<section class="section" style="padding-top:0; padding-bottom:10px;">
+    <div class="wrap">
+        <div class="card" style="background: linear-gradient(180deg, rgba(212,234,217,0.6), rgba(255,255,255,0.86)); display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+            <div>
+                <strong style="font-size:1rem; color:var(--eve-green-900);">Saisie comptable directe</strong>
+                <div class="muted" style="font-size:0.85rem; margin-top:2px;">
+                    Enregistrer une d&eacute;pense ou une recette bancaire directement sur un compte projet (avec justificatif).
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="button primary" href="{% url 'finance:bank_movement_create' %}">+ Saisir un mouvement bancaire</a>
+                <a class="button" href="{% url 'finance:bank_statement_upload' %}">📄 Importer un relev&eacute; PDF</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if cash_summary %}
+<section class="section">
+    <div class="wrap">
+        <div class="section-header" style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+            <div>
+                <h2>Petite caisse</h2>
+                <p>
+                    Etat de la caisse de fonctionnement (transport, carburant, restauration,
+                    produits d'entretien, mat&eacute;riel cuisine, hospitalit&eacute;s). Plafonds SYCEBNL :
+                    <strong>40 000 XOF</strong> par op&eacute;ration, <strong>200 000 XOF</strong> par semaine ISO.
+                </p>
+            </div>
+            <a class="button primary" href="{% url 'finance:cash_movement_create' %}">+ Saisir une op&eacute;ration</a>
+        </div>
+        {% for c in cash_summary %}
+        <div class="card" style="margin-bottom: 14px;">
+            <div style="display:grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap:18px; align-items:start;">
+                <div>
+                    <div class="muted" style="font-size:0.82rem;">Caisse</div>
+                    <div style="font-weight:700; font-size:1.05rem; margin-top:2px;">{{ c.register.name }}</div>
+                    <div class="muted" style="font-size:0.82rem; margin-top:10px;">Plafond unitaire / hebdomadaire</div>
+                    <div style="font-size:0.92rem; font-weight:600;">{{ c.unit_limit|floatformat:0 }} / {{ c.weekly_limit|floatformat:0 }} XOF</div>
+                </div>
+                <div class="stat-card" style="margin:0;">
+                    <div class="muted" style="font-size:0.82rem;">Solde actuel</div>
+                    <div class="metric-money" {% if c.solde < 0 %}style="color:var(--eve-red-700, #8a2b2b);"{% endif %}>
+                        {{ c.solde|floatformat:0 }} XOF
+                    </div>
+                    <div class="muted" style="font-size:0.78rem;">{{ c.mvt_total }} mouvement{{ c.mvt_total|pluralize }} cumul&eacute;{{ c.mvt_total|pluralize }}</div>
+                </div>
+                <div class="stat-card soft-blue" style="margin:0;">
+                    <div class="muted" style="font-size:0.82rem;">Entr&eacute;es du mois</div>
+                    <div class="metric-money">+{{ c.month_credit|floatformat:0 }}</div>
+                    <div class="muted" style="font-size:0.78rem;">Recharges, retraits banque vers caisse</div>
+                </div>
+                <div class="stat-card soft-amber" style="margin:0;">
+                    <div class="muted" style="font-size:0.82rem;">Sorties du mois</div>
+                    <div class="metric-money">&minus;{{ c.month_debit|floatformat:0 }}</div>
+                    <div class="muted" style="font-size:0.78rem;">{{ c.month_count }} op&eacute;ration{{ c.month_count|pluralize }} ce mois</div>
+                </div>
+            </div>
+            {% if c.recent %}
+            <div style="margin-top: 14px;">
+                <div class="muted" style="font-size:0.82rem; margin-bottom:8px;">Derni&egrave;res op&eacute;rations</div>
+                <table class="finance-table">
+                    <thead>
+                        <tr><th>Date</th><th>Libell&eacute;</th><th>Imputation</th><th class="right">D&eacute;bit</th><th class="right">Cr&eacute;dit</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for m in c.recent %}
+                        <tr>
+                            <td>{{ m.date_operation|date:"d/m/Y" }}</td>
+                            <td>{{ m.label|truncatechars:50 }}</td>
+                            <td>
+                                {% if m.project %}<code>{{ m.project.code }}</code>
+                                {% elif m.budget_line %}<code>{{ m.budget_line.code }}</code>
+                                {% else %}<span class="muted">BG</span>{% endif %}
+                                {% if m.contra_account %}<span class="muted" style="font-size:0.78rem;"> &middot; {{ m.contra_account.code }}</span>{% endif %}
+                            </td>
+                            <td class="right">{% if m.debit %}{{ m.debit|floatformat:0 }}{% else %}&mdash;{% endif %}</td>
+                            <td class="right">{% if m.credit %}{{ m.credit|floatformat:0 }}{% else %}&mdash;{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="placeholder-note" style="margin-top:12px;">Aucun mouvement saisi pour cette caisse.</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if has_project_scope %}
+<section class="section">
+    <div class="wrap">
+        <div class="section-header">
+            <h2>Indicateurs op&eacute;rationnels</h2>
+            <p>
+                Statistiques d'activit&eacute;s, rapports terrain et b&eacute;n&eacute;ficiaires sur votre p&eacute;rim&egrave;tre
+                ({{ activity_stats.total }} activit&eacute;{{ activity_stats.total|pluralize:"e,es" }} accessible{{ activity_stats.total|pluralize }}).
+            </p>
+        </div>
+        <div class="grid-4">
+            <div class="stat-card">
+                <div class="muted" style="font-size:0.82rem;">Activit&eacute;s</div>
+                <div class="metric">{{ activity_stats.total }}</div>
+                <div class="muted" style="font-size:0.78rem;">
+                    {{ activity_stats.planned }} planif. &middot; {{ activity_stats.in_progress }} en cours &middot; {{ activity_stats.completed }} r&eacute;alis.{% if activity_stats.canceled %} &middot; {{ activity_stats.canceled }} annul.{% endif %}
+                </div>
+            </div>
+            <div class="stat-card soft-amber">
+                <div class="muted" style="font-size:0.82rem;">Rapports terrain</div>
+                <div class="metric">{{ report_stats.total }}</div>
+                <div class="muted" style="font-size:0.78rem;">
+                    {% if report_stats.total %}{{ report_stats.submitted }} soumis &middot; {{ report_stats.validated }} valid&eacute;s{% if report_stats.rejected %} &middot; {{ report_stats.rejected }} rejet&eacute;s{% endif %}{% else %}Aucun rapport soumis &agrave; ce jour.{% endif %}
+                </div>
+            </div>
+            <div class="stat-card soft-blue">
+                <div class="muted" style="font-size:0.82rem;">B&eacute;n&eacute;ficiaires nominatifs</div>
+                <div class="metric">{{ beneficiary_stats.total }}</div>
+                <div class="muted" style="font-size:0.78rem;">
+                    {% if beneficiary_stats.total %}{{ beneficiary_stats.male }} H &middot; {{ beneficiary_stats.female }} F{% else %}Recens&eacute;s dans les rapports terrain.{% endif %}
+                </div>
+            </div>
+            <div class="stat-card soft-green">
+                <div class="muted" style="font-size:0.82rem;">Taux d'avancement moyen</div>
+                <div class="metric">{% if activity_stats.total %}{% widthratio activity_stats.completed activity_stats.total 100 %}%{% else %}&mdash;{% endif %}</div>
+                <div class="muted" style="font-size:0.78rem;">Part des activit&eacute;s achev&eacute;es.</div>
+            </div>
+        </div>
+
+        {% if activities_by_project|length > 1 %}
+        <div class="card" style="margin-top:14px;">
+            <div class="section-header"><h2 style="font-size:1.1rem;">R&eacute;partition par projet</h2></div>
+            <table class="finance-table">
+                <thead>
+                    <tr><th>Projet</th><th>Titre</th><th class="right">Activit&eacute;s</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in activities_by_project %}
+                    <tr>
+                        <td><code>{{ row.project__code }}</code></td>
+                        <td>{{ row.project__title|truncatechars:70 }}</td>
+                        <td class="right">{{ row.total }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{% if show_bg %}
 <section class="section">
     <div class="wrap">
         <div class="section-header">
@@ -210,7 +522,9 @@
         </div>
     </div>
 </section>
+{% endif %}
 
+{% if show_bg %}
 <section class="section">
     <div class="wrap">
         <div class="section-header">
@@ -306,6 +620,7 @@
         </div>
     </div>
 </section>
+{% endif %}
 
 <section class="section">
     <div class="wrap">

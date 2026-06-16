@@ -1,20 +1,22 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>EVE Pilot</title>
+    <link rel="icon" type="image/png" href="{% static 'img/eve-logo.png' %}">
     <style>
         :root {
-            --bg: #f5f1e8;
-            --paper: rgba(255, 255, 255, 0.86);
+            --bg: #f7f3ea;
+            --paper: rgba(255, 255, 255, 0.92);
             --paper-strong: #ffffff;
-            --text: #1f2d28;
-            --muted: #68756e;
-            --line: #d8d1c2;
-            --green-900: #1c4b3d;
-            --green-700: #2f745b;
-            --green-100: #e7f1eb;
+            --text: #1a2620;
+            --muted: #5d6c66;
+            --line: #d9d2c4;
+            --green-900: #0e4d36;
+            --green-700: #1c6b48;
+            --green-100: #d4ead9;
             --blue-700: #2f6f89;
             --blue-100: #e7f0f4;
             --amber-600: #d98b3d;
@@ -94,16 +96,17 @@
         }
 
         .hero h1 {
-            font-size: clamp(2.5rem, 5vw, 4.8rem);
-            line-height: 0.98;
-            margin-bottom: 18px;
+            font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+            line-height: 1.1;
+            margin-bottom: 14px;
         }
 
         .hero .lead {
             color: var(--muted);
-            font-size: 1.05rem;
-            max-width: 700px;
-            margin-bottom: 24px;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            max-width: 720px;
+            margin-bottom: 20px;
         }
 
         .actions,
@@ -151,19 +154,19 @@
 
         .stat .label {
             color: var(--muted);
-            font-size: 0.86rem;
-            margin-bottom: 10px;
-        }
-
-        .stat .value {
-            font-size: 2rem;
-            font-family: "Georgia", serif;
-            color: var(--green-900);
+            font-size: 0.82rem;
             margin-bottom: 8px;
         }
 
+        .stat .value {
+            font-size: 1.55rem;
+            font-family: "Georgia", serif;
+            color: var(--green-900);
+            margin-bottom: 6px;
+        }
+
         .stat .note {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--green-700);
             font-weight: 700;
         }
@@ -181,8 +184,8 @@
         }
 
         .section-header h2 {
-            font-size: clamp(1.8rem, 3vw, 2.8rem);
-            margin-bottom: 6px;
+            font-size: clamp(1.15rem, 2vw, 1.55rem);
+            margin-bottom: 5px;
         }
 
         .section-header p {
@@ -230,8 +233,8 @@
         }
 
         .card h3 {
-            font-size: 1.28rem;
-            margin-bottom: 12px;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
         }
 
         .card p.sub {
@@ -302,7 +305,7 @@
 
         .budget-number {
             font-family: "Georgia", serif;
-            font-size: 1.55rem;
+            font-size: 1.25rem;
             color: var(--green-900);
             margin-bottom: 4px;
         }
@@ -374,7 +377,13 @@
         <div class="wrap">
             <div class="hero-card">
                 <div>
-                    <div class="eyebrow">ONG Eau Vie Environnement • EVE Pilot</div>
+                    <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                        <img src="{% static 'img/eve-logo.png' %}" alt="EVE" style="width:56px; height:56px; object-fit:contain; filter: drop-shadow(0 4px 10px rgba(14,77,54,0.2));">
+                        <div>
+                            <div class="eyebrow" style="margin-bottom:4px;">ONG Eau Vie Environnement</div>
+                            <div style="font-family:Georgia,serif; font-weight:700; font-size:1.05rem; color:var(--green-900); letter-spacing:-0.01em;">EVE Pilot</div>
+                        </div>
+                    </div>
                     <h1>Piloter les RH, les projets et le terrain depuis une seule plateforme.</h1>
                     <p class="lead">
                         EVE Pilot centralise les dossiers du personnel, le portefeuille projets,
@@ -386,7 +395,8 @@
                         <a class="btn primary" href="/projets/">Ouvrir l'espace Projets</a>
                         <a class="btn secondary" href="/finance/">Tableau Finance</a>
                         <a class="btn secondary" href="/rh/">Ouvrir l'espace RH</a>
-                        <a class="btn secondary" href="/admin/">Administration</a>
+                        <a class="btn secondary" href="/aide/">Aide &amp; mode d'emploi</a>
+                        {% if user.is_superuser %}<a class="btn secondary" href="/admin/">Administration</a>{% endif %}
                         {% if user.is_authenticated %}
                         <a class="btn secondary" href="/deconnexion/">Deconnexion ({{ user.username }})</a>
                         {% else %}
@@ -578,6 +588,7 @@
         </div>
     </section>
 
+    {% if user.is_superuser %}
     <section class="section">
         <div class="wrap">
             <div class="section-header">
@@ -675,8 +686,13 @@
                         </a>
                         <a class="quick-item" href="/activites/">
                             <strong>Module Activites</strong>
-                            <span>Planifier les activites projet et suivre les rapports terrain valides par le S&amp;E.</span>
+                            <span>Planifier les activites projet et suivre les rapports terrain valides par le Secretaire Executif.</span>
                         </a>
+                        <a class="quick-item" href="/aide/">
+                            <strong>Aide &amp; mode d'emploi</strong>
+                            <span>Voir le guide d'utilisation correspondant a votre role.</span>
+                        </a>
+                        {% if user.is_superuser %}
                         <a class="quick-item" href="/admin/">
                             <strong>Administration Django</strong>
                             <span>Gerer les donnees, les comptes, les referentiels et les contenus metier.</span>
@@ -689,8 +705,10 @@
                             <strong>Etat du service</strong>
                             <span>Verifier rapidement que le backend repond correctement.</span>
                         </a>
+                        {% endif %}
                     </div>
                 </div>
+                {% if user.is_superuser %}
                 <div class="card">
                     <h3>Etat actuel du socle</h3>
                     <p class="sub">Le backend est deja pose avec les briques essentielles de la V1.</p>
@@ -701,10 +719,13 @@
                         <div class="check-item">API DRF disponible pour la couche applicative future.</div>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
     </section>
+    {% endif %}
 
+    {% if user.is_superuser %}
     <section class="section">
         <div class="wrap">
             <div class="section-header">
@@ -766,6 +787,7 @@
             </div>
         </div>
     </section>
+    {% endif %}
 
     <footer class="footer">
         EVE Pilot • Plateforme integree de gestion RH, projets, terrain, finances et reporting.

@@ -1,0 +1,32 @@
+# Service systemd pour EVE Pilot (gunicorn).
+# Copier dans /etc/systemd/system/eve_pilot.service puis :
+#   sudo systemctl daemon-reload && sudo systemctl enable --now eve_pilot
+# Adapter User/Group, WorkingDirectory et les chemins a votre VPS.
+
+[Unit]
+Description=EVE Pilot (Django/gunicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+User=eve
+Group=eve
+WorkingDirectory=/srv/eve_pilot
+# Le .env de production (jamais commite) est lu par config/settings.py.
+EnvironmentFile=/srv/eve_pilot/.env
+ExecStart=/srv/eve_pilot/.venv/bin/gunicorn \
+    --config /srv/eve_pilot/deploy/gunicorn.conf.py \
+    config.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+# Durcissement minimal du service.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/srv/eve_pilot/media /srv/eve_pilot/staticfiles
+
+[Install]
+WantedBy=multi-user.target

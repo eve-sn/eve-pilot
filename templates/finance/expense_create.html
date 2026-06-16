@@ -59,4 +59,38 @@
         font: inherit;
     }
 </style>
+<script>
+// Filtre dynamique du dropdown "Ligne budgetaire" selon le projet choisi.
+// Chaque <option> de budget_line porte data-project="<id>" ; on masque
+// celles qui ne correspondent pas au projet selectionne (ou au BG si projet vide).
+document.addEventListener("DOMContentLoaded", function () {
+    var projectSel = document.querySelector('select[name="project"]');
+    var lineSel = document.querySelector('select[name="budget_line"]');
+    if (!projectSel || !lineSel) return;
+
+    function applyFilter() {
+        var selectedProject = projectSel.value || "";
+        var keepSelectedValid = false;
+        var current = lineSel.value;
+
+        Array.from(lineSel.options).forEach(function (opt) {
+            if (!opt.value) {
+                opt.hidden = false;  // option vide ("---")
+                return;
+            }
+            var bucket = opt.dataset.project || "";
+            var match = (bucket === selectedProject);
+            opt.hidden = !match;
+            opt.disabled = !match;
+            if (match && opt.value === current) keepSelectedValid = true;
+        });
+
+        // Si la ligne actuellement selectionnee n'est plus visible, reset.
+        if (!keepSelectedValid) lineSel.value = "";
+    }
+
+    projectSel.addEventListener("change", applyFilter);
+    applyFilter();
+});
+</script>
 {% endblock %}

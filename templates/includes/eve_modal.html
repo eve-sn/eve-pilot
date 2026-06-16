@@ -1,0 +1,131 @@
+{% comment %}
+Modal de confirmation EVE - charte graphique uniforme.
+
+Usage : sur tout formulaire ou bouton qui declenche une action sensible,
+ajouter les attributs data-confirm-* :
+
+  <form method="post" data-confirm="Message" data-confirm-title="Titre"
+        data-confirm-kind="danger|confirm|warn">
+
+  <button data-confirm="Message" data-confirm-form="id-du-form-cible">
+
+Le JS intercepte la soumission et affiche ce modal a la place du confirm() natif.
+{% endcomment %}
+<div class="eve-modal-backdrop" id="eve-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="eve-modal" role="alertdialog">
+        <div class="eve-modal-header">
+            <span class="eve-modal-icon" id="eve-modal-icon">&#9888;</span>
+            <h3 class="eve-modal-title" id="eve-modal-title">Confirmer l'action</h3>
+        </div>
+        <div class="eve-modal-body" id="eve-modal-body">Voulez-vous vraiment poursuivre ?</div>
+        <div class="eve-modal-footer">
+            <button type="button" class="eve-modal-btn" id="eve-modal-cancel">Annuler</button>
+            <button type="button" class="eve-modal-btn danger" id="eve-modal-ok">Confirmer</button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var backdrop = document.getElementById("eve-modal");
+    if (!backdrop) return;
+    var iconEl = document.getElementById("eve-modal-icon");
+    var titleEl = document.getElementById("eve-modal-title");
+    var bodyEl = document.getElementById("eve-modal-body");
+    var okBtn = document.getElementById("eve-modal-ok");
+    var cancelBtn = document.getElementById("eve-modal-cancel");
+    var pendingAction = null;
+
+    var KIND_PRESETS = {
+        danger:  { icon: "&#9888;", iconCls: "eve-modal-icon danger",  okCls: "eve-modal-btn danger",  okLabel: "Supprimer" },
+        confirm: { icon: "&#10003;", iconCls: "eve-modal-icon confirm", okCls: "eve-modal-btn confirm", okLabel: "Confirmer" },
+        warn:    { icon: "&#9888;",  iconCls: "eve-modal-icon warn",    okCls: "eve-modal-btn confirm", okLabel: "Continuer" },
+    };
+
+    function openModal(opts) {
+        var kind = opts.kind || "danger";
+        var preset = KIND_PRESETS[kind] || KIND_PRESETS.danger;
+        iconEl.innerHTML = preset.icon;
+        iconEl.className = preset.iconCls;
+        titleEl.textContent = opts.title || "Confirmer l'action";
+        bodyEl.textContent = opts.message || "Voulez-vous vraiment poursuivre ?";
+        okBtn.className = preset.okCls;
+        okBtn.textContent = opts.okLabel || preset.okLabel;
+        backdrop.classList.add("open");
+        backdrop.setAttribute("aria-hidden", "false");
+        cancelBtn.focus();
+    }
+    function closeModal() {
+        backdrop.classList.remove("open");
+        backdrop.setAttribute("aria-hidden", "true");
+        pendingAction = null;
+    }
+
+    okBtn.addEventListener("click", function () {
+        var fn = pendingAction;
+        closeModal();
+        if (typeof fn === "function") fn();
+    });
+    cancelBtn.addEventListener("click", closeModal);
+    backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) closeModal();
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && backdrop.classList.contains("open")) closeModal();
+        if (e.key === "Enter" && backdrop.classList.contains("open")) { e.preventDefault(); okBtn.click(); }
+    });
+
+    // Interception automatique des forms avec data-confirm
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (!form || !form.matches || !form.matches("form[data-confirm]")) return;
+        if (form.dataset.eveConfirmed === "1") return;  // deja confirme
+        e.preventDefault();
+        pendingAction = function () {
+            form.dataset.eveConfirmed = "1";
+            form.submit();
+        };
+        openModal({
+            message: form.dataset.confirm,
+            title: form.dataset.confirmTitle || "Confirmer l'action",
+            kind: form.dataset.confirmKind || "danger",
+            okLabel: form.dataset.confirmOk,
+        });
+    });
+
+    // Boutons (hors submit) avec data-confirm
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-confirm]:not(form)");
+        if (!btn) return;
+        if (btn.tagName === "BUTTON" && btn.type === "submit") return;  // gere par le submit
+        if (btn.dataset.eveConfirmed === "1") return;
+        e.preventDefault();
+        var targetForm = btn.dataset.confirmForm ? document.getElementById(btn.dataset.confirmForm) : null;
+        var href = btn.getAttribute("href");
+        pendingAction = function () {
+            btn.dataset.eveConfirmed = "1";
+            if (targetForm) { targetForm.dataset.eveConfirmed = "1"; targetForm.submit(); }
+            else if (href && href !== "#") { window.location.href = href; }
+            else { btn.click(); }
+        };
+        openModal({
+            message: btn.dataset.confirm,
+            title: btn.dataset.confirmTitle || "Confirmer l'action",
+            kind: btn.dataset.confirmKind || "danger",
+            okLabel: btn.dataset.confirmOk,
+        });
+    });
+
+    // Export window.eveConfirm pour usage manuel
+    window.eveConfirm = function (message, options) {
+        return new Promise(function (resolve) {
+            pendingAction = function () { resolve(true); };
+            var onClose = function () {
+                cancelBtn.removeEventListener("click", onClose);
+                resolve(false);
+            };
+            cancelBtn.addEventListener("click", onClose, { once: true });
+            openModal(Object.assign({ message: message }, options || {}));
+        });
+    };
+})();
+</script>

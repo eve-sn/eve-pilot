@@ -3,7 +3,7 @@
 Iteration 1 (perimetre A + B) :
   A. CRUD Activity : planification des activites projet.
   B. Rapports terrain : soumission d'ActivityReport (participants,
-     beneficiaires, preuves) + workflow de validation Suivi & Evaluation
+     beneficiaires, preuves) + workflow de validation Secretaire Executif
      (SOUMIS -> VALIDE / REJETE).
 """
 
@@ -12,9 +12,14 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from apps.accounts.access import (
+    accessible_project_ids,
+    can_see_everything,
+)
 from apps.accounts.models import UserRole
 from apps.activities.forms import (
     ActivityEvidenceForm,
@@ -47,6 +52,11 @@ def activity_list(request):
         "project", "responsible"
     )
 
+    # Filtre par perimetre projet (chargee de suivi, comptable scope).
+    acc_ids = accessible_project_ids(request.user)
+    if acc_ids is not None:
+        qs = qs.filter(project_id__in=acc_ids)
+
     q = request.GET.get("q", "").strip()
     project_id = request.GET.get("project", "").strip()
     status = request.GET.get("status", "").strip()
@@ -64,16 +74,22 @@ def activity_list(request):
     qs = qs.order_by("project__code", "planned_start_date", "title")
 
     summary = Activity.objects.filter(**ACTIVE_DOMAIN)
+    if acc_ids is not None:
+        summary = summary.filter(project_id__in=acc_ids)
     status_counts = {
         item["status"]: item["total"]
         for item in summary.values("status").annotate(total=Count("id"))
     }
 
+    proj_qs = Project.objects.filter(**ACTIVE_DOMAIN)
+    if acc_ids is not None:
+        proj_qs = proj_qs.filter(id__in=acc_ids)
+
     context = {
         "activities": qs[:300],
         "filters": {"q": q, "project": project_id, "status": status},
         "status_choices": Activity.Status.choices,
-        "projects": Project.objects.filter(**ACTIVE_DOMAIN).order_by("code"),
+        "projects": proj_qs.order_by("code"),
         "total_activities": summary.count(),
         "planned_count": status_counts.get(Activity.Status.PLANNED, 0),
         "in_progress_count": status_counts.get(Activity.Status.IN_PROGRESS, 0),
@@ -88,7 +104,7 @@ def activity_create(request):
     """Creation d'une activite."""
 
     if request.method == "POST":
-        form = ActivityForm(request.POST)
+        form = ActivityForm(request.POST, user=request.user)
         if form.is_valid():
             activity = form.save(commit=False)
             activity.created_by = request.user
@@ -96,7 +112,7 @@ def activity_create(request):
             messages.success(request, f"Activite '{activity.title}' creee.")
             return redirect("activities:detail", public_uuid=activity.public_uuid)
     else:
-        form = ActivityForm()
+        form = ActivityForm(user=request.user)
     return render(request, "activities/form.html", {"form": form, "mode": "create"})
 
 
@@ -105,8 +121,15 @@ def activity_edit(request, public_uuid):
     """Edition d'une activite existante."""
 
     activity = get_object_or_404(Activity, public_uuid=public_uuid, **ACTIVE_DOMAIN)
+
+    # Acces : 404 si activite hors perimetre.
+    if not can_see_everything(request.user):
+        acc_ids = accessible_project_ids(request.user) or set()
+        if activity.project_id not in acc_ids:
+            raise Http404("Activite non accessible.")
+
     if request.method == "POST":
-        form = ActivityForm(request.POST, instance=activity)
+        form = ActivityForm(request.POST, instance=activity, user=request.user)
         if form.is_valid():
             activity = form.save(commit=False)
             activity.updated_by = request.user
@@ -114,7 +137,7 @@ def activity_edit(request, public_uuid):
             messages.success(request, "Activite mise a jour.")
             return redirect("activities:detail", public_uuid=activity.public_uuid)
     else:
-        form = ActivityForm(instance=activity)
+        form = ActivityForm(instance=activity, user=request.user)
     return render(
         request,
         "activities/form.html",
@@ -133,6 +156,13 @@ def activity_detail(request, public_uuid):
         public_uuid=public_uuid,
         **ACTIVE_DOMAIN,
     )
+
+    # Controle d'acces : 404 si activite hors perimetre utilisateur.
+    if not can_see_everything(request.user):
+        acc_ids = accessible_project_ids(request.user) or set()
+        if activity.project_id not in acc_ids:
+            raise Http404("Activite non accessible.")
+
     reports = (
         activity.reports.filter(**ACTIVE_DOMAIN)
         .select_related("reported_by", "validated_by", "commune")
@@ -173,6 +203,13 @@ def activity_report_create(request, public_uuid):
     """Soumission d'un rapport terrain rattache a une activite."""
 
     activity = get_object_or_404(Activity, public_uuid=public_uuid, **ACTIVE_DOMAIN)
+
+    # Acces : 404 si activite hors perimetre.
+    if not can_see_everything(request.user):
+        acc_ids = accessible_project_ids(request.user) or set()
+        if activity.project_id not in acc_ids:
+            raise Http404("Activite non accessible.")
+
     if request.method == "POST":
         form = ActivityReportForm(request.POST)
         if form.is_valid():
@@ -184,7 +221,7 @@ def activity_report_create(request, public_uuid):
             report.save()
             messages.success(
                 request,
-                "Rapport soumis. Il attend la validation Suivi & Evaluation.",
+                "Rapport soumis. Il attend la validation du Secretaire Executif.",
             )
             return redirect(
                 "activities:report_detail", public_uuid=report.public_uuid
@@ -208,6 +245,7 @@ def activity_report_detail(request, public_uuid):
       decide          : valideur SE -> VALIDE / REJETE (rapport SOUMIS).
     """
 
+    # Charge d'abord pour pouvoir verifier le projet.
     report = get_object_or_404(
         ActivityReport.objects.select_related(
             "activity", "activity__project", "reported_by", "validated_by", "commune"
@@ -215,6 +253,13 @@ def activity_report_detail(request, public_uuid):
         public_uuid=public_uuid,
         **ACTIVE_DOMAIN,
     )
+
+    # Acces : 404 si rapport hors perimetre projet utilisateur.
+    if not can_see_everything(request.user):
+        acc_ids = accessible_project_ids(request.user) or set()
+        if report.activity.project_id not in acc_ids:
+            raise Http404("Rapport non accessible.")
+
     role_codes = _user_role_codes(request.user)
     can_validate = VALIDATOR_ROLE_CODE in role_codes
     is_pending = report.validation_status == ActivityReport.ValidationStatus.SUBMITTED
@@ -250,7 +295,7 @@ def activity_report_detail(request, public_uuid):
             if not can_validate:
                 messages.error(
                     request,
-                    "Seul un utilisateur Suivi & Evaluation (SE) peut valider un rapport.",
+                    "Seul le Secretaire Executif (SE) peut valider un rapport d'activite.",
                 )
                 return redirect("activities:report_detail", public_uuid=public_uuid)
             if not is_pending:

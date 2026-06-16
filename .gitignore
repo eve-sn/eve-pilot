@@ -57,3 +57,5 @@ Synthese_Executive_Budget_2026.pdf
 *.docx
 *.odt
 *.ods
+.env.dev.backup
+Your new server.txt

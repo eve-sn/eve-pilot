@@ -17,7 +17,10 @@ from apps.finance.posting import PostingError, post_bank_movement, post_cash_mov
 
 @receiver(post_save, sender=BankMovement)
 def auto_post_bank_movement(sender, instance, **kwargs):
-    if instance.contra_account_id is None:
+    # On post si contra_account simple OU si des allocations existent
+    # (cas appel explicite apres creation des allocations multi-lignes).
+    has_allocations = instance.allocations.filter(is_active=True, deleted_at__isnull=True).exists()
+    if instance.contra_account_id is None and not has_allocations:
         return
     try:
         post_bank_movement(instance, regenerate=True)

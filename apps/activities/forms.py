@@ -43,10 +43,16 @@ class ActivityForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["project"].queryset = (
-            self.fields["project"].queryset.filter(**ACTIVE_DOMAIN).order_by("code")
-        )
+        proj_qs = self.fields["project"].queryset.filter(**ACTIVE_DOMAIN)
+        # Restriction par perimetre projet de l'utilisateur.
+        if user is not None:
+            from apps.accounts.access import accessible_project_ids
+            acc_ids = accessible_project_ids(user)
+            if acc_ids is not None:
+                proj_qs = proj_qs.filter(id__in=acc_ids)
+        self.fields["project"].queryset = proj_qs.order_by("code")
         self.fields["responsible"].queryset = (
             self.fields["responsible"].queryset.filter(**ACTIVE_DOMAIN).order_by(
                 "last_name", "first_name"
@@ -166,7 +172,7 @@ class ActivityEvidenceForm(forms.ModelForm):
 
 
 class ActivityReportDecisionForm(forms.Form):
-    """Decision du valideur Suivi & Evaluation sur un rapport soumis."""
+    """Decision du valideur Secretaire Executif sur un rapport soumis."""
 
     DECISION_CHOICES = [
         (ActivityReport.ValidationStatus.VALIDATED, "Valider"),

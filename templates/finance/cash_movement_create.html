@@ -1,0 +1,147 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Saisir une op&eacute;ration caisse{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">Petite caisse &middot; saisie</div>
+            <h1 style="font-size:1.4rem; margin-bottom:8px;">Saisir une op&eacute;ration de caisse</h1>
+            <p class="lead">
+                Petites d&eacute;penses op&eacute;rationnelles (transport personnel, carburant v&eacute;hicules,
+                restauration, produits d'entretien, mat&eacute;riel de cuisine) ou recharge depuis un
+                compte bancaire (BG ou projet). La pi&egrave;ce justificative doit &ecirc;tre attach&eacute;e.
+            </p>
+            <p class="muted" style="font-size:0.86rem; margin-top:8px;">
+                <strong>Plafonds SYCEBNL :</strong> 40 000 XOF par op&eacute;ration &middot;
+                200 000 XOF cumul&eacute;s par semaine ISO.
+            </p>
+            <div style="margin-top:14px;">
+                <a class="button" href="{% url 'finance:dashboard' %}">&larr; Retour tableau de bord</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <form method="post" enctype="multipart/form-data" class="form-grid">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="placeholder-note" style="color: var(--eve-red-700);">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div>
+                    <label>{{ form.operation.label }} *</label>
+                    {% for radio in form.operation %}
+                    <label style="display:inline-flex; gap:6px; margin-right:18px; font-weight:600;">
+                        {{ radio.tag }} {{ radio.choice_label }}
+                    </label>
+                    {% endfor %}
+                    {% if form.operation.help_text %}
+                    <div class="help" style="margin-top:6px; font-size:0.82rem; color:var(--muted);">{{ form.operation.help_text }}</div>
+                    {% endif %}
+                    {% if form.operation.errors %}<div class="errorlist">{{ form.operation.errors|join:" " }}</div>{% endif %}
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>{{ form.register.label }} *</label>
+                        {{ form.register }}
+                        {% if form.register.errors %}<div class="errorlist">{{ form.register.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label>{{ form.date_operation.label }} *</label>
+                        {{ form.date_operation }}
+                        {% if form.date_operation.errors %}<div class="errorlist">{{ form.date_operation.errors|join:" " }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div>
+                    <label>{{ form.label.label }} *</label>
+                    {{ form.label }}
+                    {% if form.label.errors %}<div class="errorlist">{{ form.label.errors|join:" " }}</div>{% endif %}
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>{{ form.amount.label }} *</label>
+                        {{ form.amount }}
+                        <div class="help">{{ form.amount.help_text }}</div>
+                        {% if form.amount.errors %}<div class="errorlist">{{ form.amount.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label>{{ form.recipient.label }}</label>
+                        {{ form.recipient }}
+                        {% if form.recipient.errors %}<div class="errorlist">{{ form.recipient.errors|join:" " }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>{{ form.project.label }}</label>
+                        {{ form.project }}
+                        <div class="help">{{ form.project.help_text }}</div>
+                        {% if form.project.errors %}<div class="errorlist">{{ form.project.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label>{{ form.budget_line.label }}</label>
+                        {{ form.budget_line }}
+                        {% if form.budget_line.errors %}<div class="errorlist">{{ form.budget_line.errors|join:" " }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div>
+                    <label>{{ form.contra_account.label }} *</label>
+                    {{ form.contra_account }}
+                    <div class="help">{{ form.contra_account.help_text }}</div>
+                    {% if form.contra_account.errors %}<div class="errorlist">{{ form.contra_account.errors|join:" " }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label>{{ form.justification.label }}</label>
+                    {{ form.justification }}
+                    <div class="help">{{ form.justification.help_text }}</div>
+                    {% if form.justification.errors %}<div class="errorlist">{{ form.justification.errors|join:" " }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label>{{ form.commentary.label }}</label>
+                    {{ form.commentary }}
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:8px;">
+                    <button class="button primary" type="submit">Enregistrer l'op&eacute;ration</button>
+                    <a class="button" href="{% url 'finance:dashboard' %}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<script>
+// Filtre dynamique du dropdown "Ligne budgetaire" selon le projet choisi.
+document.addEventListener("DOMContentLoaded", function () {
+    var ps = document.querySelector('select[name="project"]');
+    var ls = document.querySelector('select[name="budget_line"]');
+    if (!ps || !ls) return;
+    function applyFilter() {
+        var sel = ps.value || "";
+        var keep = false; var cur = ls.value;
+        Array.from(ls.options).forEach(function (o) {
+            if (!o.value) { o.hidden = false; return; }
+            var b = o.dataset.project || "";
+            var m = (b === sel);
+            o.hidden = !m; o.disabled = !m;
+            if (m && o.value === cur) keep = true;
+        });
+        if (!keep) ls.value = "";
+    }
+    ps.addEventListener("change", applyFilter); applyFilter();
+});
+</script>
+{% endblock %}

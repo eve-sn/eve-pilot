@@ -41,6 +41,9 @@ class ActivityCrudTests(TestCase):
             username="agent", email="agent@eve-sn.org",
             first_name="Agent", last_name="Terrain", password="x",
         )
+        # Acces global pour passer le filtre de perimetre projet.
+        cls.user.is_superuser = True
+        cls.user.save(update_fields=["is_superuser"])
 
     def setUp(self):
         self.client = Client()
@@ -115,7 +118,10 @@ class ActivityReportWorkflowTests(TestCase):
             username="agent2", email="agent2@eve-sn.org",
             first_name="Agent", last_name="Deux", password="x",
         )
-        cls.se_role = Role.objects.create(code="SE", name="Suivi et Evaluation")
+        # Acces global pour les tests de workflow rapport terrain.
+        cls.agent.is_superuser = True
+        cls.agent.save(update_fields=["is_superuser"])
+        cls.se_role = Role.objects.create(code="SE", name="Secretaire Executif")
         cls.se_user = User.objects.create_user(
             username="se_user", email="se@eve-sn.org",
             first_name="Madame", last_name="SE", password="x",

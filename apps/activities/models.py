@@ -109,7 +109,7 @@ class ActivityReport(TrackedModel):
     )
     validation_comment = models.TextField(
         blank=True,
-        help_text="Commentaire du valideur (Suivi & Evaluation), notamment en cas de rejet.",
+        help_text="Commentaire du valideur (Secretaire Executif), notamment en cas de rejet.",
     )
     validated_at = models.DateTimeField(blank=True, null=True)
 

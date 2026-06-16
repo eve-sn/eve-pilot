@@ -1,0 +1,384 @@
+{% extends "finance/base.html" %}
+{% load static %}
+
+{% block title %}EVE Pilot Finance &mdash; Saisir un mouvement bancaire{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">Saisie comptable &middot; banque</div>
+            <h1 style="font-size:1.4rem; margin-bottom:8px;">Saisir un mouvement bancaire</h1>
+            <p class="lead">
+                Saisie directe d'une <strong>d&eacute;pense</strong> ou <strong>recette</strong> sur un compte projet.
+                Possibilit&eacute; de d&eacute;tailler sur plusieurs <strong>lignes budg&eacute;taires</strong>
+                et d'attacher plusieurs <strong>pi&egrave;ces justificatives</strong> (TDR, proforma, BC, facture, BL, etc.).
+                Date back-datable depuis le 01/01/2026.
+            </p>
+            <div style="margin-top:14px;">
+                <a class="button" href="{% url 'finance:dashboard' %}">&larr; Retour tableau de bord</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <form method="post" enctype="multipart/form-data" class="form-grid">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="placeholder-note" style="color: var(--eve-red-700);">{{ form.non_field_errors }}</div>{% endif %}
+
+                <h3 style="font-size:1rem; margin-top:0; color:var(--eve-green-900);">1. Mouvement bancaire</h3>
+
+                <div>
+                    <label>{{ form.operation.label }} *</label>
+                    {% for radio in form.operation %}
+                    <label style="display:inline-flex; gap:6px; margin-right:18px; font-weight:600;">{{ radio.tag }} {{ radio.choice_label }}</label>
+                    {% endfor %}
+                    {% if form.operation.help_text %}
+                    <div class="help" style="margin-top:6px; font-size:0.82rem; color:var(--muted);">{{ form.operation.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>{{ form.account.label }} *</label>
+                        {{ form.account }}
+                    </div>
+                    <div>
+                        <label>{{ form.date_operation.label }} *</label>
+                        {{ form.date_operation }}
+                    </div>
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>{{ form.reference.label }}</label>
+                        {{ form.reference }}
+                    </div>
+                    <div>
+                        <label>{{ form.amount.label }} (total) *</label>
+                        {{ form.amount }}
+                        <div class="help">Si vous d&eacute;taillez sur plusieurs lignes budg&eacute;taires, la somme doit &eacute;galer ce total.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <label>{{ form.label.label }} *</label>
+                    {{ form.label }}
+                </div>
+
+                <div>
+                    <label>{{ form.recipient.label }}</label>
+                    {{ form.recipient }}
+                </div>
+
+                <h3 style="font-size:1rem; margin-top:24px; color:var(--eve-green-900);">2. Imputation analytique</h3>
+                <div class="placeholder-note" style="background:rgba(232,240,245,0.5); border-color:rgba(31,89,114,0.3); color:#1f5972; margin-bottom:10px; font-size:0.85rem;">
+                    Renseignez d'abord le <strong>projet</strong>. Les <strong>rubriques</strong> et <strong>lignes budg&eacute;taires</strong> ci-dessous seront filtr&eacute;es automatiquement.
+                </div>
+
+                <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                    <div>
+                        <label>Projet</label>
+                        {{ form.project }}
+                    </div>
+                    <div>
+                        <label>Rubrique budg&eacute;taire</label>
+                        <select name="budget_category" id="id_budget_category">
+                            <option value="">-- Rubrique (optionnel) --</option>
+                            {% for r in rubriques_data %}
+                            <option value="{{ r.id }}" data-projects="{{ r.projects }}">{{ r.code }} &mdash; {{ r.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="contra-simple-block">
+                    <label>{{ form.contra_account.label }}</label>
+                    {{ form.contra_account }}
+                    <div class="help">{{ form.contra_account.help_text }}</div>
+                    <div id="contra-ventil-note" class="placeholder-note" style="display:none; margin-top:8px; background:rgba(249,238,223,0.6); border-color:rgba(140,91,27,0.35); color:#8a5b1b; font-size:0.82rem;">
+                        Ventilation active : la contrepartie est definie <strong>ligne par ligne</strong> ci-dessous. Ce champ est ignore tant qu'il y a des lignes budgetaires.
+                    </div>
+                </div>
+
+                <h3 style="font-size:0.95rem; margin-top:14px; color:var(--eve-green-900);">Lignes budg&eacute;taires (ex&nbsp;: salaires &eacute;quipe, frais atelier)</h3>
+                <div class="muted" style="font-size:0.82rem; margin-bottom:8px;">
+                    Une ligne par poste budg&eacute;taire affect&eacute;. Filtr&eacute;es automatiquement par projet et rubrique s&eacute;lectionn&eacute;s ci-dessus.
+                </div>
+
+                <div id="allocations" style="display:flex; flex-direction:column; gap:8px; font-size:0.84rem;"></div>
+                <div style="display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin-top:4px;">
+                    <button type="button" class="button small" id="add-alloc">+ Ajouter une ligne budg&eacute;taire</button>
+                    <button type="button" class="button small" id="fill-reste" style="display:none;">= Reporter le reste sur la derni&egrave;re ligne</button>
+                    <span class="muted" style="font-size:0.82rem;">Total ventil&eacute; : <strong id="alloc-sum">0</strong> XOF</span>
+                    <span id="recon-box" style="display:none; font-size:0.82rem; font-weight:700;">&middot; Reste &agrave; ventiler : <span id="reste-label">0</span> XOF <span id="recon-ok"></span></span>
+                </div>
+
+                <h3 style="font-size:1rem; margin-top:24px; color:var(--eve-green-900);">3. Pi&egrave;ces justificatives</h3>
+                <div>
+                    <label>Pi&egrave;ce principale (1 fichier)</label>
+                    {{ form.justification }}
+                </div>
+
+                <h3 style="font-size:0.95rem; margin-top:14px; color:var(--eve-green-900);">Pi&egrave;ces multiples (TDR, BC, facture, BL, contrat, PV, etc.)</h3>
+                <div id="docs" style="display:flex; flex-direction:column; gap:8px; font-size:0.84rem;"></div>
+                <div>
+                    <button type="button" class="button small" id="add-doc">+ Ajouter une pi&egrave;ce</button>
+                </div>
+
+                <h3 style="font-size:1rem; margin-top:24px; color:var(--eve-green-900);">4. Commentaire</h3>
+                <div>{{ form.commentary }}</div>
+
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button class="button primary" type="submit" id="submit-btn">Enregistrer le mouvement</button>
+                    <a class="button" href="{% url 'finance:dashboard' %}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<template id="alloc-template">
+    <div class="alloc-row" style="display:grid; grid-template-columns: 1.6fr 1.6fr 1fr 1.4fr 30px; gap:6px; padding:6px; background:rgba(212,234,217,0.3); border-radius:8px; align-items:center;">
+        <select name="alloc_budget_line_IDX" class="alloc-budget-line" required>
+            <option value="">-- Ligne budg&eacute;taire --</option>
+            {% for bl in budget_lines_data %}
+            <option value="{{ bl.id }}" data-project="{{ bl.project_id }}" data-category="{{ bl.category_id }}">{{ bl.code }} &mdash; {{ bl.description }}</option>
+            {% endfor %}
+        </select>
+        <select name="alloc_contra_IDX" class="alloc-contra" required>
+            <option value="">-- Compte SYCEBNL --</option>
+            {% for ca in chart_accounts_for_split %}
+            <option value="{{ ca.code }}">{{ ca.code }} - {{ ca.name|truncatechars:40 }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="alloc_amount_IDX" class="alloc-amount" placeholder="Montant" inputmode="decimal" required>
+        <input type="text" name="alloc_desc_IDX" placeholder="Description (ex: Salaire Animateur 1)">
+        <button type="button" class="button small alloc-remove" style="padding:4px 8px;">✕</button>
+        <input type="hidden" name="alloc_project_IDX" class="alloc-project-hidden">
+    </div>
+</template>
+
+<template id="doc-template">
+    <div class="doc-row" style="display:grid; grid-template-columns: 1.2fr 2fr 1.6fr 30px; gap:6px; padding:6px; background:rgba(249,238,223,0.3); border-radius:8px; align-items:center;">
+        <select name="docs_types" required>
+            <option value="">-- Type pi&egrave;ce --</option>
+            <option value="TDR">Termes de r&eacute;f&eacute;rence (TDR)</option>
+            <option value="PROFORMA">Facture proforma</option>
+            <option value="CONTRAT">Contrat / convention</option>
+            <option value="AVENANT">Avenant au contrat</option>
+            <option value="PV_SELECTION">PV de s&eacute;lection fournisseur</option>
+            <option value="BC">Bon de commande</option>
+            <option value="FACTURE">Facture d&eacute;finitive</option>
+            <option value="BORDEREAU">Bordereau de livraison</option>
+            <option value="PRESENCE">Feuille de pr&eacute;sence</option>
+            <option value="RAPPORT">Rapport / livrable</option>
+            <option value="ORDRE_VIREMENT">Ordre de virement bancaire</option>
+            <option value="AVIS_CREDIT">Avis de cr&eacute;dit bancaire</option>
+            <option value="RELEVE">Extrait relev&eacute;</option>
+            <option value="AUTRE">Autre pi&egrave;ce</option>
+        </select>
+        <input type="text" name="docs_labels" placeholder="Libell&eacute; (optionnel)">
+        <input type="file" name="docs_files" required>
+        <button type="button" class="button small doc-remove" style="padding:4px 8px;">✕</button>
+    </div>
+</template>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var projectSel = document.querySelector('select[name="project"]');
+    var rubriqueSel = document.getElementById("id_budget_category");
+    var allocContainer = document.getElementById("allocations");
+    var addAllocBtn = document.getElementById("add-alloc");
+    var allocTmpl = document.getElementById("alloc-template").content;
+    var sumLabel = document.getElementById("alloc-sum");
+    var amountField = document.querySelector('input[name="amount"], #id_amount');
+    var submitBtn = document.getElementById("submit-btn");
+    var reconBox = document.getElementById("recon-box");
+    var resteLabel = document.getElementById("reste-label");
+    var reconOk = document.getElementById("recon-ok");
+    var fillResteBtn = document.getElementById("fill-reste");
+    var topContra = document.querySelector('select[name="contra_account"]');
+    var contraNote = document.getElementById("contra-ventil-note");
+    var allocIdx = 0;
+
+    function parseAmt(s) {
+        var v = parseFloat(String(s == null ? "" : s).replace(/\s/g, "").replace(",", "."));
+        return isNaN(v) ? 0 : v;
+    }
+    function fmt(n) { return n.toLocaleString("fr-FR"); }
+
+    // Q2 : la contrepartie du haut (imputation simple) est exclusive de la
+    // ventilation ligne par ligne. Des qu'il y a une ligne, on la neutralise.
+    function updateContraMode() {
+        var nLines = allocContainer.querySelectorAll(".alloc-row").length;
+        var ventil = nLines > 0;
+        if (topContra) {
+            topContra.disabled = ventil;
+            var wrap = topContra.closest("div");
+            if (wrap) {
+                wrap.style.opacity = ventil ? "0.45" : "";
+                wrap.style.pointerEvents = ventil ? "none" : "";
+                var srch = wrap.querySelector('input[type="text"]');
+                if (srch) srch.disabled = ventil;
+            }
+        }
+        if (contraNote) contraNote.style.display = ventil ? "" : "none";
+    }
+
+    function getSelectedProjectId() {
+        return projectSel ? (projectSel.value || "0") : "0";
+    }
+
+    function getSelectedCategoryId() {
+        return rubriqueSel ? (rubriqueSel.value || "") : "";
+    }
+
+    // Filtre les options d'un <select> selon les data-attributs
+    function filterRubriques() {
+        var pid = getSelectedProjectId();
+        Array.from(rubriqueSel.options).forEach(function (opt) {
+            if (!opt.value) { opt.hidden = false; return; }
+            var projects = (opt.dataset.projects || "").split(",").filter(Boolean);
+            // Affiche si projet vide (pas encore choisi) ou si rubrique a une ligne sur ce projet
+            var show = !pid || pid === "0" || projects.indexOf(pid) >= 0 || projects.indexOf("0") >= 0 && pid === "0";
+            opt.hidden = !show;
+            opt.disabled = !show;
+        });
+        // Reset selection si invalide
+        var sel = rubriqueSel.options[rubriqueSel.selectedIndex];
+        if (sel && sel.value && sel.hidden) rubriqueSel.value = "";
+    }
+
+    function filterBudgetLinesInRow(row) {
+        var pid = getSelectedProjectId();
+        var cid = getSelectedCategoryId();
+        var sel = row.querySelector(".alloc-budget-line");
+        if (!sel) return;
+        var validCount = 0;
+        Array.from(sel.options).forEach(function (opt) {
+            if (!opt.value) { opt.hidden = false; return; }
+            var optProject = opt.dataset.project || "0";
+            var optCategory = opt.dataset.category || "";
+            var matchProject = !pid || pid === "0" || optProject === pid;
+            var matchCategory = !cid || optCategory === cid;
+            var show = matchProject && matchCategory;
+            opt.hidden = !show; opt.disabled = !show;
+            if (show) validCount++;
+        });
+        // Reset si selection invalide
+        var current = sel.options[sel.selectedIndex];
+        if (current && current.value && current.hidden) sel.value = "";
+    }
+
+    function filterAllBudgetLines() {
+        allocContainer.querySelectorAll(".alloc-row").forEach(filterBudgetLinesInRow);
+    }
+
+    function recalc() {
+        var sum = 0;
+        allocContainer.querySelectorAll(".alloc-amount").forEach(function (i) {
+            sum += parseAmt(i.value);
+        });
+        sumLabel.textContent = fmt(sum);
+
+        var nLines = allocContainer.querySelectorAll(".alloc-row").length;
+        var total = amountField ? parseAmt(amountField.value) : 0;
+        var reste = Math.round((total - sum) * 100) / 100;
+
+        if (nLines > 0) {
+            if (reconBox) { reconBox.style.display = ""; }
+            if (resteLabel) resteLabel.textContent = fmt(reste);
+            if (fillResteBtn) fillResteBtn.style.display = (reste > 0) ? "" : "none";
+            var ok = (total > 0) && (Math.abs(reste) < 0.005);
+            if (reconBox) reconBox.style.color = ok ? "var(--eve-green-900)" : "var(--eve-red-700)";
+            if (reconOk) reconOk.textContent = ok ? "✓ equilibre" : "✗ a ajuster";
+            // Blocage : on n'autorise l'enregistrement que si la ventilation
+            // tombe juste (le serveur revalide de toute facon).
+            if (submitBtn) {
+                submitBtn.disabled = !ok;
+                submitBtn.title = ok ? "" : "La somme des lignes doit egaler le montant total avant d'enregistrer.";
+                submitBtn.style.opacity = ok ? "" : "0.5";
+            }
+        } else {
+            if (reconBox) reconBox.style.display = "none";
+            if (fillResteBtn) fillResteBtn.style.display = "none";
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.title = ""; submitBtn.style.opacity = ""; }
+        }
+    }
+
+    addAllocBtn.addEventListener("click", function () {
+        var clone = document.importNode(allocTmpl, true);
+        var row = clone.querySelector(".alloc-row");
+        row.querySelectorAll("[name]").forEach(function (el) {
+            el.name = el.name.replace("IDX", allocIdx);
+        });
+        // Met le projet courant dans le hidden field
+        var pid = getSelectedProjectId();
+        var hidden = row.querySelector(".alloc-project-hidden");
+        if (hidden && pid !== "0") hidden.value = pid;
+        row.querySelector(".alloc-remove").addEventListener("click", function () {
+            row.remove(); updateContraMode(); recalc();
+        });
+        row.querySelector(".alloc-amount").addEventListener("input", recalc);
+        allocContainer.appendChild(row);
+        filterBudgetLinesInRow(row);
+        allocIdx++;
+        updateContraMode();
+        recalc();
+    });
+
+    if (amountField) amountField.addEventListener("input", recalc);
+
+    if (fillResteBtn) {
+        fillResteBtn.addEventListener("click", function () {
+            var rows = allocContainer.querySelectorAll(".alloc-row");
+            if (!rows.length || !amountField) return;
+            var total = parseAmt(amountField.value);
+            var last = rows[rows.length - 1];
+            var sumOthers = 0;
+            rows.forEach(function (r) {
+                if (r !== last) sumOthers += parseAmt(r.querySelector(".alloc-amount").value);
+            });
+            var reste = Math.round((total - sumOthers) * 100) / 100;
+            if (reste > 0) {
+                last.querySelector(".alloc-amount").value = reste;
+                recalc();
+            }
+        });
+    }
+
+    if (projectSel) {
+        projectSel.addEventListener("change", function () {
+            filterRubriques();
+            filterAllBudgetLines();
+            // Met a jour les hidden project_id dans toutes les allocations
+            var pid = getSelectedProjectId();
+            allocContainer.querySelectorAll(".alloc-project-hidden").forEach(function (h) {
+                h.value = pid !== "0" ? pid : "";
+            });
+        });
+    }
+    if (rubriqueSel) {
+        rubriqueSel.addEventListener("change", filterAllBudgetLines);
+    }
+
+    // Premier filtrage au chargement
+    filterRubriques();
+    updateContraMode();
+    recalc();
+
+    var docContainer = document.getElementById("docs");
+    var addDocBtn = document.getElementById("add-doc");
+    var docTmpl = document.getElementById("doc-template").content;
+    addDocBtn.addEventListener("click", function () {
+        var clone = document.importNode(docTmpl, true);
+        var row = clone.querySelector(".doc-row");
+        row.querySelector(".doc-remove").addEventListener("click", function () { row.remove(); });
+        docContainer.appendChild(row);
+    });
+});
+</script>
+{% endblock %}

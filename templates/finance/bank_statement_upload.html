@@ -1,0 +1,97 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot &mdash; Import releve bancaire{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div class="wrap" style="padding-top:14px;">
+    {% for message in messages %}
+    <div class="placeholder-note" style="white-space:pre-line; {% if message.tags == 'error' %}background:rgba(245,218,215,0.55); border-color:rgba(185,48,42,0.4); color:#8a2b2b;{% elif message.tags == 'warning' %}background:rgba(249,238,223,0.7); border-color:rgba(140,91,27,0.4); color:#8a5b1b;{% endif %} margin-bottom:8px;">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+<section class="hero">
+    <div class="wrap">
+        <div class="card">
+            <div class="eyebrow">Assistant d'import</div>
+            <h1 style="font-size:1.4rem; margin-bottom:8px;">Importer un releve bancaire PDF</h1>
+            <p class="lead">
+                Televerser le PDF du releve bancaire d'un compte. L'assistant extrait les lignes,
+                propose une imputation SYCEBNL automatique, et vous laissez la main pour
+                valider/corriger avant l'import en lot definitif.
+            </p>
+            <div style="margin-top:14px;">
+                <a class="button" href="{% url 'finance:dashboard' %}">&larr; Retour tableau de bord</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.15rem;">Nouvel import</h2></div>
+                <form method="post" enctype="multipart/form-data" class="form-grid">
+                    {% csrf_token %}
+                    <div>
+                        <label>Compte bancaire *</label>
+                        <select name="account" required>
+                            <option value="">-- Choisir un compte --</option>
+                            {% for a in bank_accounts %}
+                            <option value="{{ a.id }}">{{ a.name }} ({{ a.bank_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Fichier PDF du releve *</label>
+                        <input type="file" name="pdf_file" accept="application/pdf" required>
+                        <div class="help">Le PDF doit etre texte (pas une image scannee). Si scanne, faites un OCR avant.</div>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:8px;">
+                        <button class="button primary" type="submit">Analyser le PDF</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card">
+                <div class="section-header"><h2 style="font-size:1.15rem;">Imports recents</h2></div>
+                {% if recent_drafts %}
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Compte</th><th>Date import</th><th>Statut</th><th class="right">Lignes</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for d in recent_drafts %}
+                        <tr>
+                            <td>{{ d.account.name|truncatechars:25 }}</td>
+                            <td>{{ d.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if d.status == 'DRAFT' %}<span class="badge warn">A revoir</span>
+                                {% elif d.status == 'IMPORTED' %}<span class="badge">Importe</span>
+                                {% else %}<span class="badge muted">{{ d.get_status_display }}</span>{% endif %}
+                            </td>
+                            <td class="right">{{ d.nb_lines_parsed }}{% if d.nb_lines_imported %} / <strong>{{ d.nb_lines_imported }}</strong>{% endif %}</td>
+                            <td style="white-space:nowrap;">
+                                <a href="{% url 'finance:bank_statement_review' d.id %}">Ouvrir</a>
+                                &nbsp;&middot;&nbsp;
+                                <form method="post" action="{% url 'finance:bank_statement_delete' d.id %}" style="display:inline;"
+                                      data-confirm="Cette action supprime definitivement le brouillon. Les mouvements deja importes en base restent intacts."
+                                      data-confirm-title="Supprimer le brouillon ?"
+                                      data-confirm-kind="danger"
+                                      data-confirm-ok="Supprimer">
+                                    {% csrf_token %}
+                                    <button type="submit" style="background:none; border:none; padding:0; color:var(--eve-red-700); cursor:pointer; font:inherit; text-decoration:underline;">Supprimer</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="muted">Aucun import recent.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
