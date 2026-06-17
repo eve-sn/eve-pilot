@@ -1,5 +1,5 @@
 # Test de procédure SYCEBNL — Exécution d'une dépense de A à Z
-## Cas pilote : formation thématique « climat » du mardi 23 juin 2026
+## Cas pilote : formation « climat » sur le projet ECO-AVENIR
 
 > Objet : tester avec toute l'équipe le circuit complet d'une dépense dans
 > EVE Pilot — **planification → demande → validation → engagement → décaissement
@@ -16,39 +16,41 @@
 
 ---
 
-## 0. Prérequis techniques (RAF / admin, à faire AVANT de convoquer l'équipe)
+## 0. Prérequis techniques (RAF / admin — DÉJÀ EXÉCUTÉS sur le serveur)
 
-Sans ça, les testeurs sont bloqués dès la première étape :
+Ces commandes ont été lancées et vérifiées ; elles sont idempotentes (re-jouables) :
 
 ```bash
-# 1) Lier chaque compte à sa fiche employé (sinon « créer une demande » est refusé)
-sudo -u eve /srv/eve_pilot/.venv/bin/python /srv/eve_pilot/manage.py link_users_employees
-
-# 2) Vérifier que les rôles valideurs existent (RAF/DP/SE)
-sudo -u eve /srv/eve_pilot/.venv/bin/python /srv/eve_pilot/manage.py seed_expense_validation_roles
-
-# 3) S'assurer que le projet choisi a au moins une LIGNE BUDGÉTAIRE éligible
-#    (la demande de dépense s'impute obligatoirement sur une ligne budgétaire).
+M="sudo -u eve /srv/eve_pilot/.venv/bin/python /srv/eve_pilot/manage.py"
+$M link_users_employees           # lie chaque compte à sa fiche employé
+$M seed_expense_validation_roles  # rôles valideurs RAF / DP / SE
+$M set_pilot_emails               # adresses email réelles des comptes
+$M setup_test_ecoavenir           # projet ECO-AVENIR + ligne FORM-CLIMAT-TEST
+                                  #  + banque SUNU BANK + rattache Magueye DRAME
 ```
 
-À la fin de l'étape 1, les 4 comptes **personnel d'appui / stagiaires** (BALDE,
-TOURE, SENGHOR, NDIONE) seront signalés « sans fiche » : c'est normal, ils ne
-créent pas de demande mais participent à la logistique et à la documentation.
+État obtenu : 14 comptes liés ; projet **OGHOGHO-ECOAVENIR-2026** actif avec la
+ligne **FORM-CLIMAT-TEST** ; banque **SUNU BANK (EVE-OXFAM)** rattachée ;
+demandeur **Magueye DRAME** dans l'équipe projet ; **emails opérationnels**
+(SMTP 587/STARTTLS, envoi réel confirmé). Les comptes **appui / stagiaires**
+(BALDE, TOURE, SENGHOR, NDIONE) restent « sans fiche » : normal, rôle logistique.
 
 ---
 
 ## 1. PARTIE A — Programme de la formation (la dépense à exécuter)
 
 **Thème** : *Adaptation au changement climatique et pratiques résilientes en
-milieu communautaire* (à ajuster en réunion de planification selon le projet
-porteur : ISF-AXA / ECO-AVENIR / WASH).
+milieu communautaire* — porté par le projet **ECO-AVENIR** (OGHOGHO-ECOAVENIR-2026,
+bailleur Oghogho Meye / La Locomotiva), dont l'objet est précisément la résilience
+des enfants et jeunes au changement climatique à Pikine.
 
 | | |
 |---|---|
 | **Date** | Mardi 14 juillet 2026 (recommandée — voir calendrier §5), 08h30 – 17h00 |
 | **Lieu** | *À confirmer en réunion de planification (J-6)* |
 | **Public** | *À confirmer (relais communautaires, animateurs, partenaires) — viser 25 à 30 participants* |
-| **Porteur** | Projet à dominante climat + ligne budgétaire « formation / renforcement de capacités » |
+| **Porteur** | Projet **ECO-AVENIR** (OGHOGHO-ECOAVENIR-2026) · ligne **FORM-CLIMAT-TEST** · banque **SUNU BANK (EVE-OXFAM)** |
+| **Demandeur** | **Magueye DRAME** (`maguevedrame`, chargé de suivi rattaché au projet) |
 | **Objectif général** | Renforcer les capacités des participants sur la compréhension des risques climatiques et l'adoption de pratiques d'adaptation |
 
 **Déroulé pédagogique (à joindre comme TDR) :**
@@ -91,10 +93,11 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | **alydiouf** | RAF | Valideur n°1 ; autorise l'engagement et le décaissement ; peut marquer l'exécution ; contrôle de conformité financière |
 | **sndiaye** | DP | Valideur n°2 (opportunité / cohérence programme) ; ouvre la formation |
 | **abdoudiouf** | SE | Valideur n°3 (validation institutionnelle finale) |
-| **amyseck** | ARAF | Contrôle de l'imputation budgétaire et de la disponibilité de crédit (BG) avant validation |
+| **amyseck** | ARAF | Appui au contrôle budgétaire (son périmètre propre = Budget Général ; ici la dépense est sur projet, elle intervient en appui) |
 | **ssakho** | COMPTABLE | Saisit l'**engagement** et le **décaissement**, génère la **pièce comptable**, comptabilise la dépense, rapproche, archive en compta |
-| **taphafall** | CHEF_PROJET | Pilote la planification ; co-rédige le TDR et le budget ; peut être le **demandeur** |
-| **ksylla / morndiaye / adioumandiongue / maguevedrame / dioumandour** | CHARGE_SUIVI | Contenu pédagogique ; **création de la demande de dépense (demandeur)** ; suivi de la réalisation ; liste de présence ; rapport d'activité |
+| **taphafall** | CHEF_PROJET | Pilote la planification ; co-rédige le TDR et le budget |
+| **maguevedrame** (**DEMANDEUR de ce test**) | CHARGE_SUIVI | **Crée la demande de dépense sur ECO-AVENIR** ; contenu pédagogique ; suivi de la réalisation ; liste de présence ; rapport d'activité |
+| ksylla / morndiaye / adioumandiongue / dioumandour | CHARGE_SUIVI | Mêmes attributions sur leurs projets respectifs |
 | **cheikhpathe** | REFERENT | Validation du contenu technique « climat » ; appui méthodologique ; restitution |
 | **habibdiouf / khalifadieng** | GESTIONNAIRE | Logistique : 3 devis/proforma, PV de sélection, bons de commande, gestion fournisseurs, collecte des factures, états de perdiem |
 | **rokhayaba** | SECRETAIRE | Invitations/convocations ; émargement ; **gestion documentaire et archivage des pièces** ; courriers |
@@ -124,10 +127,9 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 ### Phase 3 — Demande de dépense (DD) — J‑12 → J‑10 (02/07 → 04/07)
 | Qui | Action dans EVE Pilot | Pièce / statut |
 |---|---|---|
-| CHARGE_SUIVI (demandeur) | `Finance ▸ Demandes ▸ Nouvelle` : projet, **ligne budgétaire**, intitulé, motif, montant | DD créée → **BROUILLON** |
-| CHARGE_SUIVI | Onglet de la DD ▸ **Ajouter document** : joindre TDR, budget, **PROFORMA**, PV de sélection | Pièces typées attachées |
-| ARAF | Vérifier l'imputation et la disponibilité de crédit sur la ligne | (contrôle préalable) |
-| CHARGE_SUIVI | Bouton **Soumettre** | → **SOUMISE** ; 3 validations RAF/DP/SE créées + valideurs notifiés |
+| **Magueye DRAME** (demandeur) | `Finance ▸ Demandes ▸ Nouvelle` : projet **ECO-AVENIR**, ligne **FORM-CLIMAT-TEST**, intitulé, motif, montant | DD créée → **BROUILLON** |
+| Magueye DRAME | Onglet de la DD ▸ **Ajouter document** : joindre TDR, budget, **PROFORMA**, PV de sélection | Pièces typées attachées |
+| Magueye DRAME | Bouton **Soumettre** | → **SOUMISE** ; 3 validations RAF/DP/SE créées ; **RAF + DP + SE notifiés par mail en même temps** |
 
 ### Phase 4 — Validation (triple signature) — J‑10 → J‑7 (04/07 → 07/07)
 | Qui | Action | Effet |
@@ -138,6 +140,13 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | — | Quand **les 3 sont APPROUVÉES** | DD → **APPROUVÉE** (déblocage de l'exécution) |
 
 > Si un valideur rejette → DD **REJETÉE**, le demandeur est notifié et corrige.
+
+> 📧 **Notifications email (opérationnelles, envoi réel via SMTP eve-sn.org)** :
+> - à la **soumission** → **RAF + DP + SE** reçoivent un mail **en même temps** ;
+> - à **chaque signature** → le **demandeur ET les autres valideurs** sont prévenus
+>   de la progression (« untel a signé, il reste X ») ;
+> - à la **décision finale** → le demandeur reçoit le résultat (approuvée / rejetée).
+> Chaque mail contient un lien direct vers la demande (`https://pilot.eve-sn.org/...`).
 
 ### Phase 5 — Engagement (budgétaire) + bons de commande — J‑7 → J‑5 (07/07 → 09/07)
 > ⚠️ **Ce que fait réellement EVE Pilot** : l'engagement à ce stade est
@@ -156,7 +165,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | Qui | Action dans EVE Pilot | Écriture **auto-générée** |
 |---|---|---|
 | RAF | Autoriser le décaissement | (autorisation) |
-| COMPTABLE | `DD ▸ Saisir paiement` : créer le **BankMovement / CashMovement** en désignant **le compte de charge** (contra_account, ex. 633 / 6221 / 6132) ; DD → **EXÉCUTÉE** | **Dr 6xxx** (charge) / **Cr 5211.x** Banque (ou **571.x** Caisse) |
+| COMPTABLE | `DD ▸ Saisir paiement` : créer le **BankMovement** sur **SUNU BANK (EVE-OXFAM)** en désignant **le compte de charge** (contra_account, ex. 633 / 6221 / 6132) ; DD → **EXÉCUTÉE** | **Dr 6xxx** (charge) / **Cr 5211.20** SUNU BANK (EVE-OXFAM) |
 | — | *posting.py ajoute la neutralisation du fonds dédié (SYCEBNL App.8)* | **Dr 462** Fonds d'administration / **Cr 702** Quote-part *(automatique)* |
 | COMPTABLE | Éditer la **pièce comptable** (bouton *Pièce* / *Pièce PDF* sur le mouvement) | **Pièce comptable + annexes** |
 | CHAUFFEUR | Ordre de mission + carnet de bord (si déplacement) | Ordre de mission |
@@ -173,7 +182,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | SECRETAIRE | Faire **émarger la liste de présence** (par demi-journée) | **Liste de présence émargée** |
 | GESTIONNAIRE | Collecter **factures définitives** + reçus acquittés + **états de perdiem signés** (avec copies CNI) | Factures, reçus, états |
 | CHARGE_SUIVI + STAGIAIRE | Rédiger le **rapport d'activité** (narratif + résultats + évaluation) | **Rapport d'activité** |
-| COMPTABLE | Solder les fournisseurs (paiement du solde) | **Dr 401 / Cr 5211.x** |
+| COMPTABLE | Solder les fournisseurs (paiement du solde) | **Dr 6xxx / Cr 5211.20** (SUNU BANK) |
 | COMPTABLE | Régulariser l'écart **proforma ↔ facture** s'il existe ; rapprocher ; clôturer la dépense | Écritures de régularisation |
 | SECRETAIRE | **Archiver** l'ensemble des pièces (rattachées à la DD et au mouvement) | Dossier complet |
 
