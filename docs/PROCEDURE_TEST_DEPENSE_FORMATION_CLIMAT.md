@@ -6,9 +6,13 @@
 > → réalisation → comptabilisation** — avec les pièces justificatives conformes
 > et les écritures SYCEBNL (comptabilité d'engagement).
 >
-> Aujourd'hui = **mercredi 17/06/2026**. Activité = **mardi 23/06/2026**.
-> Jours ouvrés disponibles : 17, 18, 19 juin, puis 22 juin (lun) → 4 jours pour
-> tout boucler avant l'activité. **Le tempo est serré : tenir le calendrier.**
+> Aujourd'hui = **mercredi 17/06/2026**.
+> Une activité normale conforme suppose **~3 semaines de préparation** (planification,
+> mise en concurrence, validation, engagement, décaissement) et **~2 semaines de
+> clôture** après. Le 23/06 (6 jours) est **trop court pour un cycle conforme** :
+> on retient une **date d'activité recommandée = mardi 14 juillet 2026** (à confirmer
+> par la Direction). Le calendrier ci-dessous est exprimé en **J‑x** (réutilisable
+> pour toute activité) puis décliné en dates concrètes.
 
 ---
 
@@ -41,7 +45,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 
 | | |
 |---|---|
-| **Date** | Mardi 23 juin 2026, 08h30 – 17h00 |
+| **Date** | Mardi 14 juillet 2026 (recommandée — voir calendrier §5), 08h30 – 17h00 |
 | **Lieu** | *À confirmer en réunion de planification (J-6)* |
 | **Public** | *À confirmer (relais communautaires, animateurs, partenaires) — viser 25 à 30 participants* |
 | **Porteur** | Projet à dominante climat + ligne budgétaire « formation / renforcement de capacités » |
@@ -105,19 +109,19 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 > Convention : **DD** = demande de dépense (`/finance/demandes/`).
 > Chaque ligne indique *qui*, *quoi dans l'appli*, *quelle pièce*, *quel effet*.
 
-### Phase 1 — Planification — mer 17/06 (J-6)
+### Phase 1 — Planification — J‑21 → J‑17 (lun 22 → ven 26 juin)
 | Qui | Action | Pièce produite |
 |---|---|---|
 | DP + CHEF_PROJET + REFERENT + CHARGES_SUIVI | Réunion : arrêter thème, **lieu, participants**, date confirmée, budget prévisionnel, projet + ligne budgétaire d'imputation | **PV de réunion de planification** |
 | CHARGE_SUIVI + REFERENT | Rédiger les **TDR** (objectifs, programme, public, budget) | **TDR signés** |
 
-### Phase 2 — Préparation des pièces amont — jeu 18/06 (J-5)
+### Phase 2 — Mise en concurrence & préparation des pièces — J‑16 → J‑12 (28/06 → 02/07)
 | Qui | Action | Pièce |
 |---|---|---|
 | GESTIONNAIRE | Demander **3 devis/proforma** (salle, restauration, transport) puis établir le **PV de sélection** du fournisseur | Proforma ×3 + **PV de sélection** |
 | SECRETAIRE | Préparer invitations / convocations | Invitations |
 
-### Phase 3 — Demande de dépense (DD) — ven 19/06 (J-4)
+### Phase 3 — Demande de dépense (DD) — J‑12 → J‑10 (02/07 → 04/07)
 | Qui | Action dans EVE Pilot | Pièce / statut |
 |---|---|---|
 | CHARGE_SUIVI (demandeur) | `Finance ▸ Demandes ▸ Nouvelle` : projet, **ligne budgétaire**, intitulé, motif, montant | DD créée → **BROUILLON** |
@@ -125,7 +129,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | ARAF | Vérifier l'imputation et la disponibilité de crédit sur la ligne | (contrôle préalable) |
 | CHARGE_SUIVI | Bouton **Soumettre** | → **SOUMISE** ; 3 validations RAF/DP/SE créées + valideurs notifiés |
 
-### Phase 4 — Validation (triple signature) — ven 19/06 (J-4)
+### Phase 4 — Validation (triple signature) — J‑10 → J‑7 (04/07 → 07/07)
 | Qui | Action | Effet |
 |---|---|---|
 | RAF (alydiouf) | Sur la DD : **Approuver / Rejeter** + commentaire | Signature 1 |
@@ -135,7 +139,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 
 > Si un valideur rejette → DD **REJETÉE**, le demandeur est notifié et corrige.
 
-### Phase 5 — Engagement (budgétaire) — lun 22/06 (J-1)
+### Phase 5 — Engagement (budgétaire) + bons de commande — J‑7 → J‑5 (07/07 → 09/07)
 > ⚠️ **Ce que fait réellement EVE Pilot** : l'engagement à ce stade est
 > **budgétaire / de gestion** (la commande consomme du crédit sur la ligne), il
 > n'y a **pas encore d'écriture comptable postée**. L'écriture en partie double
@@ -148,7 +152,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 | GESTIONNAIRE | Émettre les **bons de commande** sur la base de la DD approuvée | **BC** ; engagement de crédit sur la ligne |
 | COMPTABLE (ssakho) | Enregistrer l'engagement (n° de commande / `Commitment`) pour le suivi budgétaire | Engagement budgétaire tracé |
 
-### Phase 6 — Décaissement + écriture automatique — lun 22/06 (J-1)
+### Phase 6 — Décaissement (avance) + écriture automatique — J‑5 → J‑3 (09/07 → 11/07)
 | Qui | Action dans EVE Pilot | Écriture **auto-générée** |
 |---|---|---|
 | RAF | Autoriser le décaissement | (autorisation) |
@@ -162,7 +166,7 @@ porteur : ISF-AXA / ECO-AVENIR / WASH).
 > projet. Le compte **401 Fournisseurs** n'intervient que si vous choisissez de
 > tenir l'engagement fournisseur en écriture manuelle.
 
-### Phase 7 — Réalisation + Comptabilisation finale — mar 23/06 (J) → mar 30/06 (J+5)
+### Phase 7 — Réalisation (J) + justification & comptabilisation — J → J+10 (14/07 → 24/07)
 | Qui | Action | Pièce / écriture |
 |---|---|---|
 | Toute l'équipe terrain (appui, stagiaires, chauffeur) | Tenir la formation | Photos, notes |
@@ -196,16 +200,50 @@ carnet de bord chauffeur, supports pédagogiques distribués.
 
 ---
 
-## 5. PARTIE E — Calendrier récapitulatif
+## 5. PARTIE E — Calendrier
 
-| Jour | Date | Étape | Pilote |
+### 5.1 Modèle standard conforme (réutilisable pour toute activité)
+
+Délais minimaux recommandés pour une activité « normale » (atelier, formation,
+supervision) soumise à mise en concurrence et triple validation.
+
+| Échéance | Phase | Durée | Pourquoi ce délai |
 |---|---|---|---|
-| J-6 | mer 17/06 | Planification + TDR | DP / CHEF_PROJET / REFERENT |
-| J-5 | jeu 18/06 | Devis, PV sélection, invitations | GESTIONNAIRE / SECRETAIRE |
-| J-4 | ven 19/06 | **DD + pièces + soumission + triple validation** | CHARGE_SUIVI → RAF/DP/SE |
-| J-1 | lun 22/06 | **Engagement + décaissement avance + BC** | COMPTABLE / RAF / GESTIONNAIRE |
-| **J** | **mar 23/06** | **Réalisation de la formation** | Toute l'équipe |
-| J+1→J+5 | 24→30/06 | Justification + solde + comptabilisation + archivage | COMPTABLE / SECRETAIRE |
+| **J‑21 → J‑17** | Planification + TDR + budget + choix lieu/participants | 1 sem. | Cadrer l'activité et l'imputation avant d'engager |
+| **J‑16 → J‑12** | Mise en concurrence (3 devis) + PV de sélection | 1 sem. | Laisser le temps aux fournisseurs de répondre |
+| **J‑12 → J‑10** | Demande de dépense + pièces + soumission | 2‑3 j | Dossier complet avant validation |
+| **J‑10 → J‑7** | Triple validation RAF / DP / SE | 3 j | Disponibilité des 3 signataires |
+| **J‑7 → J‑5** | Engagement budgétaire + bons de commande | 2 j | Sécuriser fournisseurs et crédit |
+| **J‑5 → J‑3** | Décaissement de l'avance + pièce comptable | 2 j | Provisionner la trésorerie de l'activité |
+| **J‑3 → J‑1** | Logistique finale + convocations + confirmation participants | 2 j | Derniers réglages |
+| **J** | Réalisation | 1 j | — |
+| **J+1 → J+5** | Justification : factures, états perdiem, présence, rapport | 1 sem. | Collecte à chaud des pièces |
+| **J+5 → J+10** | Décaissement du solde + comptabilisation + rapprochement | 1 sem. | Solde sur pièces définitives |
+| **J+10 → J+15** | Archivage + clôture de la dépense | 1 sem. | Dossier auditable bouclé |
+
+> Règle simple : **~3 semaines avant** (planif → décaissement avance) et
+> **~2 semaines après** (justification → clôture). À raccourcir seulement pour
+> les petites dépenses / le fonctionnement (procédure allégée, cf. §6).
+
+### 5.2 Déclinaison concrète — activité recommandée **mardi 14 juillet 2026**
+
+| Date | Étape | Pilote |
+|---|---|---|
+| sem. 22/06 | Planification + TDR + budget | DP / CHEF_PROJET / REFERENT |
+| sem. 29/06 | 3 devis + PV de sélection + invitations | GESTIONNAIRE / SECRETAIRE |
+| 02 → 04/07 | **DD + pièces + soumission** | CHARGE_SUIVI |
+| 04 → 07/07 | **Triple validation** RAF / DP / SE | RAF / DP / SE |
+| 07 → 09/07 | **Engagement + bons de commande** | COMPTABLE / GESTIONNAIRE |
+| 09 → 11/07 | **Décaissement avance + pièce comptable** | RAF / COMPTABLE |
+| 11 → 13/07 | Logistique finale, confirmation participants | GESTIONNAIRE / SECRETAIRE / appui |
+| **mar 14/07** | **Réalisation de la formation** | Toute l'équipe |
+| 15 → 21/07 | Justification (factures, perdiem, présence, rapport) | GESTIONNAIRE / CHARGE_SUIVI |
+| 21 → 24/07 | Décaissement solde + comptabilisation + rapprochement | COMPTABLE |
+| 24 → 29/07 | Archivage + clôture | SECRETAIRE / COMPTABLE |
+
+> Si la Direction maintient une date plus proche, on bascule sur le chemin
+> compressé (planif et validation en parallèle), mais la mise en concurrence et
+> la triple validation restent incompressibles pour la conformité.
 
 ---
 
@@ -222,6 +260,57 @@ distributions. **Une variante allégée** sera testée séparément pour :
 
 > Ces deux procédures spéciales feront l'objet d'un document dédié après ce
 > premier test « grandeur nature ».
+
+---
+
+## 7. PARTIE G — Fiche d'évaluation du test (à remplir)
+
+> But : vérifier que le circuit **fonctionne**, qu'il est **conforme SYCEBNL**, et
+> identifier les blocages. Un référent (CHEF_PROJET ou RAF) consolide les retours.
+
+### 7.1 Critères globaux de réussite (à cocher en fin de test)
+
+- [ ] La demande a bien suivi les statuts : BROUILLON → SOUMISE → APPROUVÉE → EXÉCUTÉE
+- [ ] Les **3 signatures** RAF / DP / SE ont été tracées (avec commentaires)
+- [ ] Toutes les **pièces obligatoires** (§4) ont pu être attachées à la demande
+- [ ] L'écriture comptable s'est **générée automatiquement** au décaissement
+- [ ] L'écriture est juste : `Dr 6xxx / Cr 5211.x` **+** neutralisation `Dr 462 / Cr 702`
+- [ ] La **pièce comptable** (PDF + annexes) est éditable et lisible
+- [ ] Le décaissement du **solde** et le **rapprochement** ont pu être faits
+- [ ] Le **rapport d'activité** est rattaché et le dossier est **archivé/auditable**
+
+### 7.2 Grille par rôle (chaque testeur remplit sa ligne)
+
+| Rôle / compte | A pu faire son étape ? (O/N) | Temps passé | Blocage rencontré | Suggestion |
+|---|---|---|---|---|
+| CHARGE_SUIVI (demandeur) | | | | |
+| ARAF (contrôle budgétaire) | | | | |
+| RAF (validation + exécution) | | | | |
+| DP (validation) | | | | |
+| SE (validation) | | | | |
+| GESTIONNAIRE (devis, BC, factures) | | | | |
+| COMPTABLE (engagement, écriture, pièce) | | | | |
+| SECRETAIRE (pièces, archivage) | | | | |
+| REFERENT (contenu technique) | | | | |
+| Appui / stagiaire / chauffeur (terrain) | | | | |
+
+### 7.3 Journal des anomalies
+
+| # | Étape | Description du problème | Gravité (bloquant / gênant / mineur) | Signalé par | Action / correctif |
+|---|---|---|---|---|---|
+| 1 | | | | | |
+| 2 | | | | | |
+| 3 | | | | | |
+
+### 7.4 Verdict de conformité SYCEBNL
+
+| Question | Réponse | Commentaire |
+|---|---|---|
+| L'imputation (ligne budgétaire + compte de charge) est-elle correcte ? | | |
+| La neutralisation du fonds dédié 462/702 est-elle correcte ? | | |
+| Les pièces sont-elles conformes aux exigences bailleur ? | | |
+| **Faut-il une vraie compta d'engagement (Dr 6xxx/Cr 401 à la commande) ?** | | *Décision Direction/RAF — cf. seuil 30 M* |
+| Décision : procédure **validée / à ajuster / à revoir** | | |
 
 ---
 
