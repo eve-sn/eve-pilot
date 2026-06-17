@@ -397,6 +397,7 @@
                         <a class="btn secondary" href="/finance/">Tableau Finance</a>
                         <a class="btn secondary" href="/rh/">Ouvrir l'espace RH</a>
                         <a class="btn secondary" href="/aide/">Aide &amp; mode d'emploi</a>
+                        <a class="btn secondary" href="#feedback">💬 Votre avis</a>
                         {% if user.is_superuser %}<a class="btn secondary" href="/admin/">Administration</a>{% endif %}
                         {% if user.is_authenticated %}
                         <a class="btn secondary" href="/deconnexion/">Deconnexion ({{ user.username }})</a>
@@ -799,7 +800,7 @@
     </section>
     {% endif %}
 
-    <section class="section">
+    <section class="section" id="feedback">
         <div class="wrap">
             <div class="card">
                 <h3>Votre avis sur EVE Pilot</h3>
