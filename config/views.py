@@ -2,15 +2,17 @@ import os
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import SuspiciousOperation
 from django.db.models import Count, Sum
 from django.http import FileResponse, Http404, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils._os import safe_join
 
 from apps.accounts.access import accessible_project_ids, can_see_everything
 from apps.accounts.models import UserRole
+from apps.common.models import Feedback
 from apps.common.reference_snapshots import RH_REFERENCE_SNAPSHOT
 from apps.hr.models import Employee, Leave
 from apps.hr.models import WorkforceSnapshot
@@ -162,6 +164,31 @@ def home(request):
         ).count(),
     }
     return render(request, "home.html", context)
+
+
+@login_required
+def feedback_create(request):
+    """Enregistre un retour utilisateur depuis le tableau de bord."""
+    if request.method != "POST":
+        return redirect("home")
+    message = (request.POST.get("message") or "").strip()
+    if not message:
+        messages.error(request, "Votre message est vide.")
+        return redirect(request.POST.get("next") or "home")
+    category = request.POST.get("category", Feedback.Category.OTHER)
+    if category not in Feedback.Category.values:
+        category = Feedback.Category.OTHER
+    rating = request.POST.get("rating") or ""
+    feedback = Feedback(
+        category=category,
+        page=(request.POST.get("page") or "").strip()[:200],
+        message=message[:5000],
+        rating=int(rating) if rating.isdigit() and 1 <= int(rating) <= 5 else None,
+        created_by=request.user,
+    )
+    feedback.save()
+    messages.success(request, "Merci ! Votre retour a bien ete enregistre.")
+    return redirect(request.POST.get("next") or "home")
 
 
 # Cartographie des roles applicatifs -> identifiant de section dans l'aide.

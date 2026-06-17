@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.http import JsonResponse
 from django.urls import include, path
 
-from config.views import home, help_view, protected_media
+from config.views import feedback_create, home, help_view, protected_media
 
 
 def healthcheck(_request):
@@ -19,6 +19,7 @@ urlpatterns = [
     ),
     path("deconnexion/", auth_views.LogoutView.as_view(), name="logout"),
     path("aide/", help_view, name="help"),
+    path("feedback/", feedback_create, name="feedback_create"),
     path("admin/", admin.site.urls),
     path("api/", include("apps.api.urls")),
     path("rh/", include("apps.hr.urls")),

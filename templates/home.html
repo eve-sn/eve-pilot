@@ -790,6 +790,45 @@
     </section>
     {% endif %}
 
+    <section class="section">
+        <div class="wrap">
+            <div class="card">
+                <h3>Votre avis sur EVE Pilot</h3>
+                <p class="sub">Aidez-nous à améliorer la plateforme pendant le test : signalez une anomalie, proposez une idée ou posez une question. Votre retour est transmis à l'équipe projet.</p>
+                {% if messages %}
+                <div style="margin:10px 0;">
+                    {% for m in messages %}
+                    <div style="padding:10px 14px;border-radius:8px;margin-bottom:8px;background:{% if m.tags == 'error' %}#fdecec;color:#8a2b2b{% else %}#eaf6ee;color:#1f6b3a{% endif %};">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <form method="post" action="{% url 'feedback_create' %}" style="display:flex;flex-direction:column;gap:10px;max-width:680px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <input type="hidden" name="page" value="{{ request.path }}">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <select name="category" style="padding:9px;border-radius:8px;border:1px solid #cdd6dd;font:inherit;">
+                            <option value="IDEA">Suggestion / amélioration</option>
+                            <option value="BUG">Anomalie / bug</option>
+                            <option value="QUESTION">Question</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                        <select name="rating" style="padding:9px;border-radius:8px;border:1px solid #cdd6dd;font:inherit;">
+                            <option value="">Satisfaction (facultatif)</option>
+                            <option value="5">★★★★★ Très satisfait</option>
+                            <option value="4">★★★★ Satisfait</option>
+                            <option value="3">★★★ Moyen</option>
+                            <option value="2">★★ Peu satisfait</option>
+                            <option value="1">★ Insatisfait</option>
+                        </select>
+                    </div>
+                    <textarea name="message" required rows="3" placeholder="Décrivez votre retour…" style="padding:10px;border-radius:8px;border:1px solid #cdd6dd;font:inherit;"></textarea>
+                    <div><button type="submit" style="padding:11px 20px;border:0;border-radius:8px;background:#1f6b3a;color:#fff;font:inherit;font-weight:600;cursor:pointer;">Envoyer mon retour</button></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
     <footer class="footer">
         EVE Pilot • Plateforme intégrée de gestion : RH, projets, terrain, finances et rapports.
     </footer>
