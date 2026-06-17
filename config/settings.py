@@ -159,9 +159,10 @@ EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "vps75468.serveur-vps.net")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
-EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "True").lower() in {"1", "true", "yes", "on"}
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in {"1", "true", "yes", "on"}
+# Le serveur mail eve-sn.org ecoute en 587 (STARTTLS) ; le 465 (SSL) est filtre.
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in {"1", "true", "yes", "on"}
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {"1", "true", "yes", "on"}
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
