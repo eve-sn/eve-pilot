@@ -443,11 +443,17 @@
                     </p>
                 </div>
             </div>
+            {% if restricted_view %}
+            <p class="sub" style="margin:-6px 0 14px;padding:8px 12px;background:#eef3f5;border-radius:8px;">
+                🔒 Vue restreinte à vos projets. Les données des autres projets et les totaux globaux ne vous sont pas affichés.
+            </p>
+            {% endif %}
             <div class="grid-4">
+                {% if can_see_financials %}
                 <div class="card soft-green">
                     <h3>Budget prévu</h3>
                     <div class="budget-number">{{ total_budget|floatformat:0 }} XOF</div>
-                    <p class="sub">Total planifié sur toutes les lignes budgétaires en cours.</p>
+                    <p class="sub">{% if see_all %}Total planifié sur toutes les lignes budgétaires.{% else %}Total planifié sur vos projets.{% endif %}</p>
                 </div>
                 <div class="card soft-blue">
                     <h3>Déjà engagé</h3>
@@ -459,6 +465,7 @@
                     <div class="budget-number">{{ total_disbursed|floatformat:0 }} XOF</div>
                     <p class="sub">Dépenses réellement payées et enregistrées à ce jour.</p>
                 </div>
+                {% endif %}
                 <div class="card">
                     <h3>Congés à valider</h3>
                     <div class="budget-number">{{ pending_leaves_count }}</div>
@@ -757,9 +764,10 @@
                 </div>
             </div>
             <div class="grid-2" style="margin-top: 18px;">
+                {% if can_see_financials %}
                 <div class="card">
                     <h3>Principales lignes budgétaires</h3>
-                    <p class="sub">Les rubriques les plus importantes enregistrées à ce jour.</p>
+                    <p class="sub">{% if see_all %}Les rubriques les plus importantes enregistrées à ce jour.{% else %}Les rubriques les plus importantes de vos projets.{% endif %}</p>
                     <div class="data-list">
                         {% for line in top_budget_lines %}
                         <div class="data-item">
@@ -775,6 +783,7 @@
                         {% endfor %}
                     </div>
                 </div>
+                {% endif %}
                 <div class="card">
                     <h3>Prochaines étapes</h3>
                     <p class="sub">Ce qui est prévu pour enrichir la plateforme au fil du test.</p>

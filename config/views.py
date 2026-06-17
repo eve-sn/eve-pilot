@@ -5,12 +5,12 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import SuspiciousOperation
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils._os import safe_join
 
-from apps.accounts.access import accessible_project_ids, can_see_everything
+from apps.accounts.access import accessible_project_ids, can_see_bg, can_see_everything
 from apps.accounts.models import UserRole
 from apps.common.models import Feedback
 from apps.common.reference_snapshots import RH_REFERENCE_SNAPSHOT
@@ -23,11 +23,41 @@ from apps.reporting.models import Report
 
 
 def home(request):
+    # Perimetre de visibilite : None = vue globale (RAF/DP/SE) ; sinon l'utilisateur
+    # ne voit QUE ses projets (+ Budget General s'il y a droit). Coupe l'acces aux
+    # donnees financieres globales pour les roles a perimetre restreint.
+    acc_ids = accessible_project_ids(request.user)
+    see_all = acc_ids is None
+    show_bg = can_see_bg(request.user)
+    # Les MONTANTS financiers ne sont visibles que pour les roles financiers ;
+    # les roles terrain (charge de suivi, gestionnaire, secretaire, chauffeur,
+    # stagiaire) voient leurs projets/activites SANS les montants.
+    FINANCE_ROLES = {"RAF", "DP", "SE", "ARAF", "COMPTABLE"}
+    user_role_codes = set(
+        UserRole.objects.filter(user=request.user).values_list("role__code", flat=True)
+    )
+    can_see_financials = (
+        request.user.is_superuser or see_all or show_bg
+        or bool(user_role_codes & FINANCE_ROLES)
+    )
+
     employees = Employee.objects.filter(is_active=True, deleted_at__isnull=True)
     projects = Project.objects.filter(is_active=True, deleted_at__isnull=True).select_related("primary_donor", "project_manager")
     activities = Activity.objects.filter(is_active=True, deleted_at__isnull=True).select_related("project", "responsible")
     budget_lines = BudgetLine.objects.filter(is_active=True, deleted_at__isnull=True).select_related("project", "category")
     reports = Report.objects.filter(is_active=True, deleted_at__isnull=True).select_related("template", "project")
+
+    if not see_all:
+        ids = acc_ids or set()
+        projects = projects.filter(id__in=ids)
+        activities = activities.filter(project_id__in=ids)
+        bl_scope = Q(project_id__in=ids)
+        report_scope = Q(project_id__in=ids)
+        if show_bg:
+            bl_scope |= Q(project__isnull=True)
+            report_scope |= Q(project__isnull=True)
+        budget_lines = budget_lines.filter(bl_scope)
+        reports = reports.filter(report_scope)
 
     total_budget = budget_lines.aggregate(total=Sum("planned_amount"))["total"] or Decimal("0")
     total_committed = budget_lines.aggregate(total=Sum("committed_amount"))["total"] or Decimal("0")
@@ -117,6 +147,9 @@ def home(request):
     rh_reference_community = rh_reference["community"]
 
     context = {
+        "can_see_financials": can_see_financials,
+        "see_all": see_all,
+        "restricted_view": not see_all,
         "employee_count": employees.count(),
         "project_count": projects.count(),
         "activity_count": activities.count(),
