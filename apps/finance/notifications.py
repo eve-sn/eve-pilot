@@ -1,10 +1,11 @@
 """Notifications email du workflow de demande de depense.
 
-Trois evenements declenchent un mail :
-  1. Soumission (DRAFT -> SUBMITTED) : les valideurs RAF/DP/SE sont prevenus
-     qu'une demande attend leur signature.
-  2. Decision finale (SUBMITTED -> APPROVED/REJECTED) : le demandeur est
-     prevenu du resultat.
+Evenements qui declenchent un mail :
+  1. Soumission (DRAFT -> SUBMITTED) : les 3 valideurs RAF/DP/SE sont prevenus
+     EN MEME TEMPS qu'une demande attend leur signature.
+  2. Chaque signature (RAF/DP/SE) : le demandeur ET les autres valideurs sont
+     prevenus de la progression ("untel a signe, il reste X").
+  3. Decision finale (APPROVED/REJECTED) : le demandeur est prevenu du resultat.
 
 Principes :
   - Aucune exception ne doit casser le workflow : l'envoi est encapsule dans
@@ -196,21 +197,33 @@ def notify_after_signature(expense, validation) -> bool:
         f"[EVE Pilot] DD-{expense.id} : signature {role_code} {decision_label}"
     )
 
-    # Politique EVE : demandeur seul. Les valideurs voient leur inbox sur le
-    # dashboard Finance (compteur "X demandes a signer").
+    # Politique EVE : a chaque signature on previent (1) le demandeur, et
+    # (2) les AUTRES valideurs RAF/DP/SE pour le suivi de progression
+    # ("untel a signe, il reste X").
+    sent_any = False
+
     requester_mail = _requester_email(expense)
-    if not requester_mail:
+    if requester_mail:
+        intro_req = (
+            f"Bonjour,\n\nVotre demande de depense vient d'etre {decision_label.lower()} "
+            f"par le {role_code} ({validator_name}).\n\n"
+        )
+        sent_any = _send(subject, intro_req + base_body, [requester_mail]) or sent_any
+    else:
         logger.info(
             "Signature DD-%s : pas d'email connu pour le demandeur %s.",
             expense.id, expense.requester_id,
         )
-        return False
 
-    intro_req = (
-        f"Bonjour,\n\nVotre demande de depense vient d'etre {decision_label.lower()} "
-        f"par le {role_code} ({validator_name}).\n\n"
-    )
-    return _send(subject, intro_req + base_body, [requester_mail])
+    other_validators = _other_validator_emails(expense, role_code)
+    if other_validators:
+        intro_val = (
+            f"Bonjour,\n\nLa demande de depense DD-{expense.id} vient de recevoir une "
+            f"signature ({role_code} - {decision_label} par {validator_name}).\n\n"
+        )
+        sent_any = _send(subject, intro_val + base_body, other_validators) or sent_any
+
+    return sent_any
 
 
 def notify_requester_on_decision(expense) -> bool:
