@@ -70,7 +70,7 @@ class FinanceDashboardTests(TestCase):
         response = self.client.get("/finance/")
         content = response.content.decode("utf-8")
         self.assertIn("Portefeuille projets", content)
-        self.assertIn("Recettes du Budget General", content)
+        self.assertIn("Recettes du Budget Général", content)
         # Operating contribution from cls.project should be summed.
         self.assertIn("5000000", content.replace(" ", ""))
 
@@ -143,7 +143,7 @@ class CashflowDashboardTests(TestCase):
     def test_cashflow_shows_section_headers(self):
         response = self.client.get("/finance/tresorerie/")
         self.assertContains(response, "Encaissements")
-        self.assertContains(response, "Decaissements")
+        self.assertContains(response, "Décaissements")
         self.assertContains(response, "Solde net mensuel")
 
 

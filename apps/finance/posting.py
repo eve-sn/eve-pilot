@@ -42,6 +42,9 @@ regenerate=True).
 
 from decimal import Decimal
 
+from django.db import transaction
+from django.db.models import Sum
+
 from apps.finance.models import (
     BankMovement,
     CashMovement,
@@ -53,6 +56,25 @@ from apps.finance.models import (
 
 class PostingError(Exception):
     """Erreur fonctionnelle empechant la generation d'une ecriture."""
+
+
+def _assert_balanced(entry) -> None:
+    """Invariant central : une ecriture postee DOIT etre equilibree.
+
+    Somme des debits == somme des credits. Toute violation leve une
+    PostingError ; combinee a @transaction.atomic sur les fonctions de
+    posting, cela annule integralement l'ecriture au lieu de laisser une
+    JournalEntry desequilibree (et donc une balance generale, un compte de
+    resultat et un bilan faux) en base.
+    """
+    agg = entry.lines.aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    total_debit = agg["total_debit"] or Decimal("0")
+    total_credit = agg["total_credit"] or Decimal("0")
+    if total_debit != total_credit:
+        raise PostingError(
+            f"Ecriture desequilibree (debit={total_debit} != credit={total_credit}) "
+            f"pour l'ecriture {entry.pk}. Generation annulee, rien n'est enregistre."
+        )
 
 
 # ---------- helpers tresorerie ----------
@@ -170,6 +192,7 @@ def _project_of_movement(movement: BankMovement):
 
 # ---------- generation ecriture BankMovement ----------
 
+@transaction.atomic
 def post_bank_movement(movement: BankMovement, regenerate: bool = False):
     """Cree (ou regenere) la JournalEntry en partie double d'un BankMovement.
 
@@ -201,6 +224,22 @@ def post_bank_movement(movement: BankMovement, regenerate: bool = False):
     if movement.contra_account_id is None and not has_allocations:
         return None
 
+    debit = movement.debit or Decimal("0")
+    credit = movement.credit or Decimal("0")
+
+    # Rien a comptabiliser : on ne cree aucune ecriture (et on n'en laisse
+    # surtout pas une vide en base).
+    if credit == 0 and debit == 0:
+        return None
+
+    # Un mouvement bancaire est mono-directionnel : debit OU credit, jamais
+    # les deux. Sinon une seule face serait comptabilisee silencieusement.
+    if credit > 0 and debit > 0:
+        raise PostingError(
+            f"Mouvement BM-{movement.id} porte a la fois un debit ({debit}) et "
+            f"un credit ({credit}). Un mouvement doit etre mono-directionnel."
+        )
+
     existing = JournalEntry.objects.filter(source_bank_movement=movement).first()
     if existing is not None:
         if not regenerate:
@@ -216,21 +255,20 @@ def post_bank_movement(movement: BankMovement, regenerate: bool = False):
     entry.entry_date = movement.date_operation
     entry.reference = movement.reference or f"BM-{movement.id}"
     entry.label = movement.label[:300]
-    entry.posted = True
+    # Pas encore valide : on ne marque `posted` qu'apres verification d'equilibre.
+    entry.posted = False
     entry.save()
-
-    debit = movement.debit or Decimal("0")
-    credit = movement.credit or Decimal("0")
-
-    if credit == 0 and debit == 0:
-        entry.delete()
-        return None
 
     if has_allocations:
         _post_with_allocations(entry, movement, allocations, treasury, credit, debit, project)
     else:
         _post_simple(entry, movement, treasury, credit, debit, project)
 
+    # Garde-fou final : toute ecriture desequilibree leve une PostingError,
+    # ce qui annule la transaction atomique (aucune ligne ni en-tete laisses).
+    _assert_balanced(entry)
+    entry.posted = True
+    entry.save(update_fields=["posted"])
     return entry
 
 
@@ -320,12 +358,19 @@ def _post_with_allocations(entry, movement, allocations, treasury, credit, debit
     """
     label = movement.label[:300]
 
-    # Verifie que la somme des allocations matche le mouvement total
+    # La somme des allocations DOIT egaler le mouvement total : sinon la ligne
+    # tresorerie (= montant mouvement) et les lignes de ventilation (= somme
+    # allocations) ne s'equilibrent pas. On refuse de comptabiliser plutot que
+    # de poster une ecriture fausse ; le mouvement reste sans ecriture et sera
+    # signale par generate_journal_entries.
     alloc_total = sum((a.amount for a in allocations), Decimal("0"))
     movement_amount = credit if credit > 0 else debit
     if alloc_total != movement_amount:
-        entry.label = f"[VENTILATION INCOMPLETE {alloc_total}/{movement_amount}] {entry.label}"[:300]
-        entry.save(update_fields=["label"])
+        raise PostingError(
+            f"Ventilation incompatible pour BM-{movement.id} : somme des "
+            f"allocations={alloc_total} != montant du mouvement={movement_amount}. "
+            "Corriger les allocations avant comptabilisation."
+        )
 
     fonds_invest = None
     fonds_admin = None
@@ -403,6 +448,7 @@ def _post_with_allocations(entry, movement, allocations, treasury, credit, debit
 
 # ---------- generation ecriture CashMovement (mecanique simple, pas de SYCEBNL projet) ----------
 
+@transaction.atomic
 def post_cash_movement(movement: CashMovement, regenerate: bool = False):
     """Cree (ou regenere) la JournalEntry en partie double d'un CashMovement.
 
@@ -412,6 +458,20 @@ def post_cash_movement(movement: CashMovement, regenerate: bool = False):
     """
     if movement.contra_account_id is None:
         return None
+
+    debit = movement.debit or Decimal("0")
+    credit = movement.credit or Decimal("0")
+
+    # Rien a comptabiliser : aucune ecriture.
+    if credit == 0 and debit == 0:
+        return None
+
+    # Mono-directionnel : debit OU credit, jamais les deux.
+    if credit > 0 and debit > 0:
+        raise PostingError(
+            f"Mouvement CM-{movement.id} porte a la fois un debit ({debit}) et "
+            f"un credit ({credit}). Un mouvement doit etre mono-directionnel."
+        )
 
     existing = JournalEntry.objects.filter(source_cash_movement=movement).first()
     if existing is not None:
@@ -428,20 +488,18 @@ def post_cash_movement(movement: CashMovement, regenerate: bool = False):
     entry.entry_date = movement.date_operation
     entry.reference = movement.reference or f"CM-{movement.id}"
     entry.label = movement.label[:300]
-    entry.posted = True
+    # Pas encore valide : `posted` est positionne apres verification d'equilibre.
+    entry.posted = False
     entry.save()
-
-    debit = movement.debit or Decimal("0")
-    credit = movement.credit or Decimal("0")
 
     if credit > 0:
         JournalLine.objects.create(entry=entry, account=treasury, debit=credit, credit=Decimal("0"), label=movement.label[:300])
         JournalLine.objects.create(entry=entry, account=contra, debit=Decimal("0"), credit=credit, label=movement.label[:300])
-    elif debit > 0:
+    else:
         JournalLine.objects.create(entry=entry, account=contra, debit=debit, credit=Decimal("0"), label=movement.label[:300])
         JournalLine.objects.create(entry=entry, account=treasury, debit=Decimal("0"), credit=debit, label=movement.label[:300])
-    else:
-        entry.delete()
-        return None
 
+    _assert_balanced(entry)
+    entry.posted = True
+    entry.save(update_fields=["posted"])
     return entry
