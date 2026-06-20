@@ -21,9 +21,47 @@ class PublicUUIDModel(models.Model):
         abstract = True
 
 
+class SoftDeleteQuerySet(models.QuerySet):
+    """QuerySet des modeles soft-deletables, avec accesseurs explicites."""
+
+    def active(self):
+        """Seulement les enregistrements vivants (actifs et non supprimes).
+
+        Equivalent canonique du `.filter(is_active=True, deleted_at__isnull=True)`
+        (alias ACTIVE_DOMAIN) dissemine dans les vues et commandes.
+        """
+        return self.filter(is_active=True, deleted_at__isnull=True)
+
+    def deleted(self):
+        """Seulement les enregistrements soft-deletes."""
+        return self.filter(deleted_at__isnull=False)
+
+
+class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
+    """Manager par defaut des TrackedModel.
+
+    IMPORTANT - choix volontaire : get_queryset() renvoie TOUS les
+    enregistrements, y compris les soft-deletes, EXACTEMENT comme le manager
+    Django par defaut. On ne change donc PAS le comportement existant (admin,
+    get_or_create / update_or_create des commandes de seed, acces via cles
+    etrangeres, migrations restent intacts). On ajoute seulement les accesseurs
+    .active() / .deleted() pour remplacer progressivement les filtres manuels
+    `is_active=True, deleted_at__isnull=True` epars dans le code.
+
+    Filtrer par defaut casserait notamment le re-seed : update_or_create ne
+    retrouverait plus un enregistrement soft-delete et tenterait un INSERT en
+    doublon (IntegrityError sur les champs unique).
+    """
+
+
 class SoftDeleteModel(models.Model):
     is_active = models.BooleanField(default=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
+
+    # Manager unique nomme `objects` : conserve le comportement par defaut
+    # (tous les enregistrements) et expose .active()/.deleted(). Les modeles
+    # avec un manager custom (ex. User/UserManager) le surchargent sans conflit.
+    objects = SoftDeleteManager()
 
     class Meta:
         abstract = True
