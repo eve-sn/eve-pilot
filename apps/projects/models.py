@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -138,6 +139,34 @@ class Project(TrackedModel):
     class Meta:
         db_table = "projects"
         ordering = ["code"]
+        constraints = [
+            # La cle de repartition SYCEBNL (162 invest / 462 admin) DOIT
+            # totaliser 100 % : un decaissement bailleur splitte sur une base
+            # != 100 fausse silencieusement la ventilation 162/462 (posting.py
+            # normalise mais sur une assiette erronee). Garde-fou en base, en
+            # complement du clean() (qui protege les formulaires).
+            models.CheckConstraint(
+                name="project_invest_admin_split_sum_100",
+                check=models.Q(
+                    investment_split_pct=Decimal("100.00")
+                    - models.F("administration_split_pct")
+                ),
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        inv = self.investment_split_pct or Decimal("0")
+        adm = self.administration_split_pct or Decimal("0")
+        if inv + adm != Decimal("100"):
+            raise ValidationError(
+                {
+                    "administration_split_pct": (
+                        "La cle de repartition SYCEBNL doit totaliser 100 % "
+                        f"(investissement {inv} + administration {adm} = {inv + adm})."
+                    )
+                }
+            )
 
     def __str__(self):
         return f"{self.code} - {self.title}"

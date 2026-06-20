@@ -112,3 +112,47 @@ class ProjectModelTests(TestCase):
         self.assertIsNone(project.operating_contribution_amount)
         self.assertIsNone(project.operating_contribution_pct)
         self.assertEqual(project.operating_contribution_note, "")
+
+
+class ProjectSplitKeyTests(TestCase):
+    """La cle de repartition SYCEBNL (162 invest / 462 admin) doit totaliser
+    100 % : controle au niveau formulaire (clean) ET base (CheckConstraint)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.donor = Donor.objects.create(name="Donor split")
+
+    def _project(self, code, inv, adm):
+        from decimal import Decimal
+        return Project(
+            code=code, title=code, primary_donor=self.donor,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            investment_split_pct=Decimal(inv),
+            administration_split_pct=Decimal(adm),
+        )
+
+    def test_default_split_is_valid(self):
+        # Defaut 0/100 -> conforme.
+        p = Project.objects.create(
+            code="SPLIT-DEF", title="Def", primary_donor=self.donor,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        p.full_clean()  # ne leve pas
+
+    def test_valid_split_80_20(self):
+        p = self._project("SPLIT-OK", "80.00", "20.00")
+        p.full_clean()
+        p.save()  # ne leve pas
+
+    def test_clean_rejects_sum_not_100(self):
+        from django.core.exceptions import ValidationError
+        p = self._project("SPLIT-BAD", "50.00", "30.00")  # somme 80
+        with self.assertRaises(ValidationError):
+            p.full_clean()
+
+    def test_db_constraint_rejects_sum_not_100(self):
+        # Contournement de clean() (save direct) : la base doit refuser.
+        from django.db import IntegrityError
+        p = self._project("SPLIT-DBBAD", "70.00", "20.00")  # somme 90
+        with self.assertRaises(IntegrityError):
+            p.save()
