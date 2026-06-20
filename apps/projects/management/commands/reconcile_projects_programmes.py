@@ -15,7 +15,7 @@ Usage :
   manage.py reconcile_projects_programmes --apply    # applique (transaction)
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.activities.models import Activity
@@ -54,6 +54,17 @@ class Command(BaseCommand):
                             help="Applique reellement (sinon apercu seul).")
 
     def handle(self, *args, **opts):
+        # Garde-fou : un projet exclu (ex. ECO-AVENIR, test en cours) ne doit
+        # JAMAIS figurer aussi dans MAPPING. Aujourd'hui ECO-AVENIR est protege
+        # par son absence de MAPPING ; cette assertion rend la protection active
+        # et auto-verifiee si quelqu'un ajoute un jour le code au mapping.
+        clash = EXCLUDE & set(MAPPING)
+        if clash:
+            raise CommandError(
+                f"Incoherence : code(s) a la fois exclu(s) et mappe(s) : {sorted(clash)}. "
+                "Retirer ces codes de MAPPING pour garantir leur exclusion."
+            )
+
         apply = opts["apply"]
         mode = "APPLICATION" if apply else "APERCU (dry-run, rien n'est ecrit)"
         self.stdout.write(self.style.WARNING(f"=== Reconciliation projets : {mode} ==="))
