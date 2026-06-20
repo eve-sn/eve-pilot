@@ -854,6 +854,98 @@ class FinancialStatementsSycebnlTests(TestCase):
         self.assertEqual(by_ref["FJ"]["amount"], Decimal("1500000"))
 
 
+class FinancialStatementsHaoBalanceTests(TestCase):
+    """Garde-fou : le bilan doit rester equilibre EN PRESENCE d'operations HAO
+    (classe 8). Avant correctif, le solde de l'exercice (CH) ne sommait que les
+    classes 6 et 7 ; une cession d'immobilisation (charges 81 / produits 82)
+    desequilibrait le bilan du montant net HAO. Ce test echoue sur l'ancien code.
+
+    Scenario (cession avec plus-value) :
+      - subvention recue 3 000 000   (tresorerie / 71)
+      - acquisition immo 1 500 000   (244 / tresorerie)
+      - cession, sortie VNC          (81 / 244)  -> charge HAO 1 500 000
+      - cession, encaissement        (tresorerie / 82) -> produit HAO 2 000 000
+    Resultat attendu = 3 000 000 (subv) + 2 000 000 (82) - 1 500 000 (81)
+                     = 3 500 000, et Actif BZ == Passif DZ == 3 500 000.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import (
+            BankAccount, ChartOfAccount, JournalEntry, JournalLine,
+        )
+
+        cls.bank = BankAccount.objects.create(name="Banque HAO test", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.HAO", name="Tresorerie HAO", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.subv = ChartOfAccount.objects.create(
+            code="71", name="Subvention d'exploitation", class_number=7,
+        )
+        cls.immo = ChartOfAccount.objects.create(
+            code="244", name="Materiel mobilier", class_number=2,
+        )
+        cls.charge_hao = ChartOfAccount.objects.create(
+            code="81", name="Valeurs comptables des cessions d'immobilisations",
+            class_number=8,
+        )
+        cls.produit_hao = ChartOfAccount.objects.create(
+            code="82", name="Produits des cessions d'immobilisations",
+            class_number=8,
+        )
+
+        def entry(label, d, lines):
+            e = JournalEntry.objects.create(entry_date=d, label=label)
+            for acc, deb, cred in lines:
+                JournalLine.objects.create(
+                    entry=e, account=acc, debit=deb, credit=cred,
+                )
+
+        entry("Subvention", date(2026, 1, 5), [
+            (cls.treasury, Decimal("3000000"), Decimal("0")),
+            (cls.subv, Decimal("0"), Decimal("3000000")),
+        ])
+        entry("Acquisition mobilier", date(2026, 2, 1), [
+            (cls.immo, Decimal("1500000"), Decimal("0")),
+            (cls.treasury, Decimal("0"), Decimal("1500000")),
+        ])
+        entry("Cession - sortie VNC", date(2026, 3, 1), [
+            (cls.charge_hao, Decimal("1500000"), Decimal("0")),
+            (cls.immo, Decimal("0"), Decimal("1500000")),
+        ])
+        entry("Cession - encaissement", date(2026, 3, 1), [
+            (cls.treasury, Decimal("2000000"), Decimal("0")),
+            (cls.produit_hao, Decimal("0"), Decimal("2000000")),
+        ])
+
+    def test_hao_result_includes_class_8(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_balance_sheet_liability, compute_income_statement,
+        )
+        passif = {l["ref"]: l for l in compute_balance_sheet_liability()}
+        income = {l["ref"]: l for l in compute_income_statement()}
+
+        # Le solde de l'exercice au bilan inclut le net HAO (+500 000).
+        self.assertEqual(passif["CH"]["amount"], Decimal("3500000"))
+        # ... et coincide avec le solde du compte d'exploitation (XE).
+        self.assertEqual(income["XE"]["amount"], Decimal("3500000"))
+        self.assertEqual(passif["CH"]["amount"], income["XE"]["amount"])
+
+    def test_balance_sheet_balances_with_hao(self):
+        from apps.finance.financial_statements_sycebnl import (
+            compute_balance_sheet_asset, compute_balance_sheet_liability,
+        )
+        actif = {l["ref"]: l for l in compute_balance_sheet_asset()}
+        passif = {l["ref"]: l for l in compute_balance_sheet_liability()}
+
+        # Actif = tresorerie 3 500 000 (immo nette = 0 apres cession).
+        self.assertEqual(actif["BZ"]["amount"], Decimal("3500000"))
+        # Bilan equilibre malgre l'operation HAO.
+        self.assertEqual(actif["BZ"]["amount"], passif["DZ"]["amount"])
+
+
 class ExpensePublicUIPermissionsTests(TestCase):
     """L'UI expense /finance/demandes/ doit exiger un user connecte."""
 

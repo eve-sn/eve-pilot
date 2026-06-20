@@ -497,9 +497,19 @@ def compute_balance_sheet_liability() -> list[dict]:
     et injecte avant les totaux CK / DE / DZ.
     """
     balances = account_balances()
-    # Calcul du resultat exercice
-    total_produits = _sum_balances(balances, ["7"], sign="credit")
-    total_charges = _sum_balances(balances, ["6"], sign="debit")
+    # Calcul du resultat de l'exercice = TOUS les comptes de gestion (classes
+    # 6, 7 ET 8 HAO), pour rester coherent avec le compte d'exploitation :
+    #   XE = XC (7 - 6) + XD (produits HAO 82/84/86/88 - charges HAO 81/83/85/87)
+    # Omettre la classe 8 (cf. bug : ne sommait que 6 et 7) faussait le solde
+    # CH des qu'une cession d'immobilisation etait comptabilisee, et
+    # desequilibrait le bilan (BZ != DZ) du montant net HAO. Les prefixes HAO
+    # sont alignes sur TM/TN du compte d'exploitation.
+    total_produits = _sum_balances(
+        balances, ["7", "82", "84", "86", "88"], sign="credit"
+    )
+    total_charges = _sum_balances(
+        balances, ["6", "81", "83", "85", "87"], sign="debit"
+    )
     result_exercise = total_produits - total_charges
 
     results = _compute_lines(BILAN_PASSIF, balances)
