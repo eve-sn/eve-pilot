@@ -440,6 +440,112 @@ class JournalPostingTests(TestCase):
         self.assertTrue(entry.is_balanced)
 
 
+class JournalPostingInvariantTests(TestCase):
+    """Verifie que l'invariant de partie double est INFRANCHISSABLE :
+
+    aucune JournalEntry desequilibree ou partielle ne doit subsister, quelle
+    que soit l'anomalie (mouvement bi-directionnel, ventilation incoherente,
+    compte SYCEBNL manquant en cours de generation). Ces tests negatifs
+    gardent _assert_balanced + @transaction.atomic : si quelqu'un les retire,
+    ils virent au rouge.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.finance.models import BankAccount, ChartOfAccount
+        from apps.projects.models import Project
+
+        cls.bank = BankAccount.objects.create(name="Banque test invariant", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.INV", name="Tresorerie test invariant", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.charge = ChartOfAccount.objects.create(
+            code="66.INV", name="Charge test invariant", class_number=6,
+        )
+        # Compte 75x : declenche le split bailleur 162/462 sur un projet.
+        cls.subv = ChartOfAccount.objects.create(
+            code="75.INV", name="Subvention test invariant", class_number=7,
+        )
+        # Projet 80/20 -> le split bailleur cherchera les comptes 162 et 462,
+        # VOLONTAIREMENT NON crees ici pour provoquer la PostingError.
+        cls.project = Project.objects.create(
+            code="INV-WB", title="Projet test invariant",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            investment_split_pct=Decimal("80.00"),
+            administration_split_pct=Decimal("20.00"),
+        )
+
+    def test_movement_with_both_debit_and_credit_is_rejected(self):
+        """Un mouvement bi-directionnel leve PostingError et ne cree rien."""
+        from apps.finance.models import BankMovement, JournalEntry
+        from apps.finance.posting import PostingError, post_bank_movement
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 3, 1),
+            reference="BIDIR-1", label="Mouvement incoherent",
+            debit=Decimal("50000"), credit=Decimal("50000"),
+            contra_account=self.charge,
+        )
+        # Le signal a deja avale la PostingError -> aucune ecriture.
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+        # L'appel direct doit lever explicitement.
+        with self.assertRaises(PostingError):
+            post_bank_movement(m, regenerate=True)
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+
+    def test_incomplete_allocation_is_rejected(self):
+        """Allocations qui ne totalisent pas le mouvement -> PostingError,
+        aucune ecriture desequilibree posee (rollback atomique)."""
+        from apps.finance.models import (
+            BankMovement, BankMovementAllocation, JournalEntry,
+        )
+        from apps.finance.posting import PostingError, post_bank_movement
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 3, 2),
+            reference="VENTIL-1", label="Cheque a ventiler",
+            debit=Decimal("0"), credit=Decimal("1000000"),
+        )
+        # 700 000 != 1 000 000 : ventilation incomplete.
+        BankMovementAllocation.objects.create(
+            movement=m, contra_account=self.charge, amount=Decimal("400000"),
+            description="Poste 1",
+        )
+        BankMovementAllocation.objects.create(
+            movement=m, contra_account=self.charge, amount=Decimal("300000"),
+            description="Poste 2",
+        )
+        with self.assertRaises(PostingError):
+            post_bank_movement(m, regenerate=True)
+        # Le rollback atomique ne laisse NI en-tete NI ligne.
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+
+    def test_missing_sycebnl_account_rolls_back_partial_entry(self):
+        """Bug d'origine reproduit : la ligne tresorerie est creee AVANT le
+        lookup du compte 162 (absent). Sans @transaction.atomic, une ecriture
+        partielle (tresorerie seule, desequilibree, posted=True) subsistait.
+        Le correctif doit garantir : PostingError + aucune ecriture du tout."""
+        from apps.finance.models import BankMovement, JournalEntry, JournalLine
+        from apps.finance.posting import PostingError, post_bank_movement
+
+        m = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 3, 3),
+            reference="DISB-NO162", label="Decaissement bailleur sans compte 162",
+            debit=Decimal("0"), credit=Decimal("150000000"),
+            contra_account=self.subv, project=self.project,
+        )
+        # Le signal a avale la PostingError : aucune ecriture partielle laissee.
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+        # Aucune JournalLine orpheline non plus.
+        self.assertFalse(JournalLine.objects.filter(account=self.treasury).exists())
+        # L'appel direct leve explicitement et ne persiste rien.
+        with self.assertRaises(PostingError):
+            post_bank_movement(m, regenerate=True)
+        self.assertFalse(JournalEntry.objects.filter(source_bank_movement=m).exists())
+        self.assertFalse(JournalLine.objects.filter(account=self.treasury).exists())
+
+
 class SycebnlProjectFundingTests(TestCase):
     """Mecanique SYCEBNL projets de developpement (App.8 du guide) :
     - decaissement bailleur sur compte projet -> split 162 / 462
