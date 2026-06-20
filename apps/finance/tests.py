@@ -6,11 +6,65 @@ from datetime import date
 from decimal import Decimal
 
 from django.core import mail
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from apps.finance.models import BankAccount, BudgetLine, CashflowEntry
 from apps.projects.models import Donor, Project
 from apps.references.models import BudgetCategory
+
+
+class StatementParserAmountTests(SimpleTestCase):
+    """Parsing des montants de releves bancaires (fonction pure, sans DB).
+
+    Couvre la regression : "1.234.567" (milliers FCFA sans decimale) etait
+    perdu (-> None) par l'ancienne implementation, faisant disparaitre des
+    mouvements entiers du releve.
+    """
+
+    def test_parse_amount_formats(self):
+        from apps.finance.statement_parser import _parse_amount
+
+        cases = {
+            # format -> Decimal attendu
+            "1.234.567": Decimal("1234567"),      # FCFA milliers sans decimale (BUG)
+            "1 234 567": Decimal("1234567"),      # milliers separes par espace
+            "1 234 567,89": Decimal("1234567.89"),  # FR avec decimale
+            "1.234.567,89": Decimal("1234567.89"),  # FR points milliers + virgule
+            "1,234,567.89": Decimal("1234567.89"),  # US virgules milliers + point
+            "1,234,567": Decimal("1234567"),      # US milliers sans decimale
+            "1234567": Decimal("1234567"),        # brut
+            "1234,50": Decimal("1234.50"),        # FR decimale simple
+            "1234.50": Decimal("1234.50"),        # US decimale simple
+            "1.234": Decimal("1234"),             # FCFA : 1234, pas 1.234
+            "1,234": Decimal("1234"),
+            "-1.234.567": Decimal("-1234567"),    # signe negatif preserve
+            "-1 234,56": Decimal("-1234.56"),
+        }
+        for raw, expected in cases.items():
+            self.assertEqual(
+                _parse_amount(raw), expected,
+                msg=f"_parse_amount({raw!r}) attendu {expected}",
+            )
+
+    def test_parse_amount_invalid_returns_none(self):
+        from apps.finance.statement_parser import _parse_amount
+
+        for raw in ("", "   ", "abc", "0", "0,00", "..", "-", None):
+            self.assertIsNone(_parse_amount(raw), msg=f"{raw!r} devrait donner None")
+
+    def test_attribute_direction(self):
+        from apps.finance.statement_parser import _attribute_direction
+
+        amt = Decimal("500000")
+        # Sens detecte au libelle : attribution ferme.
+        self.assertEqual(_attribute_direction("DEBIT", amt), (amt, None, False))
+        self.assertEqual(_attribute_direction("CREDIT", amt), (None, amt, False))
+        # Montant signe negatif, sens non detecte -> debit (signe fiable).
+        self.assertEqual(
+            _attribute_direction(None, Decimal("-500000")), (amt, None, False)
+        )
+        # Indecis ET non signe -> AMBIGU, on ne devine pas (avant : credit).
+        self.assertEqual(_attribute_direction(None, amt), (None, None, True))
 
 
 class FinanceDashboardTests(TestCase):

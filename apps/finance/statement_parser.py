@@ -21,7 +21,9 @@ import re
 from datetime import date as date_cls
 from decimal import Decimal, InvalidOperation
 
-import pdfplumber
+# NB : pdfplumber est importe paresseusement dans les fonctions qui lisent un
+# PDF (is_text_pdf / extract_text_lines). Les fonctions pures de parsing de
+# montants/dates restent ainsi importables et testables sans cette dependance.
 
 
 # Regex pour reperer une date au format dd/mm/yyyy ou dd-mm-yyyy
@@ -45,18 +47,70 @@ def _parse_date(s: str) -> date_cls | None:
 
 
 def _parse_amount(s: str) -> Decimal | None:
-    """Convertit '1 234 567,89' ou '1234567.89' en Decimal."""
+    """Convertit une chaine de montant bancaire en Decimal, ou None.
+
+    Gere les formats FR et US, AVEC OU SANS decimales :
+      "1 234 567,89" / "1.234.567,89"   (FR)               -> 1234567.89
+      "1,234,567.89" / "1234567.89"     (US)               -> 1234567.89
+      "1.234.567" / "1 234 567"  (FCFA, milliers sans dec) -> 1234567
+      "1234567" / "1234,50" / "1234.50"                    -> tels quels
+
+    Regle : le DERNIER separateur suivi de 1 ou 2 chiffres est le separateur
+    decimal ; sinon TOUS les separateurs ('.', ',', espaces) sont des
+    separateurs de milliers. Les montants FCFA n'ayant pas de centimes,
+    "1.234" vaut 1234.
+
+    L'ancienne version passait "1.234.567" a Decimal() directement
+    -> InvalidOperation -> None, ce qui faisait DISPARAITRE silencieusement
+    des mouvements entiers du releve.
+    """
     if not s:
         return None
     s = s.strip().replace(" ", "").replace(" ", "")
-    # Format FR : 1.234.567,89 -> 1234567.89
-    if "," in s:
-        s = s.replace(".", "").replace(",", ".")
+    s = s.replace(" ", "")  # fine insecable residuelle eventuelle
+    neg = s.startswith("-")
+    s = s.lstrip("+-")
+    if not s or not re.fullmatch(r"[\d.,]+", s):
+        return None
+    dec_pos = max(s.rfind("."), s.rfind(","))
+    if dec_pos == -1:
+        digits = s  # aucun separateur
+    else:
+        tail = s[dec_pos + 1:]
+        if len(tail) in (1, 2) and tail.isdigit():
+            # Dernier separateur = decimal ; les autres = milliers.
+            digits = re.sub(r"[.,]", "", s[:dec_pos]) + "." + tail
+        else:
+            # Tous les separateurs sont des milliers (cas FCFA "1.234.567").
+            digits = re.sub(r"[.,]", "", s)
     try:
-        v = Decimal(s)
-        return v if v != 0 else None
+        v = Decimal(digits)
     except InvalidOperation:
         return None
+    if neg:
+        v = -v
+    return v if v != 0 else None
+
+
+def _attribute_direction(op_type, amount: Decimal):
+    """Repartit un montant principal en (debit, credit, ambigu).
+
+    - sens detecte au libelle (DEBIT/CREDIT) -> attribution ferme ;
+    - sinon, montant a signe negatif -> debit (le signe est un indice fiable) ;
+    - sinon (indecis ET non signe) -> AMBIGU : on NE DEVINE PAS, renvoie
+      (None, None, True) ; le comptable tranche dans l'ecran de revue.
+
+    Avant correctif, ce dernier cas retombait sur `credit = montant` : tout
+    debit non reconnu (les montants PDF sont positifs) etait comptabilise en
+    RECETTE -> surevaluation de la tresorerie et des produits.
+    """
+    if op_type == "DEBIT":
+        return abs(amount), None, False
+    if op_type == "CREDIT":
+        return None, abs(amount), False
+    if amount < 0:
+        return abs(amount), None, False
+    return None, None, True
 
 
 def _is_movement_line(line: str) -> bool:
@@ -77,6 +131,8 @@ def is_text_pdf(pdf_file) -> tuple[bool, int, int]:
 
     Retourne (is_text, nb_chars_total, nb_pages).
     """
+    import pdfplumber
+
     pdf_file.seek(0)
     with pdfplumber.open(pdf_file) as pdf:
         nb_pages = len(pdf.pages)
@@ -90,6 +146,8 @@ def extract_text_lines(pdf_file) -> list[str]:
 
     Leve ScannedPDFError si le PDF est un scan (aucune couche texte).
     """
+    import pdfplumber
+
     is_text, nb_chars, nb_pages = is_text_pdf(pdf_file)
     if not is_text:
         raise ScannedPDFError(
@@ -192,6 +250,8 @@ def parse_statement(pdf_file) -> list[dict]:
         real_amounts = [(v, a) for v, a in amounts_dec if abs(v) >= MIN_REAL_AMOUNT]
 
         debit = credit = balance_after = ""
+        ambiguous = False
+        amount_hint = ""
 
         # Detection du sens depuis le libelle (PAIEMENT, Vir.recu, etc.)
         op_type = _classify_operation(label_text)
@@ -204,17 +264,16 @@ def parse_statement(pdf_file) -> list[dict]:
             else:
                 main_amount = real_amounts[-1][0]
 
-            # Attribution selon le sens detecte
-            if op_type == "DEBIT":
-                debit = abs(main_amount)
-            elif op_type == "CREDIT":
-                credit = abs(main_amount)
+            debit_v, credit_v, ambiguous = _attribute_direction(op_type, main_amount)
+            if debit_v is not None:
+                debit = debit_v
+            elif credit_v is not None:
+                credit = credit_v
             else:
-                # Indecis : on retombe sur le signe du montant
-                if main_amount < 0:
-                    debit = abs(main_amount)
-                else:
-                    credit = main_amount
+                # Sens indetermine ET montant non signe : on n'invente pas le
+                # sens. On expose le montant pour que le comptable le classe
+                # (debit OU credit) dans l'ecran de revue.
+                amount_hint = abs(main_amount)
         else:
             # Aucun montant >= 1000 : ligne probablement non-mouvement (entete,
             # cumul, decompte page). On la garde quand meme pour audit visuel.
@@ -228,6 +287,8 @@ def parse_statement(pdf_file) -> list[dict]:
             "debit": str(debit) if debit else "",
             "credit": str(credit) if credit else "",
             "balance_after": str(balance_after) if balance_after else "",
+            "ambiguous": ambiguous,
+            "amount_hint": str(amount_hint) if amount_hint else "",
             "raw_text": raw[:500],
         })
     return movements
