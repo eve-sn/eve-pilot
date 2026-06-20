@@ -19,7 +19,7 @@ Usage :
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from apps.finance.models import JournalEntry
 
@@ -47,9 +47,15 @@ class Command(BaseCommand):
             qs = qs.filter(posted=True)
 
         # Agregation en base : une seule requete, pas de N+1.
+        # On ne somme QUE les lignes actives (memes que account_balances() des
+        # etats financiers) : une JournalLine soft-deleted ne compte plus dans la
+        # balance generale, donc une ecriture dont une ligne a ete soft-deleted
+        # doit apparaitre desequilibree ici aussi. Sans ce filtre, l'outil de
+        # controle raterait precisement ce type de corruption.
+        active_lines = Q(lines__is_active=True, lines__deleted_at__isnull=True)
         qs = qs.annotate(
-            sum_debit=Sum("lines__debit"),
-            sum_credit=Sum("lines__credit"),
+            sum_debit=Sum("lines__debit", filter=active_lines),
+            sum_credit=Sum("lines__credit", filter=active_lines),
         ).order_by("entry_date", "id")
 
         total = qs.count()

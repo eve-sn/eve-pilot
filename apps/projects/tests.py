@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from django.test import Client, TestCase
 
+from apps.accounts.models import User
 from apps.projects.models import Donor, Project
 
 
@@ -41,7 +42,18 @@ class ProjectViewsTests(TestCase):
         )
 
     def setUp(self):
+        # Le site est en deny-by-default (LoginRequiredMiddleware) : il faut un
+        # utilisateur authentifie. Superuser -> voit tous les projets.
         self.client = Client()
+        admin = User(
+            username=f"proj_admin_{id(self)}",
+            email=f"proj_admin_{id(self)}@test.local",
+            first_name="T", last_name="Admin",
+            is_superuser=True, is_active=True,
+        )
+        admin.set_password("x")
+        admin.save()
+        self.client.force_login(admin)
 
     def test_project_list_returns_200_and_shows_code(self):
         response = self.client.get("/projets/")

@@ -1,4 +1,5 @@
 from rest_framework import filters, viewsets
+from rest_framework.permissions import IsAdminUser
 
 from apps.accounts.models import Role, User
 from apps.activities.models import Activity, ActivityReport
@@ -27,7 +28,26 @@ from apps.references.models import Commune
 from apps.reporting.models import Report, ReportTemplate
 
 
-class BaseModelViewSet(viewsets.ModelViewSet):
+class BaseModelViewSet(viewsets.ReadOnlyModelViewSet):
+    """Lecture seule, reservee aux administrateurs.
+
+    AVANT : viewsets.ModelViewSet avec la seule permission par defaut
+    (IsAuthenticated). Tout utilisateur connecte pouvait, via /api/ :
+      - s'auto-promouvoir superadmin (PATCH /api/users/<id>/ is_superuser=true,
+        champ inscriptible dans UserSerializer) ;
+      - lire les salaires (contracts), les finances et le personnel de TOUS les
+        projets, en ignorant le cloisonnement par perimetre de la couche web ;
+      - hard-delete en cascade des donnees comptables/terrain (DELETE non
+        surcharge -> suppression reelle malgre le soft-delete).
+    Aucun client ne consomme cette API (verifie : aucun fetch/JS, seul un lien
+    vers l'API navigable). On la verrouille donc en lecture seule + IsAdminUser.
+
+    Pour rouvrir un endpoint a des utilisateurs operationnels, il faut d'abord y
+    reimplanter le filtrage par perimetre (cf. apps.accounts.access.project_filter)
+    et le soft-delete AVANT de readmettre l'ecriture.
+    """
+
+    permission_classes = [IsAdminUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering = ["-id"]
 

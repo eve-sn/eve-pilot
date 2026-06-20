@@ -39,7 +39,13 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at"]
+        # Champs sensibles JAMAIS modifiables via l'API (defense en profondeur,
+        # meme si le ViewSet est desormais en lecture seule) : empeche toute
+        # elevation de privilege ou (de)activation de compte par cette voie.
+        read_only_fields = [
+            "created_at", "updated_at",
+            "is_superuser", "is_active", "two_factor_enabled",
+        ]
 
 
 class CommuneSerializer(serializers.ModelSerializer):

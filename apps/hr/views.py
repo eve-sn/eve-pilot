@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.accounts.access import can_see_everything
+from apps.accounts.access import can_see_everything, require_global_access
 from apps.hr.forms import EmployeeForm
 from apps.hr.models import Contract, Employee, Leave, WorkforceSnapshot
 from apps.hr.reference_data import RH_REFERENCE_SOURCE
@@ -32,7 +32,10 @@ def employee_create(request):
     return render(request, "hr/form.html", {"form": form, "mode": "create"})
 
 
+@require_global_access
 def rh_dashboard(request):
+    # Donnees RH sensibles (salaires via contracts, congrs, documents) :
+    # reservees a la Direction / RH (roles globaux), comme employee_create.
     q = request.GET.get("q", "").strip()
     category = request.GET.get("category", "").strip()
     unit = request.GET.get("unit", "").strip()
@@ -119,6 +122,7 @@ def rh_dashboard(request):
     return render(request, "hr/dashboard.html", context)
 
 
+@require_global_access
 def employee_detail(request, public_uuid):
     employee = get_object_or_404(
         Employee.objects.select_related("commune", "manager").prefetch_related(
