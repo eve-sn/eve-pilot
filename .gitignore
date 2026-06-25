@@ -28,6 +28,11 @@ local_settings.py
 # Sauvegardes UAT / prod (dumps SQL)
 /backups/
 
+# Paquets de deploiement (regenerables a partir du code)
+*.tar
+*.tar.gz
+*.tgz
+
 # Environment / secrets
 .env
 .env.local
