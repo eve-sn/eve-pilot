@@ -117,8 +117,14 @@ CURATED_ACCOUNTS = [
 
     # ===================== CLASSE 4 - Tiers =====================
     ("40", None, 4, "Fournisseurs", ""),
-    ("401", "40", 4, "Fournisseurs - exploitation", ""),
-    ("4011", "40", 4, "Fournisseurs locaux", ""),
+    ("401", "40", 4, "Fournisseurs - exploitation",
+        "Dette envers les fournisseurs de biens et services consommables. "
+        "Credite a l'ENGAGEMENT d'une charge (Dr 6x / Cr 401), solde au "
+        "paiement (Dr 401 / Cr 5211). A NE PAS confondre avec 4812 "
+        "Fournisseurs d'investissement (immobilisations). cf. guide SYCEBNL "
+        "projets de developpement, Section 2.2 vs 2.3."),
+    ("4011", "40", 4, "Fournisseurs locaux",
+        "Sous-compte de 401 pour les fournisseurs locaux d'exploitation."),
 
     ("41", None, 4, "Adherents, clients et comptes rattaches", ""),
     ("411", "41", 4, "Adherents", "Creances sur adherents (cotisations a recevoir)."),

@@ -29,6 +29,21 @@ class BudgetCategory(TrackedModel):
         related_name="children",
     )
     description = models.TextField(blank=True)
+    # Compte de charge SYCEBNL (classe 6) debite par defaut lors de
+    # l'ENGAGEMENT d'une depense de cette nature (ex: location de salle ->
+    # 6221, restauration -> 6582, honoraires -> 6381). Sert de valeur par
+    # defaut a Commitment.charge_account ; un engagement precis peut la
+    # surcharger. Prerequis de la bascule en comptabilite d'engagement :
+    # l'ecriture Dr 6x / Cr 401 nait a l'engagement, donc le compte de
+    # charge doit etre connu AVANT le decaissement.
+    default_charge_account = models.ForeignKey(
+        "finance.ChartOfAccount",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="default_for_budget_categories",
+        help_text="Compte de charge (classe 6) impute par defaut a l'engagement.",
+    )
 
     class Meta:
         db_table = "budget_categories"

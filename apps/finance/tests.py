@@ -1408,3 +1408,46 @@ class SaintLouisBudgetAmountsImportTests(TestCase):
                 "import_budget_amounts_saint_louis",
                 file="/tmp/this-file-does-not-exist-xyz.xls",
             )
+
+
+class SupplierAccountsDistinctTests(TestCase):
+    """Garde-fou Phase 0 bascule engagement : 401 (fournisseurs d'exploitation)
+    et 4812 (fournisseurs d'investissement) DOIVENT rester des comptes
+    distincts et actifs.
+
+    La migration 0016_remap_to_official_sycebnl avait fusionne 401 -> 481 sur
+    une premisse fausse ('le plan officiel n'a pas de 40x ordinaire'). Le guide
+    SYCEBNL projets de developpement distingue pourtant l'engagement des charges
+    (Dr 6x / Cr 401, Section 2.2) de l'engagement des immobilisations
+    (Dr 2 / Cr 481, Section 2.3). Ce test echoue si une future modification
+    re-fusionne les deux, ce qui casserait la comptabilite d'engagement.
+    """
+
+    def test_seed_keeps_401_and_4812_distinct_and_active(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from apps.finance.models import ChartOfAccount
+
+        call_command("seed_chart_of_accounts", stdout=StringIO())
+
+        exploitation = ChartOfAccount.objects.filter(
+            code="401", is_active=True, deleted_at__isnull=True
+        ).first()
+        investissement = ChartOfAccount.objects.filter(
+            code="4812", is_active=True, deleted_at__isnull=True
+        ).first()
+
+        self.assertIsNotNone(
+            exploitation,
+            "401 'Fournisseurs - exploitation' doit etre seede et actif "
+            "(credite a l'engagement des charges).",
+        )
+        self.assertIsNotNone(
+            investissement,
+            "4812 'Fournisseurs d'investissement' doit etre seede et actif "
+            "(credite a l'engagement des immobilisations).",
+        )
+        # Distinction non negociable : deux comptes de tiers separes.
+        self.assertNotEqual(exploitation.pk, investissement.pk)
+        self.assertEqual(exploitation.class_number, 4)
+        self.assertEqual(investissement.class_number, 4)
