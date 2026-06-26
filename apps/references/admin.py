@@ -12,9 +12,10 @@ class CommuneAdmin(admin.ModelAdmin):
 
 @admin.register(BudgetCategory)
 class BudgetCategoryAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "parent", "is_active")
+    list_display = ("code", "name", "parent", "default_charge_account", "is_active")
     search_fields = ("code", "name")
     list_filter = ("is_active",)
+    autocomplete_fields = ("parent", "default_charge_account")
 
 
 @admin.register(ContractType)

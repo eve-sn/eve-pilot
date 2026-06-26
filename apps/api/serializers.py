@@ -273,6 +273,8 @@ class BudgetLineSerializer(serializers.ModelSerializer):
 
 class CommitmentSerializer(serializers.ModelSerializer):
     budget_line_description = serializers.CharField(source="budget_line.description", read_only=True)
+    supplier_display = serializers.CharField(source="supplier.name", read_only=True, default=None)
+    charge_account_code = serializers.CharField(source="charge_account.code", read_only=True, default=None)
 
     class Meta:
         model = Commitment
@@ -284,6 +286,10 @@ class CommitmentSerializer(serializers.ModelSerializer):
             "commitment_number",
             "commitment_type",
             "supplier_name",
+            "supplier",
+            "supplier_display",
+            "charge_account",
+            "charge_account_code",
             "amount",
             "commitment_date",
             "status",

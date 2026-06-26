@@ -1684,3 +1684,45 @@ class CommitmentPostingTests(TestCase):
         agg_702 = JournalLine.objects.filter(account__code="702").aggregate(c=Sum("credit"))["c"]
         self.assertEqual(agg_462, Decimal("300000"))
         self.assertEqual(agg_702, Decimal("300000"))
+
+
+class CommitmentAdminActionTests(TestCase):
+    """Phase 3 : l'action admin 'Comptabiliser l'engagement' declenche post_commitment."""
+
+    def test_admin_action_posts_engagement(self):
+        from datetime import date
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+        from apps.finance.admin import CommitmentAdmin
+        from apps.finance.models import (
+            BudgetLine, ChartOfAccount, Commitment, JournalEntry, Supplier,
+        )
+        from apps.references.models import BudgetCategory
+        from apps.projects.models import Project
+
+        ChartOfAccount.objects.create(code="401", name="Fournisseurs", class_number=4)
+        charge = ChartOfAccount.objects.create(code="6221", name="Location", class_number=6)
+        ChartOfAccount.objects.create(code="462", name="Fonds admin", class_number=4)
+        ChartOfAccount.objects.create(code="702", name="Quote-part", class_number=7)
+        supplier = Supplier.objects.create(name="SODISEN")
+        category = BudgetCategory.objects.create(code="LOC", name="Loc", default_charge_account=charge)
+        project = Project.objects.create(
+            code="P", title="P", start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        line = BudgetLine.objects.create(
+            category=category, project=project, description="L", planned_amount=Decimal("1000"),
+        )
+        commitment = Commitment.objects.create(
+            budget_line=line, amount=Decimal("1000"),
+            commitment_date=date(2026, 7, 1), supplier=supplier,
+        )
+
+        admin_obj = CommitmentAdmin(Commitment, AdminSite())
+        request = RequestFactory().post("/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        admin_obj.comptabiliser_engagement(request, Commitment.objects.filter(pk=commitment.pk))
+
+        self.assertTrue(JournalEntry.objects.filter(source_commitment=commitment).exists())

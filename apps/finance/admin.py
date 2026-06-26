@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from django.utils import timezone
 
@@ -19,6 +19,7 @@ from apps.finance.models import (
     ExpenseValidation,
     JournalEntry,
     JournalLine,
+    Supplier,
     SupportingDoc,
 )
 
@@ -184,11 +185,48 @@ class BudgetLineAdmin(admin.ModelAdmin):
     list_filter = ("currency", "fiscal_year", "is_active")
 
 
+@admin.register(Supplier)
+class SupplierAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "nif", "is_service_provider", "is_active")
+    search_fields = ("code", "name", "nif")
+    list_filter = ("is_service_provider", "is_active")
+    readonly_fields = ("code",)
+
+
 @admin.register(Commitment)
 class CommitmentAdmin(admin.ModelAdmin):
-    list_display = ("commitment_number", "budget_line", "supplier_name", "amount", "commitment_date", "status")
-    search_fields = ("commitment_number", "supplier_name")
+    list_display = (
+        "commitment_number", "budget_line", "supplier", "charge_account",
+        "amount", "commitment_date", "status", "is_posted",
+    )
+    search_fields = ("commitment_number", "supplier__name", "supplier__code", "supplier_name")
     list_filter = ("status", "commitment_type")
+    autocomplete_fields = ("budget_line", "supplier", "charge_account", "approved_by")
+    actions = ("comptabiliser_engagement",)
+
+    @admin.display(boolean=True, description="Comptabilise")
+    def is_posted(self, obj):
+        return hasattr(obj, "journal_entry") and obj.journal_entry is not None
+
+    @admin.action(description="Comptabiliser l'engagement (Dr 6x / Cr 401.x + neutralisation 462/702)")
+    def comptabiliser_engagement(self, request, queryset):
+        from apps.finance.posting import post_commitment, PostingError
+
+        ok = 0
+        for commitment in queryset:
+            try:
+                post_commitment(commitment)
+                ok += 1
+            except PostingError as exc:
+                self.message_user(
+                    request, f"{commitment} : {exc}", level=messages.ERROR
+                )
+        if ok:
+            self.message_user(
+                request,
+                f"{ok} engagement(s) comptabilise(s) (ecriture Dr 6x / Cr 401.x).",
+                level=messages.SUCCESS,
+            )
 
 
 @admin.register(Disbursement)
