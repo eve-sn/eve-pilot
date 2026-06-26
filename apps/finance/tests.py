@@ -1685,6 +1685,40 @@ class CommitmentPostingTests(TestCase):
         self.assertEqual(agg_462, Decimal("300000"))
         self.assertEqual(agg_702, Decimal("300000"))
 
+    def test_immobilisation_engagement_uses_481_without_neutralization(self):
+        """Engagement d'une IMMOBILISATION (guide S2.3) : Dr 2x / Cr 481.x,
+        SANS neutralisation 462/702 (le fonds 162 s'extourne en fin de projet).
+        """
+        from datetime import date
+        from apps.finance.models import BudgetLine, ChartOfAccount, Commitment
+        from apps.finance.posting import post_commitment
+
+        # Parent investissement + compte d'immobilisation (classe 2).
+        ChartOfAccount.objects.create(code="4812", name="Fournisseurs d'investissement", class_number=4)
+        immo = ChartOfAccount.objects.create(code="2444", name="Materiel de bureau", class_number=2)
+
+        line = BudgetLine.objects.create(
+            category=self.category, project=self.project,
+            description="Achat mobilier", planned_amount=Decimal("1500000"),
+        )
+        commitment = Commitment.objects.create(
+            budget_line=line, amount=Decimal("1500000"),
+            commitment_date=date(2026, 7, 5), supplier=self.supplier,
+            charge_account=immo,  # surcharge : compte d'immobilisation classe 2
+        )
+
+        entry = post_commitment(commitment)
+        self.assertTrue(entry.is_balanced)
+        codes = {l.account.code for l in entry.lines.all()}
+        # Dr 2444 immobilisation / Cr 481.<code> fournisseur d'investissement.
+        self.assertIn("2444", codes)
+        self.assertEqual(self.supplier.investment_account.code, f"481.{self.supplier.code}")
+        self.assertIn(self.supplier.investment_account.code, codes)
+        # PAS de neutralisation pour une immobilisation.
+        self.assertNotIn("462", codes)
+        self.assertNotIn("702", codes)
+        self.assertEqual(entry.lines.count(), 2)
+
 
 class CommitmentAdminActionTests(TestCase):
     """Phase 3 : l'action admin 'Comptabiliser l'engagement' declenche post_commitment."""

@@ -234,14 +234,24 @@ def post_commitment(commitment: Commitment, regenerate: bool = False):
     if supplier is None:
         raise PostingError(
             f"Commitment {commitment.pk} : aucun fournisseur (Supplier) rattache ; "
-            "l'auxiliaire 401.x ne peut etre credite."
+            "l'auxiliaire fournisseur ne peut etre credite."
         )
-    supplier_account = supplier.chart_account
-    if supplier_account is None:
+
+    # Nature de l'engagement selon la classe du compte d'emploi :
+    #   classe 6 -> charge de fonctionnement (Cr 401.x + neutralisation 462/702)
+    #   classe 2 -> immobilisation         (Cr 481.x, SANS neutralisation ;
+    #               le fonds 162 s'extourne en fin de projet, guide S2.3/2.5)
+    is_immobilisation = charge.class_number == 2
+    if charge.class_number not in (2, 6):
         raise PostingError(
-            f"Commitment {commitment.pk} : le fournisseur {supplier.code} n'a pas de "
-            "sous-compte 401.x. Re-sauvegarder le Supplier (ensure_chart_account)."
+            f"Commitment {commitment.pk} : le compte d'emploi {charge.code} est de "
+            f"classe {charge.class_number} ; un engagement attend une charge "
+            "(classe 6) ou une immobilisation (classe 2)."
         )
+    if is_immobilisation:
+        supplier_account = supplier.ensure_investment_account()  # 481.x
+    else:
+        supplier_account = supplier.chart_account or supplier.ensure_chart_account()  # 401.x
 
     existing = JournalEntry.objects.filter(source_commitment=commitment).first()
     if existing is not None:
@@ -266,17 +276,19 @@ def post_commitment(commitment: Commitment, regenerate: bool = False):
     entry.posted = False
     entry.save()
 
-    # Dr charge 6x / Cr fournisseur 401.x
+    # Dr emploi (charge 6x ou immobilisation 2x) / Cr fournisseur (401.x ou 481.x)
     JournalLine.objects.create(
         entry=entry, account=charge, debit=amount, credit=Decimal("0"), label=label,
     )
     JournalLine.objects.create(
         entry=entry, account=supplier_account, debit=Decimal("0"), credit=amount,
-        label=f"[401 {supplier.code}] {label}"[:300],
+        label=f"[{supplier_account.code} {supplier.code}] {label}"[:300],
     )
 
     # Neutralisation du resultat projet, A L'ENGAGEMENT : Dr 462 / Cr 702.
-    if project is not None:
+    # UNIQUEMENT pour les charges de fonctionnement : une immobilisation n'est
+    # pas neutralisee (le fonds 162 s'extourne en fin de projet, guide S2.5).
+    if project is not None and not is_immobilisation:
         fonds_admin = _get_sycebnl_account("462")
         quote_part = _get_sycebnl_account("702")
         JournalLine.objects.create(

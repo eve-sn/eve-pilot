@@ -1031,10 +1031,49 @@ class Supplier(TrackedModel):
 
     @property
     def chart_account(self):
-        """Le sous-compte auxiliaire 401.x de ce fournisseur, ou None."""
+        """Le sous-compte auxiliaire d'EXPLOITATION 401.x de ce fournisseur, ou None."""
         return (
             ChartOfAccount.objects.filter(
-                linked_supplier=self, is_active=True, deleted_at__isnull=True
+                linked_supplier=self, code__startswith="401.",
+                is_active=True, deleted_at__isnull=True,
+            ).first()
+        )
+
+    def ensure_investment_account(self) -> "ChartOfAccount":
+        """Cree (ou retrouve) le sous-compte auxiliaire d'INVESTISSEMENT 481.<code>.
+
+        Utilise pour l'engagement des IMMOBILISATIONS (Dr 2 / Cr 481, guide
+        SYCEBNL S2.3), distinct du 401.x d'exploitation. Genere a la demande
+        (la plupart des fournisseurs ne vendent jamais d'immobilisation).
+        """
+        account_code = f"481.{self.code}"
+        parent = (
+            ChartOfAccount.objects.filter(
+                code__in=("481", "4812", "48"), is_active=True, deleted_at__isnull=True
+            )
+            .order_by("code")
+            .first()
+        )
+        account, _ = ChartOfAccount.objects.update_or_create(
+            code=account_code,
+            defaults={
+                "name": f"Fournisseur invest. {self.name}"[:200],
+                "class_number": 4,
+                "parent": parent,
+                "linked_supplier": self,
+                "is_active": True,
+                "deleted_at": None,
+            },
+        )
+        return account
+
+    @property
+    def investment_account(self):
+        """Le sous-compte auxiliaire d'INVESTISSEMENT 481.x de ce fournisseur, ou None."""
+        return (
+            ChartOfAccount.objects.filter(
+                linked_supplier=self, code__startswith="481.",
+                is_active=True, deleted_at__isnull=True,
             ).first()
         )
 
