@@ -1451,3 +1451,74 @@ class SupplierAccountsDistinctTests(TestCase):
         self.assertNotEqual(exploitation.pk, investissement.pk)
         self.assertEqual(exploitation.class_number, 4)
         self.assertEqual(investissement.class_number, 4)
+
+
+class SupplierAuxiliaryLedgerTests(TestCase):
+    """Phase 1 bascule engagement : master fournisseurs + auxiliaire 401.x."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.finance.models import ChartOfAccount
+
+        # Parent 401 requis pour rattacher les sous-comptes auxiliaires.
+        cls.parent_401 = ChartOfAccount.objects.create(
+            code="401", name="Fournisseurs - exploitation", class_number=4,
+        )
+
+    def test_supplier_autocreates_linked_401_subaccount(self):
+        from apps.finance.models import ChartOfAccount, Supplier
+
+        supplier = Supplier.objects.create(name="SODISEN SARL")
+
+        self.assertEqual(supplier.code, "F001")
+        account = ChartOfAccount.objects.filter(code="401.F001").first()
+        self.assertIsNotNone(account, "le sous-compte auxiliaire 401.F001 doit etre cree")
+        self.assertEqual(account.class_number, 4)
+        self.assertEqual(account.parent_id, self.parent_401.pk)
+        self.assertEqual(account.linked_supplier_id, supplier.pk)
+        # La propriete chart_account retrouve bien le compte.
+        self.assertEqual(supplier.chart_account.pk, account.pk)
+
+    def test_supplier_code_autoincrements(self):
+        from apps.finance.models import Supplier
+
+        s1 = Supplier.objects.create(name="Fournisseur A")
+        s2 = Supplier.objects.create(name="Fournisseur B")
+        self.assertEqual(s1.code, "F001")
+        self.assertEqual(s2.code, "F002")
+
+    def test_explicit_code_is_respected(self):
+        from apps.finance.models import ChartOfAccount, Supplier
+
+        supplier = Supplier.objects.create(code="F042", name="Fournisseur impose")
+        self.assertEqual(supplier.code, "F042")
+        self.assertTrue(ChartOfAccount.objects.filter(code="401.F042").exists())
+
+    def test_resolve_charge_account_inherits_from_category_then_override(self):
+        from datetime import date
+        from apps.finance.models import BudgetLine, ChartOfAccount, Commitment
+        from apps.references.models import BudgetCategory
+
+        charge_6221 = ChartOfAccount.objects.create(
+            code="6221", name="Location de batiments", class_number=6,
+        )
+        charge_6582 = ChartOfAccount.objects.create(
+            code="6582", name="Frais de reception", class_number=6,
+        )
+        category = BudgetCategory.objects.create(
+            code="LOC", name="Locations", default_charge_account=charge_6221,
+        )
+        line = BudgetLine.objects.create(
+            category=category, description="Location salle", planned_amount=Decimal("100000"),
+        )
+        commitment = Commitment.objects.create(
+            budget_line=line, amount=Decimal("100000"), commitment_date=date(2026, 7, 1),
+        )
+
+        # Sans charge_account explicite : herite de la categorie.
+        self.assertEqual(commitment.resolve_charge_account().pk, charge_6221.pk)
+
+        # Avec surcharge : la valeur explicite prime.
+        commitment.charge_account = charge_6582
+        commitment.save(update_fields=["charge_account"])
+        self.assertEqual(commitment.resolve_charge_account().pk, charge_6582.pk)

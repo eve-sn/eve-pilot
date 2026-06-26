@@ -81,6 +81,14 @@ class ChartOfAccount(TrackedModel):
         related_name="chart_account",
         help_text="Caisse reelle associee (pour les comptes 571.x).",
     )
+    linked_supplier = models.ForeignKey(
+        "finance.Supplier",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="chart_accounts",
+        help_text="Fournisseur associe (pour les sous-comptes auxiliaires 401.x).",
+    )
     description = models.TextField(blank=True)
 
     class Meta:
@@ -926,6 +934,102 @@ class BudgetLine(TrackedModel):
         return self.description
 
 
+class Supplier(TrackedModel):
+    """Fournisseur / prestataire - master du grand-livre auxiliaire.
+
+    Identite STABLE d'un fournisseur, condition d'un auxiliaire 401 fiable :
+    le texte libre (Commitment.supplier_name) fragmenterait l'auxiliaire au
+    moindre ecart de saisie. Chaque Supplier porte un code interne stable
+    (F001, F002, ...) et obtient, a sa creation, un sous-compte auxiliaire
+    '401.<code>' (cf. ensure_chart_account) - meme mecanique que les
+    sous-comptes 5211.x / 571.x generes depuis les objets metier.
+
+    Le NIF (Numero d'Identification Fiscale) est conserve comme attribut,
+    mais N'EST PAS la cle : il est souvent vide pour les fournisseurs
+    informels / locaux au Senegal.
+    """
+
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        help_text="Code interne stable (F001, F002, ...). Genere si vide.",
+    )
+    name = models.CharField(max_length=150)
+    nif = models.CharField(max_length=30, blank=True, help_text="Numero d'Identification Fiscale (facultatif).")
+    phone = models.CharField(max_length=40, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    is_service_provider = models.BooleanField(
+        default=False,
+        help_text="Prestataire de services (soumis a la retenue a la source 5% - phase ulterieure).",
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "suppliers"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}" if self.code else self.name
+
+    @staticmethod
+    def _next_code() -> str:
+        """Calcule le prochain code F### (max existant + 1).
+
+        Concurrence faible (saisie manuelle ONG) : un simple max+1 suffit.
+        """
+        last = (
+            Supplier.objects.filter(code__startswith="F")
+            .order_by("-code")
+            .values_list("code", flat=True)
+            .first()
+        )
+        n = 0
+        if last and last[1:].isdigit():
+            n = int(last[1:])
+        return f"F{n + 1:03d}"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self._next_code()
+        super().save(*args, **kwargs)
+        # Garantit le sous-compte auxiliaire 401.<code> apres l'insertion
+        # (besoin du pk et d'un code stable). Idempotent.
+        self.ensure_chart_account()
+
+    def ensure_chart_account(self) -> "ChartOfAccount":
+        """Cree (ou retrouve) le sous-compte auxiliaire 401.<code> du fournisseur.
+
+        Rattache au parent '401' (Fournisseurs - exploitation) si seede.
+        Idempotent : un seul compte par fournisseur.
+        """
+        account_code = f"401.{self.code}"
+        parent = ChartOfAccount.objects.filter(
+            code="401", is_active=True, deleted_at__isnull=True
+        ).first()
+        account, _ = ChartOfAccount.objects.update_or_create(
+            code=account_code,
+            defaults={
+                "name": f"Fournisseur {self.name}"[:200],
+                "class_number": 4,
+                "parent": parent,
+                "linked_supplier": self,
+                "is_active": True,
+                "deleted_at": None,
+            },
+        )
+        return account
+
+    @property
+    def chart_account(self):
+        """Le sous-compte auxiliaire 401.x de ce fournisseur, ou None."""
+        return (
+            ChartOfAccount.objects.filter(
+                linked_supplier=self, is_active=True, deleted_at__isnull=True
+            ).first()
+        )
+
+
 class Commitment(TrackedModel):
     class CommitmentType(models.TextChoices):
         PURCHASE_ORDER = "BON_COMMANDE", "Bon de commande"
@@ -941,8 +1045,28 @@ class Commitment(TrackedModel):
     budget_line = models.ForeignKey(BudgetLine, on_delete=models.CASCADE, related_name="commitments")
     commitment_number = models.CharField(max_length=30, unique=True, blank=True, null=True)
     commitment_type = models.CharField(max_length=30, choices=CommitmentType.choices, blank=True)
+    # supplier_name / supplier_nif : texte libre historique, conserve le temps
+    # du backfill vers le master Supplier (FK ci-dessous). A terme deprecie.
     supplier_name = models.CharField(max_length=150, blank=True)
     supplier_nif = models.CharField(max_length=30, blank=True)
+    supplier = models.ForeignKey(
+        "finance.Supplier",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        related_name="commitments",
+        help_text="Fournisseur (master). Son sous-compte 401.x est credite a l'engagement.",
+    )
+    # Compte de charge (classe 6) debite a l'engagement. Herite par defaut de
+    # budget_line.category.default_charge_account (cf. Phase 0), surchargeable.
+    charge_account = models.ForeignKey(
+        "finance.ChartOfAccount",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        related_name="commitments_as_charge",
+        help_text="Compte de charge 6x impute a l'engagement (Dr 6x / Cr 401.x).",
+    )
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     commitment_date = models.DateField()
     description = models.TextField(blank=True)
@@ -963,6 +1087,19 @@ class Commitment(TrackedModel):
 
     def __str__(self):
         return self.commitment_number or f"Commitment {self.pk}"
+
+    def resolve_charge_account(self):
+        """Compte de charge 6x effectif pour l'engagement.
+
+        Priorite : charge_account explicite (surcharge) sinon la valeur par
+        defaut de la categorie budgetaire (Phase 0). None si rien n'est
+        configure - le posting (Phase 2) devra alors refuser l'engagement
+        plutot que de deviner.
+        """
+        if self.charge_account_id:
+            return self.charge_account
+        category = getattr(self.budget_line, "category", None)
+        return getattr(category, "default_charge_account", None) if category else None
 
 
 class Disbursement(TrackedModel):
