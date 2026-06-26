@@ -462,6 +462,15 @@ class JournalEntry(TrackedModel):
         related_name="journal_entry",
         help_text="Mouvement caisse a l'origine de l'ecriture, si auto-generee.",
     )
+    source_commitment = models.OneToOneField(
+        "finance.Commitment",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="journal_entry",
+        help_text="Engagement (Commitment) a l'origine de l'ecriture d'engagement "
+        "(Dr 6x / Cr 401.x + neutralisation Dr 462 / Cr 702).",
+    )
     posted = models.BooleanField(default=True, help_text="True = ecriture validee (sortie du brouillard).")
 
     class Meta:

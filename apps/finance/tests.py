@@ -1522,3 +1522,165 @@ class SupplierAuxiliaryLedgerTests(TestCase):
         commitment.charge_account = charge_6582
         commitment.save(update_fields=["charge_account"])
         self.assertEqual(commitment.resolve_charge_account().pk, charge_6582.pk)
+
+
+class CommitmentPostingTests(TestCase):
+    """Phase 2 bascule engagement : ecriture d'engagement post_commitment().
+
+    Schema officiel (guide SYCEBNL projets de developpement, S2.2) :
+      Dr 6x charge / Cr 401.x fournisseur + (si projet) Dr 462 / Cr 702.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from datetime import date
+        from apps.finance.models import (
+            BankAccount, BudgetLine, ChartOfAccount, Commitment, Supplier,
+        )
+        from apps.references.models import BudgetCategory
+        from apps.projects.models import Project
+
+        cls.parent_401 = ChartOfAccount.objects.create(
+            code="401", name="Fournisseurs - exploitation", class_number=4,
+        )
+        cls.charge = ChartOfAccount.objects.create(
+            code="6221", name="Location de batiments", class_number=6,
+        )
+        cls.fonds_admin = ChartOfAccount.objects.create(
+            code="462", name="Fonds d'administration", class_number=4,
+        )
+        cls.quote_part = ChartOfAccount.objects.create(
+            code="702", name="Quote-part fonds admin transferes", class_number=7,
+        )
+        cls.bank = BankAccount.objects.create(name="Banque ENG test", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.ENG", name="Tresorerie test", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.supplier = Supplier.objects.create(name="SODISEN SARL")
+        cls.category = BudgetCategory.objects.create(
+            code="LOC", name="Locations", default_charge_account=cls.charge,
+        )
+        cls.project = Project.objects.create(
+            code="ENG-PROJ", title="Projet engagement",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        cls.line = BudgetLine.objects.create(
+            category=cls.category, project=cls.project,
+            description="Location salle", planned_amount=Decimal("500000"),
+        )
+        cls.commitment = Commitment.objects.create(
+            budget_line=cls.line, amount=Decimal("300000"),
+            commitment_date=date(2026, 7, 1), supplier=cls.supplier,
+        )
+
+    def _lines_by_code(self, entry):
+        return {l.account.code: l for l in entry.lines.all()}
+
+    def test_engagement_books_charge_supplier_and_neutralization(self):
+        from apps.finance.posting import post_commitment
+
+        entry = post_commitment(self.commitment)
+
+        self.assertTrue(entry.is_balanced)
+        self.assertTrue(entry.posted)
+        lines = self._lines_by_code(entry)
+        # Dr 6221 charge / Cr 401.<code> fournisseur
+        self.assertEqual(lines["6221"].debit, Decimal("300000"))
+        supplier_code = self.supplier.chart_account.code  # 401.F00x
+        self.assertEqual(lines[supplier_code].credit, Decimal("300000"))
+        # Neutralisation projet : Dr 462 / Cr 702
+        self.assertEqual(lines["462"].debit, Decimal("300000"))
+        self.assertEqual(lines["702"].credit, Decimal("300000"))
+
+    def test_engagement_is_idempotent(self):
+        from apps.finance.posting import post_commitment
+
+        e1 = post_commitment(self.commitment)
+        e2 = post_commitment(self.commitment)
+        self.assertEqual(e1.pk, e2.pk)
+        self.assertEqual(e1.lines.count(), 4)
+
+    def test_engagement_without_project_skips_neutralization(self):
+        from datetime import date
+        from apps.finance.models import BudgetLine, Commitment
+        from apps.finance.posting import post_commitment
+
+        bg_line = BudgetLine.objects.create(
+            category=self.category, project=None,
+            description="Loyer BG", planned_amount=Decimal("100000"),
+        )
+        bg_commitment = Commitment.objects.create(
+            budget_line=bg_line, amount=Decimal("80000"),
+            commitment_date=date(2026, 7, 2), supplier=self.supplier,
+        )
+        entry = post_commitment(bg_commitment)
+        codes = set(self._lines_by_code(entry))
+        self.assertEqual(entry.lines.count(), 2)  # pas de 462/702 hors projet
+        self.assertNotIn("462", codes)
+        self.assertNotIn("702", codes)
+
+    def test_engagement_requires_supplier_and_charge(self):
+        from datetime import date
+        from apps.finance.models import BudgetLine, Commitment
+        from apps.finance.posting import post_commitment, PostingError
+        from apps.references.models import BudgetCategory
+
+        # Sans fournisseur -> refus.
+        no_supplier = Commitment.objects.create(
+            budget_line=self.line, amount=Decimal("1000"),
+            commitment_date=date(2026, 7, 3),
+        )
+        with self.assertRaises(PostingError):
+            post_commitment(no_supplier)
+
+        # Sans compte de charge (categorie sans default) -> refus.
+        empty_cat = BudgetCategory.objects.create(code="EMPTY", name="Sans compte")
+        empty_line = BudgetLine.objects.create(
+            category=empty_cat, project=self.project,
+            description="X", planned_amount=Decimal("1000"),
+        )
+        no_charge = Commitment.objects.create(
+            budget_line=empty_line, amount=Decimal("1000"),
+            commitment_date=date(2026, 7, 3), supplier=self.supplier,
+        )
+        with self.assertRaises(PostingError):
+            post_commitment(no_charge)
+
+    def test_no_double_neutralization_engagement_then_payment(self):
+        """LE garde-fou : engagement + paiement sur 401.x => 462/702 UNE seule fois.
+
+        L'engagement neutralise (Dr 462 / Cr 702). Le paiement, impute sur le
+        401.x (classe 4), solde le fournisseur (Dr 401.x / Cr 5211) SANS
+        re-neutraliser. Total sur 462 et 702 = le montant, exactement une fois.
+        """
+        from datetime import date
+        from apps.finance.models import BankMovement, JournalLine
+        from apps.finance.posting import post_commitment, post_bank_movement
+        from django.db.models import Sum
+
+        supplier_account = self.supplier.chart_account
+
+        # 1) Engagement.
+        eng = post_commitment(self.commitment)
+
+        # 2) Paiement : sortie bancaire imputee sur le 401.x du fournisseur.
+        movement = BankMovement.objects.create(
+            account=self.bank, date_operation=date(2026, 7, 10),
+            label="Reglement SODISEN", debit=Decimal("300000"),
+            contra_account=supplier_account, project=self.project,
+        )
+        pay = post_bank_movement(movement)
+
+        # L'ecriture de paiement solde le 401.x et ne touche PAS 462/702.
+        pay_codes = {l.account.code for l in pay.lines.all()}
+        self.assertIn(supplier_account.code, pay_codes)
+        self.assertIn("5211.ENG", pay_codes)
+        self.assertNotIn("462", pay_codes)
+        self.assertNotIn("702", pay_codes)
+
+        # Cumul global 462/702 sur TOUTES les ecritures = 300000 une seule fois.
+        agg_462 = JournalLine.objects.filter(account__code="462").aggregate(d=Sum("debit"))["d"]
+        agg_702 = JournalLine.objects.filter(account__code="702").aggregate(c=Sum("credit"))["c"]
+        self.assertEqual(agg_462, Decimal("300000"))
+        self.assertEqual(agg_702, Decimal("300000"))

@@ -49,6 +49,7 @@ from apps.finance.models import (
     BankMovement,
     CashMovement,
     ChartOfAccount,
+    Commitment,
     JournalEntry,
     JournalLine,
 )
@@ -188,6 +189,110 @@ def _project_of_movement(movement: BankMovement):
     if len(projects) == 1:
         return projects[0]
     return None
+
+
+# ---------- generation ecriture d'ENGAGEMENT (Commitment) ----------
+
+@transaction.atomic
+def post_commitment(commitment: Commitment, regenerate: bool = False):
+    """Cree (ou regenere) l'ecriture d'ENGAGEMENT d'un Commitment.
+
+    Schema SYCEBNL projets de developpement (guide d'application, Section 2.2
+    'Engagement des depenses suivant la nature de charges') :
+        Dr [compte de charge 6x]    (commitment.resolve_charge_account)
+        Cr [compte fournisseur 401.x] (sous-compte auxiliaire du Supplier)
+      + si le commitment porte sur un PROJET, neutralisation AU FUR ET A
+        MESURE DE L'ENGAGEMENT :
+        Dr 462 Fonds d'administration
+        Cr 702 Quote-part d'administration transferes
+
+    Le fait generateur est l'engagement, pas le decaissement : c'est ICI que
+    la charge et sa neutralisation sont constatees. Le paiement ulterieur
+    (BankMovement impute sur le 401.x) se contente de solder le fournisseur
+    (Dr 401.x / Cr 5211) SANS re-neutraliser - le contra 401.x etant de
+    classe 4, post_bank_movement ne declenche pas la neutralisation 462/702
+    (reservee aux contra de classe 6). C'est la garantie structurelle contre
+    la double neutralisation.
+
+    Idempotent via JournalEntry.source_commitment. Atomic : toute ecriture
+    desequilibree est annulee (cf. _assert_balanced).
+    """
+    amount = commitment.amount or Decimal("0")
+    if amount <= 0:
+        raise PostingError(
+            f"Commitment {commitment.pk} : montant nul ou negatif, rien a engager."
+        )
+
+    charge = commitment.resolve_charge_account()
+    if charge is None:
+        raise PostingError(
+            f"Commitment {commitment.pk} : aucun compte de charge (ni surcharge "
+            "sur l'engagement, ni defaut sur la categorie budgetaire). "
+            "Configurer BudgetCategory.default_charge_account."
+        )
+    supplier = commitment.supplier
+    if supplier is None:
+        raise PostingError(
+            f"Commitment {commitment.pk} : aucun fournisseur (Supplier) rattache ; "
+            "l'auxiliaire 401.x ne peut etre credite."
+        )
+    supplier_account = supplier.chart_account
+    if supplier_account is None:
+        raise PostingError(
+            f"Commitment {commitment.pk} : le fournisseur {supplier.code} n'a pas de "
+            "sous-compte 401.x. Re-sauvegarder le Supplier (ensure_chart_account)."
+        )
+
+    existing = JournalEntry.objects.filter(source_commitment=commitment).first()
+    if existing is not None:
+        if not regenerate:
+            return existing
+        existing.lines.all().delete()
+        entry = existing
+    else:
+        entry = JournalEntry(source_commitment=commitment)
+
+    project = getattr(commitment.budget_line, "project", None)
+    label = (
+        commitment.description
+        or commitment.commitment_number
+        or f"Engagement {commitment.pk}"
+    )[:300]
+
+    entry.entry_date = commitment.commitment_date
+    entry.reference = commitment.commitment_number or f"ENG-{commitment.pk}"
+    entry.label = label
+    # Pas encore valide : `posted` n'est positionne qu'apres equilibre verifie.
+    entry.posted = False
+    entry.save()
+
+    # Dr charge 6x / Cr fournisseur 401.x
+    JournalLine.objects.create(
+        entry=entry, account=charge, debit=amount, credit=Decimal("0"), label=label,
+    )
+    JournalLine.objects.create(
+        entry=entry, account=supplier_account, debit=Decimal("0"), credit=amount,
+        label=f"[401 {supplier.code}] {label}"[:300],
+    )
+
+    # Neutralisation du resultat projet, A L'ENGAGEMENT : Dr 462 / Cr 702.
+    if project is not None:
+        fonds_admin = _get_sycebnl_account("462")
+        quote_part = _get_sycebnl_account("702")
+        JournalLine.objects.create(
+            entry=entry, account=fonds_admin, debit=amount, credit=Decimal("0"),
+            label=f"[SYCEBNL neutralisation {project.code}] {label}"[:300],
+        )
+        JournalLine.objects.create(
+            entry=entry, account=quote_part, debit=Decimal("0"), credit=amount,
+            label=f"[SYCEBNL quote-part {project.code}] {label}"[:300],
+        )
+
+    # Garde-fou : ecriture desequilibree -> PostingError -> rollback total.
+    _assert_balanced(entry)
+    entry.posted = True
+    entry.save(update_fields=["posted"])
+    return entry
 
 
 # ---------- generation ecriture BankMovement ----------
