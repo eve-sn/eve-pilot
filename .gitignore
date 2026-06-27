@@ -33,6 +33,9 @@ local_settings.py
 *.tar.gz
 *.tgz
 
+# Journal de deploiement local au serveur (trace des git pull/migrate)
+.deploy_history
+
 # Environment / secrets
 .env
 .env.local
