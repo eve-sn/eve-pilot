@@ -344,6 +344,12 @@ class ExpenseRequestForm(forms.ModelForm):
         self.fields["budget_line"].widget = ProjectAwareSelect(
             bl_to_project=bl_to_project
         )
+        # Reattacher les choices : remplacer le widget d'un ModelChoiceField ne
+        # transporte PAS les options (ModelChoiceField._set_queryset ne repeuple
+        # que le widget present au moment de l'assignation du queryset, l.339 ci-dessus).
+        # Sans cette ligne, le <select budget_line> est rendu VIDE. cf. l'autre
+        # formulaire qui fait deja ce reattachement.
+        self.fields["budget_line"].widget.choices = self.fields["budget_line"].choices
 
         self.fields["project"].queryset = proj_qs.order_by("code")
         self.fields["project"].required = False
