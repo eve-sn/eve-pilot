@@ -211,14 +211,19 @@ class SeedAgir2PikineCommandTests(TestCase):
 
         call_command("seed_agir2_pikine", verbosity=0)
 
-        # Employe existant -> lien cree (aucun Employee cree par la commande).
+        # Employe existant (FALL) -> lien cree.
         self.assertTrue(project.team_assignments.filter(employee=emp).exists())
-        self.assertEqual(Employee.objects.count(), 1)
+        # Les 2 facilitateurs des bulletins sont crees (par matricule) puis lies.
+        self.assertTrue(Employee.objects.filter(matricule="58621-FD").exists())
+        self.assertTrue(Employee.objects.filter(matricule="58620-FD").exists())
+        self.assertEqual(Employee.objects.count(), 3)  # FALL + THIAO + NDIAYE
+        self.assertEqual(project.team_assignments.count(), 3)
         # 8 indicateurs (OS + R1..R7), communes vides -> aucune localisation.
         self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
         self.assertEqual(project.locations.count(), 0)
 
         # Idempotent : rejouer ne duplique rien.
         call_command("seed_agir2_pikine", verbosity=0)
+        self.assertEqual(Employee.objects.count(), 3)
         self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
-        self.assertEqual(project.team_assignments.filter(employee=emp).count(), 1)
+        self.assertEqual(project.team_assignments.count(), 3)

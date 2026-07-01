@@ -16,10 +16,22 @@ Cadrage (2026-07-01) :
   les noms exacts avant de rejouer, sinon la section communes est ignoree.
 """
 
+import datetime
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 PROJECT_CODE = "AGIR2-NUT-2025"
+
+# Employes a GARANTIR en base s'ils manquent. Donnees officielles = bulletins de
+# forfait mai/2026 (Documents officiels/Forfait honoraires *.pdf). Ces deux
+# facilitateurs sont salaries mais absents de la base wipee. Cle = matricule
+# (get_or_create -> pas de doublon si l'import paie les cree ensuite).
+# (matricule, nom, prenom, fonction, date_entree, cni)
+EMPLOYEES_TO_ENSURE = [
+    ("58621-FD", "THIAO", "MOSS", "Facilitateur de district", "2026-01-01", "2613200400401"),
+    ("58620-FD", "NDIAYE", "NDIARE", "Facilitatrice de district", "2026-01-01", "2781199900919"),
+]
 
 # (prenom, nom, role<=60). Nom = patronyme senegalais (FALL, SAKHO, ...).
 TEAM = [
@@ -77,7 +89,24 @@ class Command(BaseCommand):
             self.stderr.write(f"/!\\ Projet {PROJECT_CODE} introuvable (actif). Rien fait.")
             return
 
-        # --- Equipe : lien seulement, jamais de creation d'Employee -----------
+        # --- Employes a garantir (facilitateurs, bulletins officiels) ---------
+        self.stdout.write(self.style.MIGRATE_HEADING("Employes garantis (bulletins de forfait) :"))
+        for mat, last, first, position, hire, cni in EMPLOYEES_TO_ENSURE:
+            _, created = Employee.objects.get_or_create(
+                matricule=mat,
+                defaults={
+                    "last_name": last,
+                    "first_name": first,
+                    "position": position,
+                    "hire_date": datetime.date.fromisoformat(hire),
+                    "id_card_number": cni,
+                    "department": "PROJETS ET PROGRAMMES",
+                    "workforce_category": Employee.WorkforceCategory.SALARIED,
+                },
+            )
+            self.stdout.write(f"  {'+' if created else '~'} {mat} {first} {last}")
+
+        # --- Equipe : lien (les Employee doivent exister, cf. ci-dessus) -------
         self.stdout.write(self.style.MIGRATE_HEADING("Equipe :"))
         linked = missing = 0
         for first, last, role in TEAM:
