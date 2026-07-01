@@ -53,11 +53,17 @@
         </div>
         {% endif %}
     {% elif expense.status == 'ENGAGED' %}
-        <div class="placeholder-note" style="background: rgba(249,238,223,0.7); border-color: rgba(140,91,27,0.4); color:#8a5b1b;">
-            <strong>&#9656; Etape actuelle :</strong> <strong>Engag&eacute;e</strong> (budget r&eacute;serv&eacute;). Attache la
-            <strong>facture d&eacute;finitive</strong> (section <em>Pi&egrave;ces justificatives</em>, type "Facture d&eacute;finitive")
-            pour <strong>liquider</strong> la charge (Dr 6x / Cr 401).
+        {% if can_execute %}
+        <div class="placeholder-note" style="background: rgba(249,238,223,0.7); border-color: rgba(140,91,27,0.4); color:#8a5b1b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <span>
+                <strong>&#9656; Etape actuelle :</strong> <strong>Engag&eacute;e</strong> (budget r&eacute;serv&eacute;).
+                <strong>Liquider</strong> : attacher la facture d&eacute;finitive et constater la charge (Dr 6x / Cr 401).
+            </span>
+            <a class="button primary" href="{% url 'finance:expense_liquidate' expense.id %}">Liquider la d&eacute;pense</a>
         </div>
+        {% else %}
+        <div class="placeholder-note"><strong>&#9656; Engag&eacute;e.</strong> En attente de liquidation (facture).</div>
+        {% endif %}
     {% elif expense.status == 'LIQUIDATED' %}
         {% if can_execute %}
         <div class="placeholder-note" style="background: rgba(212,234,217,0.7); border-color: rgba(28,107,72,0.4); color: var(--eve-green-900); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">

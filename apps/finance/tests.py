@@ -1926,3 +1926,82 @@ class ExpenseEngageTests(TestCase):
         self.expense.refresh_from_db()
         self.assertEqual(self.expense.status, ExpenseRequest.Status.DRAFT)
         self.assertIsNone(self.expense.commitment)
+
+
+class ExpenseLiquidateTests(TestCase):
+    """Etape 'Liquider' (Option L) : la facture constate la charge Dr 6x / Cr 401
+    (via post_commitment) pour le montant facture. Statut -> LIQUIDATED."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import User
+        from apps.finance.models import (
+            BudgetLine, ChartOfAccount, Commitment, ExpenseRequest, Supplier,
+        )
+        from apps.hr.models import Employee
+
+        ChartOfAccount.objects.create(code="401", name="Fournisseurs", class_number=4)
+        cls.charge_6x = ChartOfAccount.objects.create(
+            code="605", name="Autres achats", class_number=6,
+        )
+        # Ligne Budget General (project=None) : pas de neutralisation projet.
+        cls.category = BudgetCategory.objects.create(
+            code="LIQ_CAT", name="Cat liq", default_charge_account=cls.charge_6x,
+        )
+        cls.line = BudgetLine.objects.create(
+            project=None, category=cls.category, code="LIQ-L1",
+            description="Ligne liq", planned_amount=Decimal("1000000.00"),
+            committed_amount=Decimal("300000.00"), currency="XOF", fiscal_year=2026,
+        )
+        cls.requester = Employee.objects.create(
+            matricule="LIQ-EMP1", first_name="De", last_name="Mandeur",
+            position="Charge", hire_date=date(2025, 1, 1),
+        )
+        cls.supplier = Supplier.objects.create(name="Fournisseur Liq")
+        cls.commitment = Commitment.objects.create(
+            budget_line=cls.line, commitment_number="ENG-DDLIQ",
+            supplier=cls.supplier, amount=Decimal("300000.00"),
+            commitment_date=date(2026, 7, 1), description="Achat",
+        )
+        cls.expense = ExpenseRequest.objects.create(
+            project=None, budget_line=cls.line, requester=cls.requester,
+            title="Achat liq", motif="Test liquidation",
+            requested_amount=Decimal("300000.00"), currency="XOF",
+            status=ExpenseRequest.Status.ENGAGED, commitment=cls.commitment,
+        )
+        cls.admin = User(
+            username="liq_admin", email="liq@test.local",
+            first_name="A", last_name="D", is_superuser=True, is_active=True,
+        )
+        cls.admin.set_password("x")
+        cls.admin.save()
+
+    def test_liquidation_posts_dr6_cr401_and_sets_status(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.finance.models import ExpenseRequest, JournalEntry
+
+        client = Client()
+        client.force_login(self.admin)
+        facture = SimpleUploadedFile("facture.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+
+        resp = client.post(
+            f"/finance/demandes/{self.expense.id}/liquider/",
+            {"facture": facture, "facture_amount": "300000.00", "liquidation_date": "2026-07-05"},
+        )
+        self.assertEqual(resp.status_code, 302)
+
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.LIQUIDATED)
+
+        entry = JournalEntry.objects.filter(source_commitment=self.commitment).first()
+        self.assertIsNotNone(entry, "la liquidation doit poster l'ecriture d'engagement")
+        lines = list(entry.lines.all())
+        total_debit = sum(l.debit for l in lines)
+        total_credit = sum(l.credit for l in lines)
+        self.assertEqual(total_debit, total_credit)  # equilibree
+        self.assertEqual(total_debit, Decimal("300000.00"))
+        # Charge au debit du 6x, credit du 401.x du fournisseur.
+        self.assertTrue(any(l.account.code == "605" and l.debit == Decimal("300000.00") for l in lines))
+        self.assertTrue(any(l.account.code.startswith("401.") and l.credit == Decimal("300000.00") for l in lines))
+        # Facture attachee.
+        self.assertTrue(self.expense.documents.filter(document_type="FACTURE").exists())

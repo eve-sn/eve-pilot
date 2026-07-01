@@ -1,0 +1,68 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Liquider la demande DD-{{ expense.id }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card" style="grid-template-columns: 1fr;">
+            <div>
+                <div class="eyebrow">Liquidation &mdash; DD-{{ expense.id }}</div>
+                <h1>Liquider la d&eacute;pense (service fait).</h1>
+                <p class="lead">
+                    Attache la <strong>facture d&eacute;finitive</strong> et saisis le
+                    <strong>montant factur&eacute;</strong>. Cette &eacute;tape constate la charge
+                    <strong>Dr&nbsp;6x&nbsp;/&nbsp;Cr&nbsp;401</strong> (+ neutralisation si projet)
+                    pour ce montant. Le paiement viendra ensuite solder le fournisseur.
+                </p>
+                <div style="margin-top: 14px;">
+                    <a class="button" href="{% url 'finance:expense_detail' expense.id %}">&larr; Retour &agrave; la demande</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <div class="muted" style="margin-bottom: 16px;">
+                <strong>{{ expense.title }}</strong> &mdash; engag&eacute; :
+                {{ expense.commitment.amount }} {{ expense.currency }}
+                {% if expense.commitment.supplier %}<br>Fournisseur : {{ expense.commitment.supplier }}{% endif %}
+            </div>
+            {% if messages %}
+            <div style="margin-bottom: 18px;">
+                {% for message in messages %}
+                <div class="placeholder-note">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="stack" style="gap: 18px;">
+                    {% for field in form %}
+                    <div>
+                        <label style="font-weight: 700;">{{ field.label }}</label>
+                        {% if field.help_text %}<div class="muted" style="font-size:0.86rem; margin-bottom: 4px;">{{ field.help_text }}</div>{% endif %}
+                        {{ field }}
+                        {% if field.errors %}<div style="color: #8a2b2b; font-size: 0.86rem;">{{ field.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="margin-top: 22px; display: flex; gap: 10px;">
+                    <button type="submit" class="button primary">Liquider (constater la charge)</button>
+                    <a class="button" href="{% url 'finance:expense_detail' expense.id %}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+<style>
+    form input[type=text], form input[type=number], form input[type=date], form input[type=file], form select, form textarea {
+        width: 100%; padding: 12px 14px; border-radius: 14px;
+        border: 1px solid var(--line); background: rgba(255,255,255,0.85);
+        font: inherit;
+    }
+</style>
+{% endblock %}

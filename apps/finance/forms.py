@@ -445,6 +445,28 @@ class ExpenseEngageForm(forms.Form):
     )
 
 
+class ExpenseLiquidateForm(forms.Form):
+    """Liquide une demande ENGAGEE (Option L) : attache la facture definitive,
+    saisit le montant facture, et declenche la charge Dr 6x / Cr 401 pour CE
+    montant (le service fait est constate). Bascule la demande en LIQUIDATED."""
+
+    from decimal import Decimal as _Decimal
+
+    facture = forms.FileField(
+        label="Facture definitive (PDF, JPG, PNG)",
+        help_text="Piece justificative du service fait.",
+    )
+    facture_amount = forms.DecimalField(
+        max_digits=14, decimal_places=2, min_value=_Decimal("0.01"),
+        label="Montant facture",
+        help_text="Montant reel de la facture. La charge Dr 6x / Cr 401 sera constatee pour ce montant.",
+    )
+    liquidation_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Date de la facture (service fait)",
+    )
+
+
 class RecordPaymentForm(forms.Form):
     """Saisie du paiement effectif d'une demande approuvee.
 

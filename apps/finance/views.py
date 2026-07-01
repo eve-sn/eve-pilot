@@ -29,6 +29,7 @@ from apps.finance.forms import (
     ExpenseDocumentForm,
     ExpenseEngageForm,
     ExpenseExecuteForm,
+    ExpenseLiquidateForm,
     ExpenseRequestForm,
     ExpenseValidationDecisionForm,
     RecordPaymentForm,
@@ -1152,6 +1153,73 @@ def expense_engage(request, pk):
         form = ExpenseEngageForm(initial={"commitment_date": timezone.now().date()})
 
     return render(request, "finance/expense_engage.html", {"expense": expense, "form": form})
+
+
+@login_required
+def expense_liquidate(request, pk):
+    """Liquide une demande ENGAGEE (Option L) : attache la facture definitive,
+    fixe le montant facture et poste la charge Dr 6x / Cr 401.x (via
+    post_commitment) + neutralisation projet. Bascule en LIQUIDATED."""
+    from apps.finance.models import ExpenseDocument
+    from apps.finance.posting import post_commitment, PostingError
+
+    expense = get_object_or_404(
+        ExpenseRequest.objects.select_related("project", "budget_line", "commitment"),
+        pk=pk, **ACTIVE_DOMAIN,
+    )
+    if not user_can_execute_expense(request.user, expense):
+        messages.error(request, "Vous n'etes pas habilite a liquider cette demande.")
+        return redirect("finance:expense_detail", pk=pk)
+    if expense.status != ExpenseRequest.Status.ENGAGED or expense.commitment_id is None:
+        messages.error(
+            request,
+            f"La liquidation n'est possible que sur une demande engagee "
+            f"(statut actuel : {expense.get_status_display()}).",
+        )
+        return redirect("finance:expense_detail", pk=pk)
+
+    if request.method == "POST":
+        form = ExpenseLiquidateForm(request.POST, request.FILES)
+        if form.is_valid():
+            cd = form.cleaned_data
+            commitment = expense.commitment
+            try:
+                with transaction.atomic():
+                    ExpenseDocument.objects.create(
+                        request=expense,
+                        document_type="FACTURE",
+                        file=cd["facture"],
+                        label="Facture definitive",
+                        uploaded_by=request.user,
+                    )
+                    # Ajuste l'engagement au montant reellement facture.
+                    delta = cd["facture_amount"] - (commitment.amount or Decimal("0"))
+                    commitment.amount = cd["facture_amount"]
+                    commitment.commitment_date = cd["liquidation_date"]
+                    commitment.save(update_fields=["amount", "commitment_date"])
+                    bl = expense.budget_line
+                    bl.committed_amount = (bl.committed_amount or Decimal("0")) + delta
+                    bl.save(update_fields=["committed_amount", "updated_at"])
+                    # LIQUIDATION : la charge nait ici (Dr 6x / Cr 401 + neutralisation).
+                    post_commitment(commitment)
+                    expense.status = ExpenseRequest.Status.LIQUIDATED
+                    expense.save(update_fields=["status", "updated_at"])
+            except PostingError as exc:
+                messages.error(request, f"Liquidation impossible : {exc}")
+                return redirect("finance:expense_detail", pk=pk)
+            messages.success(
+                request,
+                f"Demande DD-{expense.id} liquidee : charge {cd['facture_amount']} XOF constatee "
+                f"(Dr 6x / Cr 401). Prochaine etape : saisir le paiement.",
+            )
+            return redirect("finance:expense_detail", pk=pk)
+    else:
+        form = ExpenseLiquidateForm(initial={
+            "facture_amount": expense.requested_amount,
+            "liquidation_date": timezone.now().date(),
+        })
+
+    return render(request, "finance/expense_liquidate.html", {"expense": expense, "form": form})
 
 
 @require_accounting_access
