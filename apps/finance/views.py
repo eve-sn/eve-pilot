@@ -1020,10 +1020,13 @@ def expense_record_payment(request, pk):
         messages.error(request, "Vous n'etes pas habilite a saisir le paiement de cette demande.")
         return redirect("finance:expense_detail", pk=pk)
 
-    if expense.status != ExpenseRequest.Status.APPROVED:
+    if expense.status not in (
+        ExpenseRequest.Status.APPROVED,
+        ExpenseRequest.Status.LIQUIDATED,
+    ):
         messages.error(
             request,
-            f"Le paiement ne peut etre saisi qu'apres approbation (statut actuel : {expense.get_status_display()}).",
+            f"Le paiement ne peut etre saisi qu'apres liquidation (statut actuel : {expense.get_status_display()}).",
         )
         return redirect("finance:expense_detail", pk=pk)
 
@@ -1042,6 +1045,13 @@ def expense_record_payment(request, pk):
         form = RecordPaymentForm(request.POST, expense=expense)
         if form.is_valid():
             cd = form.cleaned_data
+            # Flux engagement : la contrepartie est le 401.x du fournisseur
+            # (Dr 401 / Cr 5x, solde du fournisseur, SANS re-passer la charge).
+            # Flux tresorerie legacy (sans engagement) : compte 6x choisi.
+            if expense.commitment_id:
+                contra = expense.commitment.supplier.chart_account
+            else:
+                contra = cd.get("contra_account")
             if cd["method"] == "BANK":
                 movement = BankMovement.objects.create(
                     account=cd["bank_account"],
@@ -1052,7 +1062,7 @@ def expense_record_payment(request, pk):
                     credit=Decimal("0"),
                     project=expense.project,
                     budget_line=expense.budget_line,
-                    contra_account=cd["contra_account"],
+                    contra_account=contra,
                     commentary=cd.get("commentary", ""),
                 )
                 expense.executed_bank_movement = movement
@@ -1065,7 +1075,7 @@ def expense_record_payment(request, pk):
                     credit=Decimal("0"),
                     project=expense.project,
                     budget_line=expense.budget_line,
-                    contra_account=cd["contra_account"],
+                    contra_account=contra,
                     commentary=cd.get("commentary", ""),
                 )
                 expense.executed_cash_movement = movement
@@ -1076,6 +1086,14 @@ def expense_record_payment(request, pk):
                 "executed_bank_movement", "executed_cash_movement",
                 "status", "executed_at", "updated_at",
             ])
+            # Consommation budgetaire (Decaisse) + engagement solde.
+            bl = expense.budget_line
+            bl.disbursed_amount = (bl.disbursed_amount or Decimal("0")) + cd["actual_amount"]
+            bl.save(update_fields=["disbursed_amount", "updated_at"])
+            if expense.commitment_id:
+                Commitment.objects.filter(pk=expense.commitment_id).update(
+                    status=Commitment.Status.SETTLED
+                )
             messages.success(
                 request,
                 f"Paiement de DD-{expense.id} saisi : {cd['actual_amount']} XOF, ref {cd['reference']}. "

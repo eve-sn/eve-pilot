@@ -2005,3 +2005,103 @@ class ExpenseLiquidateTests(TestCase):
         self.assertTrue(any(l.account.code.startswith("401.") and l.credit == Decimal("300000.00") for l in lines))
         # Facture attachee.
         self.assertTrue(self.expense.documents.filter(document_type="FACTURE").exists())
+
+
+class EngagementChainEndToEndTests(TestCase):
+    """Chaine complete Option L : Engager -> Liquider -> Payer.
+    Invariant : la charge 6x est comptee UNE SEULE fois (a la liquidation) et le
+    401.x revient a 0 (credite a la liquidation, debite au paiement)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import User
+        from apps.finance.models import BankAccount, BudgetLine, ChartOfAccount, ExpenseRequest
+        from apps.hr.models import Employee
+
+        ChartOfAccount.objects.create(code="401", name="Fournisseurs", class_number=4)
+        cls.charge_6x = ChartOfAccount.objects.create(code="605", name="Achats", class_number=6)
+        cls.bank = BankAccount.objects.create(name="Banque E2E", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.99", name="Banque E2E tresorerie", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.category = BudgetCategory.objects.create(
+            code="E2E_CAT", name="Cat e2e", default_charge_account=cls.charge_6x,
+        )
+        cls.line = BudgetLine.objects.create(
+            project=None, category=cls.category, code="E2E-L1", description="Ligne",
+            planned_amount=Decimal("1000000.00"), committed_amount=Decimal("0"),
+            disbursed_amount=Decimal("0"), currency="XOF", fiscal_year=2026,
+        )
+        cls.requester = Employee.objects.create(
+            matricule="E2E-EMP1", first_name="De", last_name="Mandeur",
+            position="Charge", hire_date=date(2025, 1, 1),
+        )
+        cls.expense = ExpenseRequest.objects.create(
+            project=None, budget_line=cls.line, requester=cls.requester,
+            title="Achat e2e", motif="Chaine complete",
+            requested_amount=Decimal("300000.00"), currency="XOF",
+            status=ExpenseRequest.Status.APPROVED,
+        )
+        cls.admin = User(
+            username="e2e_admin", email="e2e@test.local",
+            first_name="A", last_name="D", is_superuser=True, is_active=True,
+        )
+        cls.admin.set_password("x")
+        cls.admin.save()
+
+    def _balance(self, code_prefix):
+        """Solde net (debit - credit) cumule des comptes dont le code commence par code_prefix."""
+        from apps.finance.models import JournalLine
+        lines = JournalLine.objects.filter(account__code__startswith=code_prefix)
+        return sum((l.debit - l.credit) for l in lines)
+
+    def test_full_chain_charge_once_and_supplier_settled(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.finance.models import Commitment, ExpenseRequest, Supplier
+
+        supplier = Supplier.objects.create(name="Fournisseur E2E")
+        client = Client()
+        client.force_login(self.admin)
+
+        # 1. Engager
+        client.post(
+            f"/finance/demandes/{self.expense.id}/engager/",
+            {"supplier": supplier.id, "commitment_date": "2026-07-01"},
+        )
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.ENGAGED)
+
+        # 2. Liquider (facture 300000) -> Dr 605 / Cr 401.x
+        facture = SimpleUploadedFile("f.pdf", b"%PDF", content_type="application/pdf")
+        client.post(
+            f"/finance/demandes/{self.expense.id}/liquider/",
+            {"facture": facture, "facture_amount": "300000.00", "liquidation_date": "2026-07-05"},
+        )
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.LIQUIDATED)
+        self.assertEqual(self._balance("605"), Decimal("300000.00"))  # charge constatee
+        self.assertEqual(self._balance("401."), Decimal("-300000.00"))  # 401 credite
+
+        # 3. Payer (banque 300000) -> Dr 401.x / Cr 5211.x
+        client.post(
+            f"/finance/demandes/{self.expense.id}/saisir-paiement/",
+            {
+                "method": "BANK", "bank_account": self.bank.id,
+                "date_operation": "2026-07-10", "reference": "VIR-1",
+                "actual_amount": "300000.00",
+            },
+        )
+        self.expense.refresh_from_db()
+        self.line.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.EXECUTED)
+
+        # INVARIANT : charge comptee UNE fois, 401 revenu a 0, tresorerie sortie.
+        self.assertEqual(self._balance("605"), Decimal("300000.00"))  # toujours 300k, pas 600k
+        self.assertEqual(self._balance("401."), Decimal("0.00"))      # fournisseur solde
+        self.assertEqual(self._balance("5211."), Decimal("-300000.00"))  # tresorerie creditee
+        # Budget : engage + decaisse.
+        self.assertEqual(self.line.committed_amount, Decimal("300000.00"))
+        self.assertEqual(self.line.disbursed_amount, Decimal("300000.00"))
+        # Engagement solde.
+        self.assertEqual(self.expense.commitment.status, Commitment.Status.SETTLED)

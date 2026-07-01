@@ -539,6 +539,11 @@ class RecordPaymentForm(forms.Form):
             self.fields["bank_account"].queryset = self.fields["bank_account"].queryset.filter(
                 projects=self.expense.project
             )
+        # Flux engagement : la contrepartie est FORCEE au 401.x du fournisseur
+        # dans la vue (Dr 401 / Cr 5x). La charge ayant deja ete constatee a la
+        # liquidation, le comptable ne choisit pas de compte 6x ici.
+        if self.expense is not None and getattr(self.expense, "commitment_id", None):
+            self.fields.pop("contra_account", None)
 
     def clean(self):
         cleaned = super().clean()
