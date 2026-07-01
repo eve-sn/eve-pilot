@@ -82,11 +82,15 @@ class Command(BaseCommand):
         linked = missing = 0
         for first, last, role in TEAM:
             qs = Employee.objects.filter(last_name__iexact=last)
-            match = qs.filter(first_name__iexact=first)
-            if match.count() != 1:
-                # repli sur le premier prenom
-                tok = first.split()[0]
-                match = qs.filter(first_name__istartswith=tok)
+            if qs.count() == 1:
+                # Patronyme unique -> lien direct (tolerant aux accents du prenom).
+                match = qs
+            else:
+                # Homonymes (ex. deux DIOUF) -> departager par le prenom.
+                match = qs.filter(first_name__iexact=first)
+                if match.count() != 1:
+                    tok = first.split()[0]
+                    match = qs.filter(first_name__istartswith=tok)
             if match.count() == 1:
                 emp = match.first()
                 _, created = ProjectTeam.objects.get_or_create(
