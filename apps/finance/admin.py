@@ -183,12 +183,7 @@ class BudgetLineAdmin(admin.ModelAdmin):
     list_display = ("project", "category", "description", "planned_amount", "committed_amount", "disbursed_amount", "fiscal_year")
     search_fields = ("project__code", "description", "code")
     list_filter = ("currency", "fiscal_year", "is_active")
-    # deleted_at ne doit JAMAIS etre saisi a la main : le soft-delete passe par
-    # soft_delete(). Editable, il etait rempli par l'autofill navigateur a la
-    # creation -> ligne is_active=True mais deleted_at != NULL -> exclue de
-    # .active() -> invisible dans le dropdown budget_line. Readonly = visible
-    # mais ni editable ni autofillable.
-    readonly_fields = ("deleted_at",)
+    # deleted_at est rendu readonly globalement (cf. apps/common/admin.py).
 
 
 @admin.register(Supplier)

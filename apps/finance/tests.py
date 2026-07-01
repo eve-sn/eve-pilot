@@ -1760,3 +1760,86 @@ class CommitmentAdminActionTests(TestCase):
         admin_obj.comptabiliser_engagement(request, Commitment.objects.filter(pk=commitment.pk))
 
         self.assertTrue(JournalEntry.objects.filter(source_commitment=commitment).exists())
+
+
+class ExpenseRequestFormRenderingTests(TestCase):
+    """Non-regression : le <select budget_line> doit rendre ses <option>.
+
+    Bug (commit 5edbba8) : ExpenseRequestForm remplacait le widget de
+    budget_line par ProjectAwareSelect sans reattacher les choices -> 0 option
+    rendue -> dropdown vide sur /finance/demandes/nouvelle/. Le JS de filtrage
+    par data-project n'avait alors rien a filtrer.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.donor = Donor.objects.create(
+            name="Donor Rendu", donor_type=Donor.DonorType.MULTILATERAL
+        )
+        cls.project = Project.objects.create(
+            code="RENDER-001",
+            title="Projet rendu",
+            primary_donor=cls.donor,
+            total_budget=Decimal("10000000.00"),
+            currency="XOF",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+            status=Project.Status.ACTIVE,
+            sector="NUTRITION",
+        )
+        cls.category = BudgetCategory.objects.create(
+            code="RENDER_TEST", name="Rendu test"
+        )
+        cls.line = BudgetLine.objects.create(
+            project=cls.project,
+            category=cls.category,
+            code="RENDER-LINE-1",
+            description="Ligne active a rendre",
+            planned_amount=Decimal("1000000.00"),
+            currency="XOF",
+            fiscal_year=2026,
+        )
+
+    def test_budget_line_select_renders_active_option(self):
+        from apps.finance.forms import ExpenseRequestForm
+
+        html = str(ExpenseRequestForm(user=None)["budget_line"])
+        # Option vide ("-- Ligne budgetaire --") + la ligne active -> >= 2 options.
+        self.assertGreaterEqual(
+            html.count("<option"), 2,
+            "Le <select budget_line> ne rend aucune option (widget vide).",
+        )
+        # La ligne active est presente, taguee avec le pk du projet pour le JS.
+        self.assertIn(f'value="{self.line.pk}"', html)
+        self.assertIn(f'data-project="{self.project.pk}"', html)
+
+    def test_soft_deleted_budget_line_excluded(self):
+        from apps.finance.forms import ExpenseRequestForm
+
+        self.line.soft_delete()  # is_active=False, deleted_at renseigne
+        html = str(ExpenseRequestForm(user=None)["budget_line"])
+        # La ligne soft-deleted disparait du dropdown (.active() la filtre).
+        self.assertNotIn(f'value="{self.line.pk}"', html)
+
+
+class SoftDeleteAdminReadonlyTests(TestCase):
+    """Le champ soft-delete deleted_at doit etre readonly sur les admins des
+    TrackedModel (protection globale, cf. apps/common/admin.py) : evite qu'un
+    autofill navigateur le renseigne a la creation et rende l'objet invisible.
+    """
+
+    def test_deleted_at_readonly_on_budget_line_admin(self):
+        from django.contrib import admin as dj_admin
+        from apps.finance.models import BudgetLine
+
+        model_admin = dj_admin.site._registry[BudgetLine]
+        self.assertIn("deleted_at", model_admin.get_readonly_fields(request=None))
+
+    def test_deleted_at_readonly_on_project_admin(self):
+        from django.contrib import admin as dj_admin
+        from apps.projects.models import Project as ProjectModel
+
+        model_admin = dj_admin.site._registry.get(ProjectModel)
+        if model_admin is None:
+            self.skipTest("Project non enregistre dans l'admin")
+        self.assertIn("deleted_at", model_admin.get_readonly_fields(request=None))
