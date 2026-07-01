@@ -1843,3 +1843,86 @@ class SoftDeleteAdminReadonlyTests(TestCase):
         if model_admin is None:
             self.skipTest("Project non enregistre dans l'admin")
         self.assertIn("deleted_at", model_admin.get_readonly_fields(request=None))
+
+
+class ExpenseEngageTests(TestCase):
+    """Etape 'Engager' (Option L) : reserve le budget + fixe le fournisseur,
+    SANS ecriture de journal (la charge naitra a la liquidation)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import User
+        from apps.finance.models import BudgetLine, ChartOfAccount, ExpenseRequest
+        from apps.hr.models import Employee
+
+        ChartOfAccount.objects.create(code="401", name="Fournisseurs", class_number=4)
+        cls.donor = Donor.objects.create(name="Donor Eng")
+        cls.project = Project.objects.create(
+            code="ENG-001", title="Projet engagement", primary_donor=cls.donor,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            status=Project.Status.ACTIVE,
+        )
+        cls.category = BudgetCategory.objects.create(code="ENG_CAT", name="Cat eng")
+        cls.line = BudgetLine.objects.create(
+            project=cls.project, category=cls.category, code="ENG-L1",
+            description="Ligne eng", planned_amount=Decimal("1000000.00"),
+            committed_amount=Decimal("0"), currency="XOF", fiscal_year=2026,
+        )
+        cls.requester = Employee.objects.create(
+            matricule="ENG-EMP1", first_name="De", last_name="Mandeur",
+            position="Charge", hire_date=date(2025, 1, 1),
+        )
+        cls.expense = ExpenseRequest.objects.create(
+            project=cls.project, budget_line=cls.line, requester=cls.requester,
+            title="Achat test", motif="Test engagement",
+            requested_amount=Decimal("300000.00"), currency="XOF",
+            status=ExpenseRequest.Status.APPROVED,
+        )
+        cls.admin = User(
+            username="eng_admin", email="eng@test.local",
+            first_name="A", last_name="D", is_superuser=True, is_active=True,
+        )
+        cls.admin.set_password("x")
+        cls.admin.save()
+
+    def test_engage_creates_commitment_reserves_budget_no_journal(self):
+        from apps.finance.models import ExpenseRequest, JournalEntry, Supplier
+
+        supplier = Supplier.objects.create(name="Fournisseur Eng")
+        client = Client()
+        client.force_login(self.admin)
+
+        resp = client.post(
+            f"/finance/demandes/{self.expense.id}/engager/",
+            {"supplier": supplier.id, "commitment_date": "2026-07-01"},
+        )
+        self.assertEqual(resp.status_code, 302)
+
+        self.expense.refresh_from_db()
+        self.line.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.ENGAGED)
+        self.assertIsNotNone(self.expense.commitment)
+        self.assertEqual(self.expense.commitment.supplier_id, supplier.id)
+        self.assertEqual(self.expense.commitment.amount, Decimal("300000.00"))
+        # Budget reserve.
+        self.assertEqual(self.line.committed_amount, Decimal("300000.00"))
+        # Option L : AUCUNE ecriture de journal a l'engagement.
+        self.assertFalse(
+            JournalEntry.objects.filter(source_commitment=self.expense.commitment).exists()
+        )
+
+    def test_engage_refused_if_not_approved(self):
+        from apps.finance.models import ExpenseRequest, Supplier
+
+        self.expense.status = ExpenseRequest.Status.DRAFT
+        self.expense.save(update_fields=["status"])
+        supplier = Supplier.objects.create(name="Fournisseur Eng2")
+        client = Client()
+        client.force_login(self.admin)
+        client.post(
+            f"/finance/demandes/{self.expense.id}/engager/",
+            {"supplier": supplier.id, "commitment_date": "2026-07-01"},
+        )
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.DRAFT)
+        self.assertIsNone(self.expense.commitment)

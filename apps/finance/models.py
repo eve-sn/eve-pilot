@@ -534,6 +534,8 @@ class ExpenseRequest(TrackedModel):
         DRAFT = "DRAFT", "Brouillon"
         SUBMITTED = "SUBMITTED", "Soumise"
         APPROVED = "APPROVED", "Approuvee"
+        ENGAGED = "ENGAGED", "Engagee"
+        LIQUIDATED = "LIQUIDATED", "Liquidee (facture constatee)"
         REJECTED = "REJECTED", "Rejetee"
         EXECUTED = "EXECUTED", "Executee"
         CANCELLED = "CANCELLED", "Annulee"
@@ -579,6 +581,14 @@ class ExpenseRequest(TrackedModel):
         blank=True,
         null=True,
         related_name="originating_expense_requests",
+    )
+    commitment = models.OneToOneField(
+        "finance.Commitment",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="expense_request",
+        help_text="Engagement SYCEBNL lie a cette demande (cree a l'etape Engager).",
     )
 
     class Meta:

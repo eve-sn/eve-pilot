@@ -26,20 +26,30 @@
 2. Réalisation + justification (facture définitive).
 3. **Saisir le paiement** : `Dr 401.x / Cr 5x` (solde le fournisseur), **sans re-passer la charge**.
 
-## 3. LA décision de fond (comptable, à trancher en premier)
+## 3. Décision de fond — TRANCHÉE : Option L (liquidation / facture)
 
-**Quand naît l'écriture `Dr 6x / Cr 401` ?**
+**La charge `Dr 6x / Cr 401` naît à la LIQUIDATION (facture / service fait)**, décision de
+l'expert le 2026-07-01. L'étape « Engager » reste **budgétaire** ; `post_commitment()` est
+déclenché **quand la facture définitive est attachée**.
 
-- **Option E — à l'engagement (la commande).** Colle à « execution=engagement ». Charge constatée
-  avant service fait ⇒ une commande annulée/non livrée exige une **contre-passation**.
-- **Option L — à la liquidation (facture / service fait).** Accrual SYCEBNL strict : la charge naît
-  au service rendu. L'étape « Engager » reste **budgétaire** (réservation, `Commitment` sans écriture)
-  jusqu'à la facture ; `post_commitment()` est déclenché **au moment où la facture est attachée**.
+### 3bis. Flux retenu (Option L)
 
-> Recommandation technique : **Option L** limite le risque de charges fantômes. Mais c'est un choix
-> **comptable**, pas technique — à valider par l'expert. Le reste du design est identique aux deux
-> options ; seul le *déclencheur* de `post_commitment()` change (transition APPROVED→ENGAGED pour E,
-> attachement de la facture pour L).
+| Transition | Action | Effet comptable | Effet budgétaire | Statut |
+|---|---|---|---|---|
+| APPROVED → | valider 3/3 | — | — | APPROVED |
+| → ENGAGED | **Engager** (choix fournisseur) | **aucune écriture GL** | `committed_amount += montant` | ENGAGED |
+| → LIQUIDATED | **attacher facture définitive** | `post_commitment()` : `Dr 6x / Cr 401.x` (+ `Dr 462 / Cr 702` si projet) | — | LIQUIDATED |
+| → EXECUTED | **Saisir le paiement** | `Dr 401.x / Cr 5x` (solde fournisseur) | `disbursed_amount += payé` | EXECUTED |
+
+- « Engager » ne poste **rien** au grand-livre : il réserve le budget et fixe le fournisseur
+  (nécessaire au futur 401.x). C'est la phase « en attente de réalisation ».
+- La **facture** est le pivot : elle constate la charge (liquidation SYCEBNL).
+- Le **paiement** solde le 401, sans re-charge (garde-fou structurel).
+- Cohérence avec la page projet (Prévu / **Engagé** / **Décaissé**) : `committed_amount` bougé à
+  l'engagement, `disbursed_amount` au paiement.
+
+> Statuts : ajouter **ENGAGED** et **LIQUIDATED** (`choices`, pas de schéma). LIQUIDATED peut aussi
+> être dérivé de l'existence de `JournalEntry.source_commitment` — mais un statut explicite clarifie l'UI.
 
 ## 4. Décisions de conception (à valider)
 

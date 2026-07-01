@@ -1,0 +1,70 @@
+{% extends "finance/base.html" %}
+
+{% block title %}EVE Pilot Finance &mdash; Engager la demande DD-{{ expense.id }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="wrap">
+        <div class="hero-card" style="grid-template-columns: 1fr;">
+            <div>
+                <div class="eyebrow">Engagement &mdash; DD-{{ expense.id }}</div>
+                <h1>Engager la d&eacute;pense.</h1>
+                <p class="lead">
+                    Cette &eacute;tape <strong>r&eacute;serve le budget</strong> et fixe le
+                    <strong>fournisseur</strong>. Elle ne g&eacute;n&egrave;re
+                    <strong>aucune &eacute;criture comptable</strong> : la charge
+                    (Dr&nbsp;6x&nbsp;/&nbsp;Cr&nbsp;401) sera constat&eacute;e &agrave; la
+                    <strong>liquidation</strong>, lorsque tu attacheras la facture d&eacute;finitive.
+                </p>
+                <div style="margin-top: 14px;">
+                    <a class="button" href="{% url 'finance:expense_detail' expense.id %}">&larr; Retour &agrave; la demande</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <div class="muted" style="margin-bottom: 16px;">
+                <strong>{{ expense.title }}</strong> &mdash; montant demand&eacute; :
+                {{ expense.requested_amount }} {{ expense.currency }}
+                {% if expense.budget_line %}<br>Ligne : {{ expense.budget_line.code|default:expense.budget_line.description }}
+                ({{ expense.budget_line.category.code }}){% endif %}
+            </div>
+            {% if messages %}
+            <div style="margin-bottom: 18px;">
+                {% for message in messages %}
+                <div class="placeholder-note">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="stack" style="gap: 18px;">
+                    {% for field in form %}
+                    <div>
+                        <label style="font-weight: 700;">{{ field.label }}</label>
+                        {% if field.help_text %}<div class="muted" style="font-size:0.86rem; margin-bottom: 4px;">{{ field.help_text }}</div>{% endif %}
+                        {{ field }}
+                        {% if field.errors %}<div style="color: #8a2b2b; font-size: 0.86rem;">{{ field.errors|join:" " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="margin-top: 22px; display: flex; gap: 10px;">
+                    <button type="submit" class="button primary">Engager la d&eacute;pense</button>
+                    <a class="button" href="{% url 'finance:expense_detail' expense.id %}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+<style>
+    form input[type=text], form input[type=number], form input[type=date], form select, form textarea {
+        width: 100%; padding: 12px 14px; border-radius: 14px;
+        border: 1px solid var(--line); background: rgba(255,255,255,0.85);
+        font: inherit;
+    }
+</style>
+{% endblock %}

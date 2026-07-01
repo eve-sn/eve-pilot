@@ -417,6 +417,34 @@ class ExpenseExecuteForm(forms.Form):
         return cleaned
 
 
+class ExpenseEngageForm(forms.Form):
+    """Engage une demande APPROUVEE (Option L) : fixe le fournisseur et reserve
+    le budget. NE POSTE AUCUNE ecriture : la charge Dr 6x / Cr 401 naitra a la
+    liquidation (attachement de la facture definitive)."""
+
+    from apps.finance.models import Supplier, ChartOfAccount
+
+    supplier = forms.ModelChoiceField(
+        queryset=Supplier.objects.filter(is_active=True, deleted_at__isnull=True).order_by("name"),
+        label="Fournisseur",
+        empty_label="-- Choisir un fournisseur --",
+        help_text="Son sous-compte auxiliaire 401.x sera credite a la liquidation.",
+    )
+    charge_account = AccountChoiceField(
+        queryset=ChartOfAccount.objects.filter(
+            is_active=True, deleted_at__isnull=True,
+        ).filter(Q(code__startswith="6") | Q(code__startswith="2")).order_by("code"),
+        required=False,
+        label="Compte d'emploi (override, optionnel)",
+        help_text="Vide = herite du compte 6x de la categorie budgetaire. "
+                  "Classe 2 pour une immobilisation.",
+    )
+    commitment_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Date d'engagement",
+    )
+
+
 class RecordPaymentForm(forms.Form):
     """Saisie du paiement effectif d'une demande approuvee.
 

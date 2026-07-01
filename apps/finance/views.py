@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -26,6 +27,7 @@ from apps.finance.forms import (
     BankMovementQuickForm,
     CashMovementQuickForm,
     ExpenseDocumentForm,
+    ExpenseEngageForm,
     ExpenseExecuteForm,
     ExpenseRequestForm,
     ExpenseValidationDecisionForm,
@@ -969,17 +971,20 @@ def expense_detail(request, pk):
         else:
             decision_forms.append((v, None))
 
+    engageable_statuses = {
+        ExpenseRequest.Status.APPROVED,
+        ExpenseRequest.Status.ENGAGED,
+        ExpenseRequest.Status.LIQUIDATED,
+    }
     context = {
         "expense": expense,
         "decision_forms": decision_forms,
         "document_form": ExpenseDocumentForm(),
-        "execute_form": ExpenseExecuteForm() if expense.status == ExpenseRequest.Status.APPROVED else None,
         "is_requester": is_requester,
         "user_role_codes": user_role_codes,
-        # can_execute couvre l'ancienne UI (lien vers mouvement existant)
-        # ET la nouvelle saisie comptable.
+        # Habilite a agir sur les etapes engagement -> liquidation -> paiement.
         "can_execute": (
-            expense.status == ExpenseRequest.Status.APPROVED
+            expense.status in engageable_statuses
             and user_can_execute_expense(request.user, expense)
         ),
         "has_facture": expense.documents.filter(
@@ -1090,6 +1095,63 @@ def expense_record_payment(request, pk):
         "finance/expense_record_payment.html",
         {"expense": expense, "form": form},
     )
+
+
+@login_required
+def expense_engage(request, pk):
+    """Engage une demande APPROUVEE (Option L) : cree le Commitment (reservation
+    budgetaire) et fixe le fournisseur. NE POSTE AUCUNE ecriture de journal : la
+    charge Dr 6x / Cr 401 naitra a la liquidation (attachement de la facture)."""
+    expense = get_object_or_404(
+        ExpenseRequest.objects.select_related("project", "budget_line"),
+        pk=pk, **ACTIVE_DOMAIN,
+    )
+    if not user_can_execute_expense(request.user, expense):
+        messages.error(request, "Vous n'etes pas habilite a engager cette demande.")
+        return redirect("finance:expense_detail", pk=pk)
+    if expense.status != ExpenseRequest.Status.APPROVED:
+        messages.error(
+            request,
+            f"L'engagement n'est possible qu'apres approbation "
+            f"(statut actuel : {expense.get_status_display()}).",
+        )
+        return redirect("finance:expense_detail", pk=pk)
+    if expense.commitment_id:
+        messages.info(request, "Cette demande est deja engagee.")
+        return redirect("finance:expense_detail", pk=pk)
+
+    if request.method == "POST":
+        form = ExpenseEngageForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            with transaction.atomic():
+                commitment = Commitment.objects.create(
+                    budget_line=expense.budget_line,
+                    commitment_number=f"ENG-DD{expense.id}",
+                    commitment_type=Commitment.CommitmentType.DIRECT_PURCHASE,
+                    supplier=cd["supplier"],
+                    charge_account=cd.get("charge_account"),
+                    amount=expense.requested_amount,
+                    commitment_date=cd["commitment_date"],
+                    description=expense.title,
+                )
+                expense.commitment = commitment
+                expense.status = ExpenseRequest.Status.ENGAGED
+                expense.save(update_fields=["commitment", "status", "updated_at"])
+                # Reservation budgetaire (Engage). Aucune ecriture GL a ce stade.
+                bl = expense.budget_line
+                bl.committed_amount = (bl.committed_amount or Decimal("0")) + expense.requested_amount
+                bl.save(update_fields=["committed_amount", "updated_at"])
+            messages.success(
+                request,
+                f"Demande DD-{expense.id} engagee : budget reserve, fournisseur {cd['supplier']}. "
+                "La charge sera constatee a l'attachement de la facture definitive.",
+            )
+            return redirect("finance:expense_detail", pk=pk)
+    else:
+        form = ExpenseEngageForm(initial={"commitment_date": timezone.now().date()})
+
+    return render(request, "finance/expense_engage.html", {"expense": expense, "form": form})
 
 
 @require_accounting_access
