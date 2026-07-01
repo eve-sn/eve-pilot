@@ -942,6 +942,11 @@ class BudgetLine(TrackedModel):
     def __str__(self):
         return self.description
 
+    @property
+    def available_amount(self):
+        """Disponible = prévu − décaissé (montant encore mobilisable en tresorerie)."""
+        return (self.planned_amount or 0) - (self.disbursed_amount or 0)
+
 
 class Supplier(TrackedModel):
     """Fournisseur / prestataire - master du grand-livre auxiliaire.

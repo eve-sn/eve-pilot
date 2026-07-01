@@ -85,6 +85,31 @@ class ProjectViewsTests(TestCase):
         response = self.client.get("/projets/00000000-0000-0000-0000-000000000000/")
         self.assertEqual(response.status_code, 404)
 
+    def test_project_detail_shows_budget_lines(self):
+        """Regression : les lignes budgetaires doivent s'afficher (et non le
+        placeholder 'Section a venir')."""
+        from apps.finance.models import BudgetLine
+        from apps.references.models import BudgetCategory
+
+        cat = BudgetCategory.objects.create(code="DETAIL_CAT", name="Cat detail")
+        BudgetLine.objects.create(
+            project=self.project,
+            category=cat,
+            code="BL-DETAIL",
+            description="Ligne budgetaire visible",
+            planned_amount=Decimal("500000.00"),
+            committed_amount=Decimal("200000.00"),
+            disbursed_amount=Decimal("100000.00"),
+            currency="XOF",
+            fiscal_year=2026,
+        )
+        response = self.client.get(f"/projets/{self.project.public_uuid}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ligne budgetaire visible")
+        self.assertContains(response, "BL-DETAIL")
+        # Les placeholders "Section a venir" doivent avoir disparu.
+        self.assertNotContains(response, "Section a venir")
+
 
 class ProjectModelTests(TestCase):
     def test_project_has_public_uuid_and_soft_delete_fields(self):

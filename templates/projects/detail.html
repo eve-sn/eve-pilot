@@ -202,20 +202,106 @@
 
 <section class="section">
     <div class="wrap">
-        <div class="grid-3">
-            <div class="card">
-                <h3>Activités terrain</h3>
-                <p class="sub muted">Section a venir : liste des activités rattachées au projet et leur état d'execution.</p>
+        <div class="section-header">
+            <h2>Lignes budgétaires</h2>
+            <p>Suivi prévu / engagé / décaissé par catégorie. Le disponible = prévu − décaissé.</p>
+        </div>
+        {% if budget_lines %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Catégorie</th>
+                        <th>Ligne</th>
+                        <th class="num">Prévu</th>
+                        <th class="num">Engagé</th>
+                        <th class="num">Décaissé</th>
+                        <th class="num">Disponible</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in budget_lines %}
+                    <tr>
+                        <td>{{ line.category.code|default:line.category.name }}</td>
+                        <td>{% if line.code %}<strong>{{ line.code }}</strong> — {% endif %}{{ line.description }}</td>
+                        <td class="num">{{ line.planned_amount }}</td>
+                        <td class="num">{{ line.committed_amount }}</td>
+                        <td class="num">{{ line.disbursed_amount }}</td>
+                        <td class="num">{{ line.available_amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>Total ({{ project.currency }})</strong></td>
+                        <td class="num"><strong>{{ budget_totals.planned|default:0 }}</strong></td>
+                        <td class="num"><strong>{{ budget_totals.committed|default:0 }}</strong></td>
+                        <td class="num"><strong>{{ budget_totals.disbursed|default:0 }}</strong></td>
+                        <td class="num"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="item">
+            <strong>Aucune ligne budgétaire</strong>
+            <div class="muted">Ajouter des lignes via l'administration ou les commandes d'import du budget.</div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="section">
+    <div class="wrap">
+        <div class="grid-2">
+            <div>
+                <div class="section-header"><h2>Activités terrain</h2></div>
+                {% for activity in activities %}
+                <div class="item">
+                    <strong>{{ activity.title }}</strong>
+                    <div class="muted">
+                        Statut : {{ activity.get_status_display }}
+                        {% if activity.planned_start_date %}<br>Début prévu : {{ activity.planned_start_date }}{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="item">
+                    <strong>Aucune activité</strong>
+                    <div class="muted">Rattacher des activités à ce projet via l'administration.</div>
+                </div>
+                {% endfor %}
             </div>
-            <div class="card">
-                <h3>Lignes budgétaires</h3>
-                <p class="sub muted">Section a venir : suivi prévu / engage / décaissé par catégorie.</p>
-            </div>
-            <div class="card">
-                <h3>Rapports</h3>
-                <p class="sub muted">Section a venir : rapports lies au projet et exports bailleur.</p>
+            <div>
+                <div class="section-header"><h2>Rapports soumis</h2></div>
+                {% for report in reports %}
+                <div class="item">
+                    <strong>{{ report.activity.title }}</strong>
+                    <div class="muted">
+                        Date : {{ report.report_date }}<br>
+                        Statut : {{ report.get_validation_status_display }}
+                        {% if report.reported_by %}<br>Par : {{ report.reported_by.get_full_name|default:report.reported_by }}{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="item">
+                    <strong>Aucun rapport soumis</strong>
+                    <div class="muted">Les rapports d'activité soumis apparaîtront ici.</div>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
 </section>
+<style>
+    .table-wrap { overflow-x: auto; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    table.data-table th, table.data-table td {
+        padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left;
+    }
+    table.data-table th.num, table.data-table td.num { text-align: right; white-space: nowrap; }
+    table.data-table thead th { font-weight: 700; }
+    table.data-table tfoot td { border-top: 2px solid var(--line); border-bottom: none; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+</style>
 {% endblock %}

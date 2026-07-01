@@ -1,6 +1,9 @@
 from django.contrib import messages
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.activities.models import ActivityReport
+from apps.finance.models import BudgetLine
 
 from apps.accounts.access import can_see_everything
 from apps.projects.forms import ProjectForm
@@ -121,11 +124,35 @@ def project_detail(request, public_uuid):
         **ACTIVE_DOMAIN,
     )
 
+    budget_lines = (
+        BudgetLine.objects.filter(project=project, **ACTIVE_DOMAIN)
+        .select_related("category")
+        .order_by("category__code", "code", "description")
+    )
+    budget_totals = budget_lines.aggregate(
+        planned=Sum("planned_amount"),
+        committed=Sum("committed_amount"),
+        disbursed=Sum("disbursed_amount"),
+    )
+    activities = (
+        project.activities.filter(**ACTIVE_DOMAIN)
+        .order_by("planned_start_date", "title")
+    )
+    reports = (
+        ActivityReport.objects.filter(activity__project=project, **ACTIVE_DOMAIN)
+        .select_related("activity", "reported_by")
+        .order_by("-report_date")[:10]
+    )
+
     context = {
         "project": project,
         "co_funders": project.co_funders.all(),
         "team_assignments": project.team_assignments.all(),
         "locations": project.locations.all(),
         "indicators": project.indicators.all(),
+        "budget_lines": budget_lines,
+        "budget_totals": budget_totals,
+        "activities": activities,
+        "reports": reports,
     }
     return render(request, "projects/detail.html", context)
