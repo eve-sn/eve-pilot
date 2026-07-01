@@ -40,16 +40,20 @@
         {% endif %}
     {% elif expense.status == 'APPROVED' %}
         {% if can_execute %}
-        <div class="placeholder-note" style="background: rgba(212,234,217,0.7); border-color: rgba(28,107,72,0.4); color: var(--eve-green-900); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-            <span>
-                <strong>&#9656; Etape actuelle :</strong> <strong>Approuvee</strong>.
-                Prochaine etape : <strong>engager</strong> la d&eacute;pense (r&eacute;server le budget, fixer le fournisseur). Aucune &eacute;criture &agrave; ce stade.
-            </span>
-            <a class="button primary" href="{% url 'finance:expense_engage' expense.id %}">Engager la d&eacute;pense</a>
+        <div class="placeholder-note" style="background: rgba(212,234,217,0.7); border-color: rgba(28,107,72,0.4); color: var(--eve-green-900);">
+            <div><strong>&#9656; Etape actuelle :</strong> <strong>Approuvee</strong>. Deux chemins selon la nature de la d&eacute;pense :</div>
+            <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <a class="button primary" href="{% url 'finance:expense_engage' expense.id %}">Engager (achat fournisseur)</a>
+                <a class="button" href="{% url 'finance:expense_record_payment' expense.id %}">Payer directement (tr&eacute;sorerie)</a>
+            </div>
+            <div class="muted" style="margin-top: 8px; font-size: 0.84rem; color: var(--eve-green-900);">
+                <strong>Engager</strong> : achat &agrave; cr&eacute;dit d'un <strong>fournisseur identifi&eacute;</strong> (Dr 6x / Cr 401, puis paiement Dr 401 / Cr 5x).<br>
+                <strong>Payer directement</strong> : activit&eacute; multi-b&eacute;n&eacute;ficiaires / remboursements, <strong>sans fournisseur</strong> (Dr 6x / Cr 5x). N&eacute;cessite une pi&egrave;ce justificative jointe.
+            </div>
         </div>
         {% else %}
         <div class="placeholder-note">
-            <strong>&#9656; Approuvee.</strong> En attente d'engagement (RAF, demandeur ou comptable de l'&eacute;quipe projet).
+            <strong>&#9656; Approuvee.</strong> En attente d'ex&eacute;cution (RAF, demandeur ou comptable de l'&eacute;quipe projet).
         </div>
         {% endif %}
     {% elif expense.status == 'ENGAGED' %}

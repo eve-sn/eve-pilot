@@ -2172,3 +2172,78 @@ class ExpenseItemsCreateTests(TestCase):
         self.assertEqual(
             sorted(expense.items.values_list("line_number", flat=True)), [1, 2]
         )
+
+
+class DirectTreasuryPaymentTests(TestCase):
+    """Chemin tresorerie direct (activite multi-beneficiaires, sans fournisseur) :
+    depuis APPROVED, paiement -> Dr 6x / Cr 5x, aucun 401, aucun engagement."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.accounts.models import User
+        from apps.finance.models import (
+            BankAccount, BudgetLine, ChartOfAccount, ExpenseDocument, ExpenseRequest,
+        )
+        from apps.hr.models import Employee
+
+        cls.charge_6x = ChartOfAccount.objects.create(code="638", name="Autres charges", class_number=6)
+        cls.bank = BankAccount.objects.create(name="Banque DT", bank_name="X")
+        cls.treasury = ChartOfAccount.objects.create(
+            code="5211.98", name="Banque DT tresorerie", class_number=5,
+            linked_bank_account=cls.bank,
+        )
+        cls.category = BudgetCategory.objects.create(code="DT_CAT", name="Cat DT")
+        cls.line = BudgetLine.objects.create(
+            project=None, category=cls.category, code="DT-L1", description="Ligne",
+            planned_amount=Decimal("5000000.00"), disbursed_amount=Decimal("0"),
+            currency="XOF", fiscal_year=2026,
+        )
+        cls.requester = Employee.objects.create(
+            matricule="DT-EMP1", first_name="De", last_name="Mandeur",
+            position="Charge", hire_date=date(2025, 1, 1),
+        )
+        cls.admin = User(
+            username="dt_admin", email="dt@test.local",
+            first_name="A", last_name="D", is_superuser=True, is_active=True,
+        )
+        cls.admin.set_password("x")
+        cls.admin.save()
+        cls.expense = ExpenseRequest.objects.create(
+            project=None, budget_line=cls.line, requester=cls.requester,
+            title="Reunion CDDN", motif="Remboursements",
+            requested_amount=Decimal("950000.00"), currency="XOF",
+            status=ExpenseRequest.Status.APPROVED,
+        )
+        ExpenseDocument.objects.create(
+            request=cls.expense, document_type="FACTURE",
+            file=SimpleUploadedFile("etat.pdf", b"%PDF", content_type="application/pdf"),
+            label="Etat de remboursement", uploaded_by=cls.admin,
+        )
+
+    def test_direct_payment_posts_dr6_cr5_no_supplier(self):
+        from apps.finance.models import ExpenseRequest, JournalLine
+
+        client = Client()
+        client.force_login(self.admin)
+        resp = client.post(
+            f"/finance/demandes/{self.expense.id}/saisir-paiement/",
+            {
+                "method": "BANK", "bank_account": self.bank.id,
+                "date_operation": "2026-07-10", "reference": "VIR-CDDN",
+                "actual_amount": "950000.00", "contra_account": self.charge_6x.id,
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+
+        self.expense.refresh_from_db()
+        self.line.refresh_from_db()
+        self.assertEqual(self.expense.status, ExpenseRequest.Status.EXECUTED)
+        self.assertIsNone(self.expense.commitment)
+        # Dr 638 / Cr 5211.x, aucun 401.
+        charge = sum(l.debit - l.credit for l in JournalLine.objects.filter(account__code="638"))
+        treso = sum(l.debit - l.credit for l in JournalLine.objects.filter(account__code__startswith="5211."))
+        self.assertEqual(charge, Decimal("950000.00"))
+        self.assertEqual(treso, Decimal("-950000.00"))
+        self.assertFalse(JournalLine.objects.filter(account__code__startswith="401.").exists())
+        self.assertEqual(self.line.disbursed_amount, Decimal("950000.00"))
