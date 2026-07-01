@@ -181,3 +181,44 @@ class ProjectSplitKeyTests(TestCase):
         p = self._project("SPLIT-DBBAD", "70.00", "20.00")  # somme 90
         with self.assertRaises(IntegrityError):
             p.save()
+
+
+class SeedAgir2PikineCommandTests(TestCase):
+    """La commande seed_agir2_pikine lie l'equipe existante (sans creer d'Employee),
+    seed les indicateurs qualitatifs, et est idempotente."""
+
+    def test_links_existing_employee_and_seeds_indicators_idempotently(self):
+        from django.core.management import call_command
+        from apps.hr.models import Employee
+        from apps.projects.models import Indicator
+
+        donor = Donor.objects.create(name="Bailleur AGIR")
+        project = Project.objects.create(
+            code="AGIR2-NUT-2025",
+            title="AGIR II Pikine",
+            primary_donor=donor,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+            status=Project.Status.ACTIVE,
+        )
+        emp = Employee.objects.create(
+            matricule="EMP-FALL-1",
+            first_name="Cheikh Pathe",
+            last_name="FALL",
+            position="Referent technique",
+            hire_date=date(2025, 1, 1),
+        )
+
+        call_command("seed_agir2_pikine", verbosity=0)
+
+        # Employe existant -> lien cree (aucun Employee cree par la commande).
+        self.assertTrue(project.team_assignments.filter(employee=emp).exists())
+        self.assertEqual(Employee.objects.count(), 1)
+        # 8 indicateurs (OS + R1..R7), communes vides -> aucune localisation.
+        self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
+        self.assertEqual(project.locations.count(), 0)
+
+        # Idempotent : rejouer ne duplique rien.
+        call_command("seed_agir2_pikine", verbosity=0)
+        self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
+        self.assertEqual(project.team_assignments.filter(employee=emp).count(), 1)
