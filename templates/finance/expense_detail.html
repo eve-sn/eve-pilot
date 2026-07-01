@@ -152,6 +152,56 @@
     </div>
 </section>
 
+{% if expense.items.all %}
+<section class="section">
+    <div class="wrap">
+        <div class="card">
+            <div class="section-header">
+                <h2>Détail de la dépense</h2>
+                <p class="muted">Lignes justifiant le montant demandé (compta agrégée au niveau de la demande).</p>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Désignation</th>
+                            <th class="num">Qté</th><th class="num">Fréq.</th>
+                            <th>Unité</th><th class="num">Prix unitaire</th><th class="num">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for it in expense.items.all %}
+                        <tr>
+                            <td>{{ it.line_number }}</td>
+                            <td>{{ it.designation }}</td>
+                            <td class="num">{{ it.quantity|floatformat:"-2" }}</td>
+                            <td class="num">{{ it.frequency|floatformat:"-2" }}</td>
+                            <td>{{ it.unit }}</td>
+                            <td class="num">{{ it.unit_price|floatformat:0 }}</td>
+                            <td class="num">{{ it.line_total|floatformat:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="6"><strong>Total ({{ expense.currency }})</strong></td>
+                            <td class="num"><strong>{{ expense.items_total|floatformat:0 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+<style>
+    .table-wrap { overflow-x: auto; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table.data-table th, table.data-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+    table.data-table th.num, table.data-table td.num { text-align: right; white-space: nowrap; }
+    table.data-table tfoot td { border-top: 2px solid var(--line); border-bottom: none; }
+</style>
+{% endif %}
+
 <section class="section">
     <div class="wrap">
         <div class="grid-2">

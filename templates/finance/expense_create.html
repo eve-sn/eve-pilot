@@ -44,6 +44,43 @@
                     </div>
                     {% endfor %}
                 </div>
+
+                <h3 style="margin-top: 26px;">Détail de la dépense (ligne par ligne)</h3>
+                <p class="muted" style="font-size:0.86rem; margin-bottom: 10px;">
+                    Renseigne autant de lignes que nécessaire. Le total sera la somme
+                    (Quantité &times; Fréquence &times; Prix unitaire). Laisse les lignes
+                    inutiles vides.
+                </p>
+                {{ formset.management_form }}
+                {% if formset.non_form_errors %}<div style="color:#8a2b2b;">{{ formset.non_form_errors }}</div>{% endif %}
+                <div class="table-wrap">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Désignation</th>
+                                <th class="num">Qté</th>
+                                <th class="num">Fréq.</th>
+                                <th>Unité</th>
+                                <th class="num">Prix unitaire</th>
+                                {% if formset.can_delete %}<th></th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for itemform in formset %}
+                            <tr>
+                                {% for hidden in itemform.hidden_fields %}{{ hidden }}{% endfor %}
+                                <td>{{ itemform.designation }}</td>
+                                <td class="num">{{ itemform.quantity }}</td>
+                                <td class="num">{{ itemform.frequency }}</td>
+                                <td>{{ itemform.unit }}</td>
+                                <td class="num">{{ itemform.unit_price }}</td>
+                                {% if formset.can_delete %}<td class="num">{{ itemform.DELETE }}</td>{% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
                 <div style="margin-top: 22px; display: flex; gap: 10px;">
                     <button type="submit" class="button primary">Creer en brouillon</button>
                     <a class="button" href="/finance/demandes/">Annuler</a>
@@ -58,6 +95,18 @@
         border: 1px solid var(--line); background: rgba(255,255,255,0.85);
         font: inherit;
     }
+    .table-wrap { overflow-x: auto; }
+    table.items-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table.items-table th, table.items-table td {
+        padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left;
+        vertical-align: middle;
+    }
+    table.items-table th.num, table.items-table td.num { text-align: right; }
+    /* Champs compacts dans le tableau */
+    table.items-table input[type=text], table.items-table input[type=number] {
+        padding: 8px 10px; border-radius: 10px;
+    }
+    table.items-table td.num input { text-align: right; }
 </style>
 <script>
 // Filtre dynamique du dropdown "Ligne budgétaire" selon le projet choisi.

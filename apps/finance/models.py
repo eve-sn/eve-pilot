@@ -598,6 +598,11 @@ class ExpenseRequest(TrackedModel):
     def __str__(self):
         return f"DD {self.id or '?'} - {self.title} - {self.requested_amount} {self.currency}"
 
+    @property
+    def items_total(self):
+        """Somme des lignes de detail (si la demande en porte)."""
+        return sum((it.line_total for it in self.items.all()), Decimal("0"))
+
     def recompute_status(self):
         """Met a jour le status global en fonction des ExpenseValidation.
 
@@ -630,6 +635,34 @@ class ExpenseRequest(TrackedModel):
             self.save(update_fields=["status", "decided_at", "updated_at"])
             return
         # Sinon, on reste a SUBMITTED.
+
+
+class ExpenseRequestItem(TrackedModel):
+    """Ligne de detail d'une demande de depense (designation, qte, frequence,
+    unite, prix unitaire). Le total demande = somme des line_total. Purement
+    descriptif : la comptabilisation reste AGREGEE au niveau de la demande
+    (une ecriture pour le total), cf. docs/DESIGN_ENGAGEMENT_WORKFLOW.md."""
+
+    request = models.ForeignKey(
+        ExpenseRequest, on_delete=models.CASCADE, related_name="items"
+    )
+    line_number = models.PositiveIntegerField(default=1)
+    designation = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    frequency = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    unit = models.CharField(max_length=40, blank=True)
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = "expense_request_items"
+        ordering = ["request_id", "line_number", "id"]
+
+    def __str__(self):
+        return f"{self.designation} ({self.line_total})"
+
+    @property
+    def line_total(self):
+        return (self.quantity or 0) * (self.frequency or 0) * (self.unit_price or 0)
 
 
 class ExpenseValidation(TrackedModel):

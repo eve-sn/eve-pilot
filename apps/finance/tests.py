@@ -2105,3 +2105,70 @@ class EngagementChainEndToEndTests(TestCase):
         self.assertEqual(self.line.disbursed_amount, Decimal("300000.00"))
         # Engagement solde.
         self.assertEqual(self.expense.commitment.status, Commitment.Status.SETTLED)
+
+
+class ExpenseItemsCreateTests(TestCase):
+    """Saisie ligne par ligne (Option A) : la demande capture les lignes de
+    detail ; le montant demande = somme (Qte x Freq x PU)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import User
+        from apps.finance.models import BudgetLine
+        from apps.hr.models import Employee
+
+        cls.category = BudgetCategory.objects.create(code="ITEM_CAT", name="Cat item")
+        cls.line = BudgetLine.objects.create(
+            project=None, category=cls.category, code="ITEM-L1", description="Ligne",
+            planned_amount=Decimal("5000000.00"), currency="XOF", fiscal_year=2026,
+        )
+        cls.employee = Employee.objects.create(
+            matricule="ITEM-EMP1", first_name="De", last_name="Mandeur",
+            position="Charge", hire_date=date(2025, 1, 1),
+        )
+        cls.user = User(
+            username="item_user", email="item@test.local",
+            first_name="U", last_name="Ser", is_superuser=True, is_active=True,
+            employee=cls.employee,
+        )
+        cls.user.set_password("x")
+        cls.user.save()
+
+    def test_create_with_detail_lines_sums_amount(self):
+        from apps.finance.models import ExpenseRequest
+
+        client = Client()
+        client.force_login(self.user)
+        data = {
+            "project": "",
+            "budget_line": self.line.id,
+            "title": "Reunion CDDN Pikine",
+            "motif": "Reunion semestrielle",
+            "currency": "XOF",
+            "requested_amount": "",
+            "items-TOTAL_FORMS": "2",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+            "items-0-designation": "Remboursement transport Maires",
+            "items-0-quantity": "13",
+            "items-0-frequency": "1",
+            "items-0-unit": "participant",
+            "items-0-unit_price": "10000",
+            "items-1-designation": "Pause cafe et dejeuner",
+            "items-1-quantity": "82",
+            "items-1-frequency": "1",
+            "items-1-unit": "participant/jour",
+            "items-1-unit_price": "10000",
+        }
+        resp = client.post("/finance/demandes/nouvelle/", data)
+        self.assertEqual(resp.status_code, 302)
+
+        expense = ExpenseRequest.objects.get(title="Reunion CDDN Pikine")
+        self.assertEqual(expense.items.count(), 2)
+        # 13*1*10000 + 82*1*10000 = 950000
+        self.assertEqual(expense.requested_amount, Decimal("950000.00"))
+        self.assertEqual(expense.items_total, Decimal("950000.00"))
+        self.assertEqual(
+            sorted(expense.items.values_list("line_number", flat=True)), [1, 2]
+        )

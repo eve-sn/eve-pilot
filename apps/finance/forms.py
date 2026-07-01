@@ -361,6 +361,13 @@ class ExpenseRequestForm(forms.ModelForm):
         else:
             self.fields["project"].empty_label = "Budget General (aucun projet)"
 
+        # Le montant peut etre derive des lignes de detail (formset) : optionnel.
+        self.fields["requested_amount"].required = False
+        self.fields["requested_amount"].help_text = (
+            "Laisser vide si tu saisis le detail ligne par ligne ci-dessous : "
+            "le total sera calcule automatiquement."
+        )
+
 
 def _user_can_see_bg(user):
     from apps.accounts.access import can_see_bg
@@ -601,3 +608,27 @@ class BankMovementDocumentForm(forms.ModelForm):
         widgets = {
             "label": forms.TextInput(attrs={"placeholder": "Description courte (ex: Facture EDF janvier)"}),
         }
+
+
+# --- Lignes de detail d'une demande de depense (saisie ligne par ligne) --------
+# Compta AGREGEE : ces lignes decrivent la depense (designation, qte, frequence,
+# unite, PU) ; le total demande = somme des line_total. Une seule ecriture est
+# passee au niveau de la demande (cf. docs/DESIGN_ENGAGEMENT_WORKFLOW.md).
+def _build_expense_item_formset():
+    from django.forms import inlineformset_factory
+    from apps.finance.models import ExpenseRequest, ExpenseRequestItem
+
+    return inlineformset_factory(
+        ExpenseRequest,
+        ExpenseRequestItem,
+        fields=["designation", "quantity", "frequency", "unit", "unit_price"],
+        extra=18,
+        can_delete=True,
+        widgets={
+            "designation": forms.TextInput(attrs={"placeholder": "Designation de la ligne"}),
+            "unit": forms.TextInput(attrs={"placeholder": "participant/jour, forfait..."}),
+        },
+    )
+
+
+ExpenseItemFormSet = _build_expense_item_formset()

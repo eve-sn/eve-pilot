@@ -29,6 +29,7 @@ from apps.finance.forms import (
     ExpenseDocumentForm,
     ExpenseEngageForm,
     ExpenseExecuteForm,
+    ExpenseItemFormSet,
     ExpenseLiquidateForm,
     ExpenseRequestForm,
     ExpenseValidationDecisionForm,
@@ -822,17 +823,48 @@ def expense_create(request):
 
     if request.method == "POST":
         form = ExpenseRequestForm(request.POST, user=request.user)
-        if form.is_valid():
-            expense = form.save(commit=False)
-            expense.requester = request.user.employee
-            expense.status = ExpenseRequest.Status.DRAFT
-            expense.save()
-            messages.success(request, f"Demande DD-{expense.id} creee en brouillon.")
-            return redirect("finance:expense_detail", pk=expense.id)
+        formset = ExpenseItemFormSet(request.POST, prefix="items")
+        if form.is_valid() and formset.is_valid():
+            # Total des lignes de detail saisies (formset).
+            items_total = Decimal("0")
+            item_forms = [
+                f for f in formset.forms
+                if f.cleaned_data and not f.cleaned_data.get("DELETE")
+                and f.cleaned_data.get("designation")
+            ]
+            for f in item_forms:
+                cd = f.cleaned_data
+                items_total += (
+                    (cd.get("quantity") or 0)
+                    * (cd.get("frequency") or 0)
+                    * (cd.get("unit_price") or 0)
+                )
+            manual_amount = form.cleaned_data.get("requested_amount")
+            if not item_forms and not manual_amount:
+                form.add_error(
+                    "requested_amount",
+                    "Saisir un montant, ou au moins une ligne de detail ci-dessous.",
+                )
+            else:
+                with transaction.atomic():
+                    expense = form.save(commit=False)
+                    expense.requester = request.user.employee
+                    expense.status = ExpenseRequest.Status.DRAFT
+                    # Le detail prime : le total demande = somme des lignes.
+                    expense.requested_amount = items_total if item_forms else manual_amount
+                    expense.save()
+                    for idx, f in enumerate(item_forms, 1):
+                        item = f.save(commit=False)
+                        item.request = expense
+                        item.line_number = idx
+                        item.save()
+                messages.success(request, f"Demande DD-{expense.id} creee en brouillon.")
+                return redirect("finance:expense_detail", pk=expense.id)
     else:
         form = ExpenseRequestForm(user=request.user)
+        formset = ExpenseItemFormSet(prefix="items")
 
-    context = {"form": form}
+    context = {"form": form, "formset": formset}
     return render(request, "finance/expense_create.html", context)
 
 
