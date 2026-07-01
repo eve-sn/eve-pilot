@@ -45,31 +45,55 @@ TEAM = [
     ("El Hadji Habib Timack", "DIOUF", "Charge du suivi-evaluation"),
 ]
 
-# (code, nom<=200, description). Libelles issus du cadre logique (Annexe 1).
+# (code, nom<=200, description, cible, unite). Libelles issus du cadre logique
+# (Annexe 1). Cible = 0 quand le logframe ne la chiffre pas (R1..R6 : refuse
+# d'inventer ; a renseigner via l'admin). Seuls OS et R7 sont chiffres dans le doc.
 INDICATORS = [
-    ("OS", "Etat nutritionnel des enfants 6-59 mois, femmes et gardiennes ameliore (depistage + PEC MAM/MAS)",
-     "Ameliorer l'etat nutritionnel des enfants 6-59 mois, les femmes en age de se reproduire, des meres et gardiennes d'enfants dans le departement de Pikine. Cibles logframe : 13236 enfants 6-59 mois (2%) depistes + PEC MAM/MAS ; 200 femmes / 20 initiatives communautaires / 20 micro-projets."),
+    ("OS1", "Enfants 6-59 mois depistes et MAM/MAS pris en charge",
+     "13236 enfants 6-59 mois (2% du total) depistes et enfants MAM & MAS pris en charge selon le protocole national.",
+     13236, "enfants"),
+    ("OS2", "Femmes organisees en initiatives communautaires mettant en oeuvre des micro-projets",
+     "200 femmes regroupees au sein de 20 initiatives communautaires mettent en oeuvre 20 micro-projets de maniere satisfaisante.",
+     20, "micro-projets"),
     ("R1", "Dispositifs de prevention/PEC de la malnutrition renforces (depistage, MAM recuperes, MAS references)",
-     "Nombre d'enfants depistes ; % MAM recuperes en sites communautaires ; % MAS references/gueris ; % d'unites de PEC aux normes ; nb d'acteurs formes/recycles CIP ; % de meres satisfaites des services."),
+     "Nombre d'enfants depistes ; % MAM recuperes en sites communautaires ; % MAS references/gueris ; % d'unites de PEC aux normes ; nb d'acteurs formes/recycles CIP ; % de meres satisfaites des services.",
+     0, ""),
     ("R2", "Comportements nutritionnels ameliores (causeries educatives, VAD)",
-     "Nombre de femmes/gardiennes assistant aux causeries educatives ; nb de VAD organisees ; % de meres reconnaissant une amelioration de leur comportement alimentaire."),
+     "Nombre de femmes/gardiennes assistant aux causeries educatives ; nb de VAD organisees ; % de meres reconnaissant une amelioration de leur comportement alimentaire.",
+     0, ""),
     ("R3", "Acteurs locaux engages (rencontres CCDN/CDDN, fora de plaidoyer)",
-     "Nombre de rencontres des Comites Communaux de Developpement de la Nutrition et CDDN ; nb de categories d'acteurs mobilises ; nb de fora communautaires de plaidoyer organises."),
+     "Nombre de rencontres des Comites Communaux de Developpement de la Nutrition et CDDN ; nb de categories d'acteurs mobilises ; nb de fora communautaires de plaidoyer organises.",
+     0, ""),
     ("R4", "Consommation d'aliments diversifies (initiatives communautaires)",
-     "Nombre d'initiatives communautaires de production/consommation d'aliments riches et diversifies ; % de meres/gardiens beneficiant d'une formation."),
+     "Nombre d'initiatives communautaires de production/consommation d'aliments riches et diversifies ; % de meres/gardiens beneficiant d'une formation.",
+     0, ""),
     ("R5", "Pratiques culinaires a base de produits locaux (plats ACEC)",
-     "Nombre de plats prepares par les femmes membres des ACEC ; nb de plats vendus ; % de meres reconnaissant une amelioration."),
+     "Nombre de plats prepares par les femmes membres des ACEC ; nb de plats vendus ; % de meres reconnaissant une amelioration.",
+     0, ""),
     ("R6", "Autonomisation economique des femmes ACEC (espaces, formation, revenus)",
-     "Nombre d'ACEC selectionnees ; nb d'espaces amenages/fonctionnels ; nb de femmes formees ; nb d'espaces dotes d'intrants ; % de femmes au pouvoir economique renforce."),
-    ("R7", "Mecanismes de perennisation (12 fonds communaux de soutien)",
-     "Nombre de fonds communaux mis en place ; % d'enfants MAM pris en charge a partir des fonds d'appui communaux (12 communes beneficiaires)."),
+     "Nombre d'ACEC selectionnees ; nb d'espaces amenages/fonctionnels ; nb de femmes formees ; nb d'espaces dotes d'intrants ; % de femmes au pouvoir economique renforce.",
+     0, ""),
+    ("R7", "Mecanismes de perennisation (fonds communaux de soutien)",
+     "Nombre de fonds communaux mis en place ; % d'enfants MAM pris en charge a partir des fonds d'appui communaux (12 communes beneficiaires).",
+     12, "fonds"),
 ]
 
-# (nom_commune, departement, region). A REMPLIR avec les noms exacts des communes
-# des districts sanitaires de Pikine et Mbao (12 citees dans le logframe).
+# 12 communes du departement de Pikine (2 arrondissements), perimetre post-2021
+# apres creation du departement de Keur Massar. Source : Wikipedia "Departement
+# de Pikine". (nom, departement, region)
 COMMUNES = [
-    # ("Pikine Est", "Pikine", "Dakar"),
-    # ...
+    ("Dalifort", "Pikine", "Dakar"),
+    ("Djidah Thiaroye Kaw", "Pikine", "Dakar"),
+    ("Guinaw Rail Nord", "Pikine", "Dakar"),
+    ("Guinaw Rail Sud", "Pikine", "Dakar"),
+    ("Pikine Est", "Pikine", "Dakar"),
+    ("Pikine Nord", "Pikine", "Dakar"),
+    ("Pikine Ouest", "Pikine", "Dakar"),
+    ("Tivaouane Diacksao", "Pikine", "Dakar"),
+    ("Diamaguene Sicap Mbao", "Pikine", "Dakar"),
+    ("Mbao", "Pikine", "Dakar"),
+    ("Thiaroye-sur-Mer", "Pikine", "Dakar"),
+    ("Thiaroye Gare", "Pikine", "Dakar"),
 ]
 
 
@@ -138,28 +162,39 @@ class Command(BaseCommand):
                 self.stderr.write(f"  /!\\ {first} {last} : {why} en RH -> lien NON cree (a rattacher a la main).")
         self.stdout.write(f"  => {linked} lie(s), {missing} non trouve(s)/ambigu(s).")
 
-        # --- Indicateurs (qualitatifs, target_value=0 sentinelle) -------------
+        # --- Indicateurs (cibles chiffrees du logframe ; 0 = non chiffre) -----
         self.stdout.write(self.style.MIGRATE_HEADING("Indicateurs :"))
-        for code, name, desc in INDICATORS:
+        for code, name, desc, target, unit in INDICATORS:
             obj, created = Indicator.objects.get_or_create(
                 project=project, code=code,
-                defaults={"name": name[:200], "description": desc, "target_value": 0},
+                defaults={
+                    "name": name[:200], "description": desc,
+                    "target_value": target, "unit": unit,
+                },
             )
             if not created:
                 obj.name = name[:200]
                 obj.description = desc
-                obj.save(update_fields=["name", "description"])
-            self.stdout.write(f"  {'+' if created else '~'} {code} {name[:60]}")
-        self.stdout.write("  (target_value=0 : renseigner les vraies cibles via l'admin, cf. OS=13236 enfants...)")
+                obj.target_value = target
+                obj.unit = unit
+                obj.save(update_fields=["name", "description", "target_value", "unit"])
+            flag = f"cible={target} {unit}".strip() if target else "cible a renseigner"
+            self.stdout.write(f"  {'+' if created else '~'} {code} ({flag}) {name[:44]}")
+        self.stdout.write("  (R1..R6 non chiffres dans le logframe -> cible 0, a renseigner via l'admin.)")
 
         # --- Communes / localisations -----------------------------------------
         self.stdout.write(self.style.MIGRATE_HEADING("Communes :"))
         if not COMMUNES:
             self.stdout.write("  (liste COMMUNES vide : remplir les noms exacts dans le seed puis rejouer.)")
-        for name, dept, region in COMMUNES:
+        for i, (name, dept, region) in enumerate(COMMUNES, 1):
             commune, _ = Commune.objects.get_or_create(
                 name=name,
-                defaults={"department": dept, "region": region, "is_intervention_zone": True},
+                defaults={
+                    "code": f"PIK{i:02d}",  # code unique requis (Commune.code unique)
+                    "department": dept,
+                    "region": region,
+                    "is_intervention_zone": True,
+                },
             )
             ProjectLocation.objects.get_or_create(project=project, commune=commune)
             self.stdout.write(f"  OK  {name} ({dept})")

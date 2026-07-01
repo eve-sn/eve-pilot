@@ -218,12 +218,17 @@ class SeedAgir2PikineCommandTests(TestCase):
         self.assertTrue(Employee.objects.filter(matricule="58620-FD").exists())
         self.assertEqual(Employee.objects.count(), 3)  # FALL + THIAO + NDIAYE
         self.assertEqual(project.team_assignments.count(), 3)
-        # 8 indicateurs (OS + R1..R7), communes vides -> aucune localisation.
-        self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
-        self.assertEqual(project.locations.count(), 0)
+        # 9 indicateurs (OS1, OS2, R1..R7) ; cible OS1 chiffree du logframe.
+        self.assertEqual(Indicator.objects.filter(project=project).count(), 9)
+        self.assertEqual(
+            Indicator.objects.get(project=project, code="OS1").target_value, 13236
+        )
+        # 12 communes du departement de Pikine -> 12 localisations.
+        self.assertEqual(project.locations.count(), 12)
 
         # Idempotent : rejouer ne duplique rien.
         call_command("seed_agir2_pikine", verbosity=0)
         self.assertEqual(Employee.objects.count(), 3)
-        self.assertEqual(Indicator.objects.filter(project=project).count(), 8)
+        self.assertEqual(Indicator.objects.filter(project=project).count(), 9)
         self.assertEqual(project.team_assignments.count(), 3)
+        self.assertEqual(project.locations.count(), 12)
