@@ -25,6 +25,10 @@ VALIDATION_ROLES = [
      "description": "Valideur metier des demandes de depense (apps.finance.ExpenseRequest)."},
     {"code": "SE", "name": "Secretaire Executif",
      "description": "Valideur Secretaire Executif des demandes de depense et des rapports d'activite."},
+    {"code": "REFERENT_TECH", "name": "Referent technique",
+     "description": "Valideur technique par projet (remplace la DP dans le trio de validation "
+                    "des projets configures ; ex. Saint-Louis). Toujours porte via un UserRole "
+                    "limite au projet concerne."},
     {"code": "ARAF", "name": "Assistante RAF",
      "description": "Assistante RAF - gere le Budget General et la petite caisse, ne valide pas les demandes."},
 ]

@@ -15,6 +15,8 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ("code", "title", "primary_donor", "project_manager", "status", "start_date", "end_date")
     search_fields = ("code", "title", "short_title")
     list_filter = ("status", "sector", "is_active")
+    # Valideurs specifiques au projet (vide = trio par defaut RAF/DP/SE).
+    filter_horizontal = ("validator_roles",)
 
 
 @admin.register(ProjectDonor)

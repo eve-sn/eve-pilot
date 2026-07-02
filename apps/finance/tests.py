@@ -2247,3 +2247,105 @@ class DirectTreasuryPaymentTests(TestCase):
         self.assertEqual(treso, Decimal("-950000.00"))
         self.assertFalse(JournalLine.objects.filter(account__code__startswith="401.").exists())
         self.assertEqual(self.line.disbursed_amount, Decimal("950000.00"))
+
+
+class PerProjectValidationTests(TestCase):
+    """Valideurs par projet : Saint-Louis utilise RAF/REFERENT_TECH/SE (le
+    Referent technique remplace la DP) ; un valideur limite a un projet ne peut
+    pas signer les demandes des autres projets."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import Role, User, UserRole
+        from apps.finance.models import BudgetLine
+        from apps.hr.models import Employee
+
+        cls.raf = Role.objects.create(code="RAF", name="RAF")
+        cls.dp = Role.objects.create(code="DP", name="DP")
+        cls.se = Role.objects.create(code="SE", name="SE")
+        cls.rt = Role.objects.create(code="REFERENT_TECH", name="Referent technique")
+        cls.donor = Donor.objects.create(name="D val")
+        cls.sl = Project.objects.create(
+            code="SL-VAL", title="Saint-Louis", primary_donor=cls.donor,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            status=Project.Status.ACTIVE,
+        )
+        cls.sl.validator_roles.set([cls.raf, cls.rt, cls.se])
+        cls.other = Project.objects.create(
+            code="OTHER-VAL", title="Autre", primary_donor=cls.donor,
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+            status=Project.Status.ACTIVE,
+        )
+        cls.other.validator_roles.set([cls.raf, cls.rt, cls.se])  # RT aussi -> teste le perimetre
+        cls.cat = BudgetCategory.objects.create(code="VAL_CAT", name="C")
+        cls.line_sl = BudgetLine.objects.create(
+            project=cls.sl, category=cls.cat, code="SL-L", description="x",
+            planned_amount=Decimal("1000000"), currency="XOF", fiscal_year=2026,
+        )
+        cls.line_other = BudgetLine.objects.create(
+            project=cls.other, category=cls.cat, code="OT-L", description="x",
+            planned_amount=Decimal("1000000"), currency="XOF", fiscal_year=2026,
+        )
+        cls.req_emp = Employee.objects.create(
+            matricule="REQ-VAL", first_name="Chef", last_name="Projet",
+            position="Chef", hire_date=date(2025, 1, 1),
+        )
+        cls.req_user = User(
+            username="chef_val", email="chef_val@t.local", first_name="Chef",
+            last_name="Projet", is_active=True, employee=cls.req_emp,
+        )
+        cls.req_user.set_password("x")
+        cls.req_user.save()
+        cls.cheikh_emp = Employee.objects.create(
+            matricule="FALL-VAL", first_name="Cheikh Pathe", last_name="FALL",
+            position="Referent", hire_date=date(2025, 1, 1),
+        )
+        cls.cheikh = User(
+            username="cheikh_val", email="cheikh_val@t.local", first_name="Cheikh",
+            last_name="FALL", is_active=True, employee=cls.cheikh_emp,
+        )
+        cls.cheikh.set_password("x")
+        cls.cheikh.save()
+        # Cheikh = Referent technique LIMITE a Saint-Louis.
+        UserRole.objects.create(user=cls.cheikh, role=cls.rt, project=cls.sl)
+
+    def test_saint_louis_submit_creates_referent_tech_trio(self):
+        from apps.finance.models import ExpenseRequest
+
+        exp = ExpenseRequest.objects.create(
+            project=self.sl, budget_line=self.line_sl, requester=self.req_emp,
+            title="t", motif="m", requested_amount=Decimal("50000"), currency="XOF",
+            status=ExpenseRequest.Status.DRAFT,
+        )
+        c = Client()
+        c.force_login(self.req_user)
+        c.post(f"/finance/demandes/{exp.id}/", {"action": "submit"})
+        exp.refresh_from_db()
+        self.assertEqual(exp.status, ExpenseRequest.Status.SUBMITTED)
+        codes = set(exp.validations.values_list("role__code", flat=True))
+        self.assertEqual(codes, {"RAF", "REFERENT_TECH", "SE"})
+        self.assertNotIn("DP", codes)
+
+    def test_scoped_referent_signs_only_its_project(self):
+        from apps.accounts.access import user_can_sign_validation
+        from apps.finance.models import ExpenseRequest, ExpenseValidation
+
+        exp_sl = ExpenseRequest.objects.create(
+            project=self.sl, budget_line=self.line_sl, requester=self.req_emp,
+            title="t", motif="m", requested_amount=Decimal("50000"), currency="XOF",
+            status=ExpenseRequest.Status.SUBMITTED,
+        )
+        v_sl = ExpenseValidation.objects.create(
+            request=exp_sl, role=self.rt, decision=ExpenseValidation.Decision.PENDING
+        )
+        exp_o = ExpenseRequest.objects.create(
+            project=self.other, budget_line=self.line_other, requester=self.req_emp,
+            title="t", motif="m", requested_amount=Decimal("50000"), currency="XOF",
+            status=ExpenseRequest.Status.SUBMITTED,
+        )
+        v_o = ExpenseValidation.objects.create(
+            request=exp_o, role=self.rt, decision=ExpenseValidation.Decision.PENDING
+        )
+        # Cheikh (REFERENT_TECH limite a Saint-Louis) signe SL, pas l'autre projet.
+        self.assertTrue(user_can_sign_validation(self.cheikh, v_sl))
+        self.assertFalse(user_can_sign_validation(self.cheikh, v_o))

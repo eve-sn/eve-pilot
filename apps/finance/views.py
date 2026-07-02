@@ -18,9 +18,12 @@ from apps.accounts.access import (
     project_filter,
     require_accounting_access,
     require_global_access,
+    signable_validations_qs,
     user_can_access_project,
     user_can_execute_expense,
     user_can_record_bank_movements,
+    user_can_sign_validation,
+    validator_roles_for_project,
 )
 from apps.accounts.models import Role, UserRole
 from apps.finance.forms import (
@@ -285,18 +288,14 @@ def finance_dashboard(request):
             scope |= Q(project__isnull=True)
         user_expenses = user_expenses.filter(scope)
 
+    # Codes de role valideur detenus (pour l'affichage + l'alerte retard).
+    validator_codes = user_role_codes & {"RAF", "DP", "SE", "REFERENT_TECH"}
     # Validateur : combien de lignes PENDING attendent ma signature ?
-    pending_signatures_count = 0
-    validator_codes = user_role_codes & {"RAF", "DP", "SE"}
-    if validator_codes:
-        pending_signatures_count = ExpenseValidation.objects.filter(
-            is_active=True,
-            deleted_at__isnull=True,
-            decision=ExpenseValidation.Decision.PENDING,
-            role__code__in=validator_codes,
-            request__status=ExpenseRequest.Status.SUBMITTED,
-            request__in=user_expenses,
-        ).count()
+    # (perimetre respecte : un valideur limite a un projet ne compte que ses
+    # demandes ; inclut les roles projet type REFERENT_TECH).
+    pending_signatures_count = signable_validations_qs(request.user).filter(
+        request__status=ExpenseRequest.Status.SUBMITTED,
+    ).count()
 
     # Comptable / RAF : demandes APPROUVEES en attente d'execution.
     awaiting_execution_count = user_expenses.filter(
@@ -775,18 +774,19 @@ def expense_list(request):
         qs = qs.filter(requester=request.user.employee)
 
     user_roles_codes = set(
-        UserRole.objects.filter(user=request.user)
-        .values_list("role__code", flat=True)
+        UserRole.objects.filter(user=request.user).values_list("role__code", flat=True)
     )
-    user_can_validate = bool(user_roles_codes & {"RAF", "DP", "SE"})
+    # L'utilisateur est-il valideur quelque part ? (trio par defaut OU role
+    # configure comme valideur d'un projet, ex. REFERENT_TECH sur Saint-Louis)
+    user_can_validate = (
+        UserRole.objects.filter(user=request.user)
+        .filter(Q(role__code__in=["RAF", "DP", "SE"]) | Q(role__validated_projects__isnull=False))
+        .exists()
+    )
 
-    # Inbox : compter les ExpenseValidation PENDING dont le role est dans
-    # ceux de l'utilisateur connecte. Sert au badge + au filtre ?to_sign=1.
-    inbox_validations = ExpenseValidation.objects.filter(
-        is_active=True,
-        deleted_at__isnull=True,
-        decision=ExpenseValidation.Decision.PENDING,
-        role__code__in=user_roles_codes,
+    # Inbox : ExpenseValidation PENDING que l'utilisateur peut signer, perimetre
+    # respecte (un valideur limite a un projet ne voit que ses demandes).
+    inbox_validations = signable_validations_qs(request.user).filter(
         request__status=ExpenseRequest.Status.SUBMITTED,
     )
     inbox_count = inbox_validations.count()
@@ -904,9 +904,15 @@ def expense_detail(request, pk):
         action = request.POST.get("action", "")
 
         if action == "submit" and is_requester and expense.status == ExpenseRequest.Status.DRAFT:
-            roles = list(Role.objects.filter(code__in=["RAF", "DP", "SE"]))
+            # Valideurs par projet : RAF/DP/SE par defaut, ou trio configure
+            # (ex. Saint-Louis : RAF/REFERENT_TECH/SE).
+            roles = validator_roles_for_project(expense.project)
             if len(roles) < 3:
-                messages.error(request, "Roles RAF/DP/SE manquants. Lancer seed_expense_validation_roles.")
+                messages.error(
+                    request,
+                    "Trio de validation incomplet. Verifier les roles (seed_expense_validation_roles) "
+                    "ou la configuration des valideurs du projet.",
+                )
                 return redirect("finance:expense_detail", pk=pk)
             expense.status = ExpenseRequest.Status.SUBMITTED
             expense.submitted_at = timezone.now()
@@ -937,8 +943,12 @@ def expense_detail(request, pk):
                 ).first()
                 if v is None:
                     messages.error(request, "Validation introuvable.")
-                elif v.role.code not in user_role_codes:
-                    messages.error(request, f"Tu n'as pas le role {v.role.code} pour valider cette ligne.")
+                elif not user_can_sign_validation(request.user, v):
+                    messages.error(
+                        request,
+                        f"Tu n'as pas le role {v.role.code} pour valider cette ligne "
+                        f"sur ce projet.",
+                    )
                 elif v.decision != ExpenseValidation.Decision.PENDING:
                     messages.warning(request, "Cette ligne a deja ete signee.")
                 else:
@@ -997,7 +1007,7 @@ def expense_detail(request, pk):
 
     decision_forms = []
     for v in expense.validations.filter(**ACTIVE_DOMAIN):
-        if v.decision == ExpenseValidation.Decision.PENDING and v.role.code in user_role_codes:
+        if v.decision == ExpenseValidation.Decision.PENDING and user_can_sign_validation(request.user, v):
             decision_forms.append(
                 (v, ExpenseValidationDecisionForm(initial={"validation_id": v.id}))
             )

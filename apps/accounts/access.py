@@ -279,3 +279,64 @@ def require_accounting_access(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Validation des demandes de depense : valideurs par projet + perimetre.
+# ---------------------------------------------------------------------------
+DEFAULT_VALIDATOR_CODES = ["RAF", "DP", "SE"]
+
+
+def validator_roles_for_project(project):
+    """Roles qui valident les demandes de depense d'un projet.
+
+    - Project.validator_roles renseigne -> ces roles (ex. Saint-Louis :
+      RAF / REFERENT_TECH / SE, le Referent technique remplacant la DP).
+    - sinon (ou BG / project=None) -> trio par defaut RAF/DP/SE.
+    """
+    from apps.accounts.models import Role
+
+    if project is not None:
+        custom = list(project.validator_roles.all())
+        if custom:
+            return custom
+    return list(Role.objects.filter(code__in=DEFAULT_VALIDATOR_CODES))
+
+
+def user_can_sign_validation(user, validation) -> bool:
+    """Vrai si `user` peut signer la ligne de validation `validation`.
+
+    Respecte le perimetre : il faut un UserRole(role=validation.role) avec
+    project=None (global) OU project=<projet de la demande>. C'est ce qui rend
+    un valideur "limite a un projet" (ex. Cheikh = REFERENT_TECH sur Saint-Louis)
+    incapable de signer les demandes des autres projets.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    from apps.accounts.models import UserRole
+
+    project_id = validation.request.project_id
+    return (
+        UserRole.objects.filter(user=user, role_id=validation.role_id)
+        .filter(Q(project__isnull=True) | Q(project_id=project_id))
+        .exists()
+    )
+
+
+def signable_validations_qs(user):
+    """QuerySet des ExpenseValidation PENDING que `user` peut signer (perimetre
+    respecte). Sert aux compteurs (tableau de bord, inbox)."""
+    from django.db.models import Exists, OuterRef
+    from apps.accounts.models import UserRole
+    from apps.finance.models import ExpenseValidation
+
+    if not user or not user.is_authenticated:
+        return ExpenseValidation.objects.none()
+
+    ur = UserRole.objects.filter(
+        user=user, role_id=OuterRef("role_id"),
+    ).filter(Q(project__isnull=True) | Q(project_id=OuterRef("request__project_id")))
+    return ExpenseValidation.objects.filter(
+        is_active=True, deleted_at__isnull=True,
+        decision=ExpenseValidation.Decision.PENDING,
+    ).filter(Exists(ur))

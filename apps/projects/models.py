@@ -135,6 +135,16 @@ class Project(TrackedModel):
             "fonctionnement. Somme avec investment_split_pct doit faire 100."
         ),
     )
+    validator_roles = models.ManyToManyField(
+        "accounts.Role",
+        blank=True,
+        related_name="validated_projects",
+        help_text=(
+            "Roles qui valident les demandes de depense de CE projet. Vide = trio "
+            "par defaut RAF/DP/SE. Ex. Saint-Louis : RAF/REFERENT_TECH/SE (le "
+            "Referent technique remplace la DP)."
+        ),
+    )
 
     class Meta:
         db_table = "projects"
